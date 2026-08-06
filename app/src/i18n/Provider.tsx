@@ -1,12 +1,15 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import { STRINGS, type Lang, type StringKey } from './strings'
+import { STRINGS, type Lang } from './strings'
+import { I18nContext, type I18nValue } from './index'
 
 /**
  * Language is a device preference, not farm data, so it lives in localStorage
  * rather than the database. Reading it synchronously means the first paint is
  * already in the right language — an app that flashes English and then becomes
  * Kannada looks broken to someone who reads only one of them.
+ *
+ * This file exports only the component. See ./index.ts for why.
  */
 
 const KEY = 'kk.lang'
@@ -21,16 +24,6 @@ function initialLang(): Lang {
   return 'kn'
 }
 
-interface I18nValue {
-  lang: Lang
-  setLang: (l: Lang) => void
-  t: (key: StringKey) => string
-  /** Pick the right column off a master-data row. */
-  nameOf: (row: { name_en: string; name_kn: string } | null | undefined) => string
-}
-
-const I18nContext = createContext<I18nValue | null>(null)
-
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>(initialLang)
 
@@ -43,7 +36,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     try {
       localStorage.setItem(KEY, l)
     } catch {
-      // Preference simply will not persist; the app still works.
+      // The preference simply will not persist; the app still works.
     }
   }, [])
 
@@ -65,11 +58,3 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>
 }
-
-export function useI18n(): I18nValue {
-  const ctx = useContext(I18nContext)
-  if (!ctx) throw new Error('useI18n must be used inside I18nProvider')
-  return ctx
-}
-
-export type { Lang, StringKey }
