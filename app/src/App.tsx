@@ -10,6 +10,10 @@ import { HomeScreen } from '@/features/home/HomeScreen'
 import { AddEntryScreen } from '@/features/entries/AddEntryScreen'
 import { EntriesScreen } from '@/features/entries/EntriesScreen'
 import { EntryDetailScreen } from '@/features/entries/EntryDetailScreen'
+import { LabourScreen } from '@/features/labour/LabourScreen'
+import { AddWorkScreen } from '@/features/labour/AddWorkScreen'
+import { PayScreen } from '@/features/labour/PayScreen'
+import { LabourerDetailScreen } from '@/features/labour/LabourerDetailScreen'
 import { SettingsScreen } from '@/features/settings/SettingsScreen'
 import { AccountsScreen } from '@/features/settings/AccountsScreen'
 import { HeadsScreen } from '@/features/settings/HeadsScreen'
@@ -88,7 +92,11 @@ const ROUTES: RouteDef[] = [
   { path: '/entries', render: () => <EntriesScreen /> },
   { path: '/entries/:id', render: (p) => <EntryDetailScreen id={p.id} /> },
   { path: '/add', render: () => <AddEntryScreen /> },
-  { path: '/labour', render: () => <Placeholder title="Labour" /> },
+  { path: '/labour', render: () => <LabourScreen /> },
+  { path: '/labour/work', render: () => <AddWorkScreen /> },
+  { path: '/labour/pay', render: () => <PayScreen /> },
+  { path: '/labour/pay/:id', render: (p) => <PayScreen labourerId={p.id} /> },
+  { path: '/labour/khata/:id', render: (p) => <LabourerDetailScreen id={p.id} /> },
   { path: '/reports', render: () => <Placeholder title="Reports" /> },
 
   { path: '/settings', render: () => <SettingsScreen /> },

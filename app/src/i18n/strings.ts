@@ -100,6 +100,9 @@ export const STRINGS = {
   'labour.dayRate': { kn: 'ದಿನದ ಕೂಲಿ', en: 'Daily wage' },
   'labour.halfDayRate': { kn: 'ಅರ್ಧ ದಿನದ ಕೂಲಿ', en: 'Half-day wage' },
   'labour.daysWorked': { kn: 'ಕೆಲಸದ ದಿನಗಳು', en: 'Days worked' },
+  // A group lead who brings 12 people for one day worked one day but supplied
+  // twelve days of labour. Both figures are true and answer different questions.
+  'labour.personDays': { kn: 'ಆಳು-ದಿನ', en: 'person-days' },
   'labour.earned': { kn: 'ಗಳಿಸಿದ್ದು', en: 'Earned' },
   'labour.paid': { kn: 'ಕೊಟ್ಟಿದ್ದು', en: 'Paid' },
   'labour.owed': { kn: 'ಕೊಡಬೇಕಾದದ್ದು', en: 'You owe' },
