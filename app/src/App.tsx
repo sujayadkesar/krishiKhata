@@ -10,6 +10,7 @@ import { HomeScreen } from '@/features/home/HomeScreen'
 import { AddEntryScreen } from '@/features/entries/AddEntryScreen'
 import { EntriesScreen } from '@/features/entries/EntriesScreen'
 import { EntryDetailScreen } from '@/features/entries/EntryDetailScreen'
+import { ReportsScreen } from '@/features/reports/ReportsScreen'
 import { LabourScreen } from '@/features/labour/LabourScreen'
 import { AddWorkScreen } from '@/features/labour/AddWorkScreen'
 import { PayScreen } from '@/features/labour/PayScreen'
@@ -97,7 +98,7 @@ const ROUTES: RouteDef[] = [
   { path: '/labour/pay', render: () => <PayScreen /> },
   { path: '/labour/pay/:id', render: (p) => <PayScreen labourerId={p.id} /> },
   { path: '/labour/khata/:id', render: (p) => <LabourerDetailScreen id={p.id} /> },
-  { path: '/reports', render: () => <Placeholder title="Reports" /> },
+  { path: '/reports', render: () => <ReportsScreen /> },
 
   { path: '/settings', render: () => <SettingsScreen /> },
   { path: '/settings/profile', render: () => <FarmProfileScreen /> },
