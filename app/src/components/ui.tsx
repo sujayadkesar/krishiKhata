@@ -334,6 +334,50 @@ export function Switch({
   )
 }
 
+/**
+ * Single-select chips.
+ *
+ * Preferred over a dropdown wherever the options are few and chosen often —
+ * crops, units, work types. A dropdown costs two taps and hides the choices;
+ * chips cost one and show what is available, which matters when the person
+ * using it is standing in a field rather than reading carefully.
+ */
+export function ChipSingle<T extends string>({
+  options,
+  value,
+  onChange,
+  colorOf,
+}: {
+  options: { value: T; label: string }[]
+  value: T | null
+  onChange: (v: T) => void
+  colorOf?: (v: T) => string | undefined
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {options.map((o) => {
+        const on = value === o.value
+        const tint = colorOf?.(o.value)
+        return (
+          <button
+            key={o.value}
+            onClick={() => onChange(o.value)}
+            className="rounded-full px-3.5 py-2 text-sm font-medium border"
+            style={{
+              minHeight: 42,
+              borderColor: on ? (tint ?? 'var(--color-brand-500)') : 'var(--border)',
+              background: on ? (tint ?? 'var(--color-brand-500)') : 'var(--surface)',
+              color: on ? '#fff' : 'var(--text-soft)',
+            }}
+          >
+            {o.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 /** Multi-select chips — used for which units a crop is sold in. */
 export function ChipMulti<T extends string>({
   options,

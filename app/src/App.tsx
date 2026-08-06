@@ -7,6 +7,9 @@ import { useI18n } from '@/i18n'
 import { Logo } from '@/components/Logo'
 import { Page, Shell } from '@/components/Shell'
 import { HomeScreen } from '@/features/home/HomeScreen'
+import { AddEntryScreen } from '@/features/entries/AddEntryScreen'
+import { EntriesScreen } from '@/features/entries/EntriesScreen'
+import { EntryDetailScreen } from '@/features/entries/EntryDetailScreen'
 import { SettingsScreen } from '@/features/settings/SettingsScreen'
 import { AccountsScreen } from '@/features/settings/AccountsScreen'
 import { HeadsScreen } from '@/features/settings/HeadsScreen'
@@ -82,8 +85,9 @@ function Placeholder({ title }: { title: string }) {
 
 const ROUTES: RouteDef[] = [
   { path: '/', render: () => <HomeScreen /> },
-  { path: '/entries', render: () => <Placeholder title="Entries" /> },
-  { path: '/add', render: () => <Placeholder title="Add" /> },
+  { path: '/entries', render: () => <EntriesScreen /> },
+  { path: '/entries/:id', render: (p) => <EntryDetailScreen id={p.id} /> },
+  { path: '/add', render: () => <AddEntryScreen /> },
   { path: '/labour', render: () => <Placeholder title="Labour" /> },
   { path: '/reports', render: () => <Placeholder title="Reports" /> },
 
