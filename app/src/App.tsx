@@ -3,7 +3,6 @@ import { getDb, saveNow } from '@/db/db'
 import { seedIfEmpty } from '@/db/seed'
 import { useHardwareBack, usePath, useRoutes, useScrollReset, navigate } from '@/router'
 import type { RouteDef } from '@/router'
-import { useI18n } from '@/i18n'
 import { Logo } from '@/components/Logo'
 import { Page, Shell } from '@/components/Shell'
 import { HomeScreen } from '@/features/home/HomeScreen'
@@ -22,6 +21,7 @@ import { SubHeadsScreen } from '@/features/settings/SubHeadsScreen'
 import { ActivitiesScreen } from '@/features/settings/ActivitiesScreen'
 import { LabourersScreen } from '@/features/settings/LabourersScreen'
 import { FarmProfileScreen } from '@/features/settings/FarmProfileScreen'
+import { BackupScreen } from '@/features/settings/BackupScreen'
 
 /**
  * Boot, then routes.
@@ -74,20 +74,6 @@ function BootError({ error, onRetry }: { error: Error; onRetry: () => void }) {
   )
 }
 
-/** Screens still to be built get this rather than a blank page. */
-function Placeholder({ title }: { title: string }) {
-  const { t } = useI18n()
-  return (
-    <Shell title={title}>
-      <Page>
-        <div className="card p-6 text-center text-sm" style={{ color: 'var(--text-faint)' }}>
-          {t('common.empty')}
-        </div>
-      </Page>
-    </Shell>
-  )
-}
-
 const ROUTES: RouteDef[] = [
   { path: '/', render: () => <HomeScreen /> },
   { path: '/entries', render: () => <EntriesScreen /> },
@@ -107,7 +93,7 @@ const ROUTES: RouteDef[] = [
   { path: '/settings/sub-heads', render: () => <SubHeadsScreen /> },
   { path: '/settings/activities', render: () => <ActivitiesScreen /> },
   { path: '/settings/labourers', render: () => <LabourersScreen /> },
-  { path: '/settings/backup', render: () => <Placeholder title="Backup" /> },
+  { path: '/settings/backup', render: () => <BackupScreen /> },
 ]
 
 export default function App() {
