@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <title>Krishi Khata</title>
+  <rect width="64" height="64" rx="15" fill="#12502c"/>
+  <path d="M32 45V24" stroke="#f0c078" stroke-width="3.2" stroke-linecap="round" fill="none"/>
+  <path d="M33 31c0-6 4.6-11 11-11 0 6-4.6 11-11 11Z" fill="#a7d9bc"/>
+  <path d="M31 35c0-6.4-4.9-11.6-11.6-11.6 0 6.4 4.9 11.6 11.6 11.6Z" fill="#6dbd92"/>
+  <path d="M32 44c-5.6-4-13.4-4.6-20-2.6v13c6.6-2 14.4-1.4 20 2.6Z" fill="#ffffff"/>
+  <path d="M32 44c5.6-4 13.4-4.6 20-2.6v13c-6.6-2-14.4-1.4-20 2.6Z" fill="#d6e6dc"/>
+</svg>

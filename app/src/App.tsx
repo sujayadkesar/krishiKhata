@@ -1,0 +1,141 @@
+import { useCallback, useEffect, useState } from 'react'
+import { getDb, saveNow } from '@/db/db'
+import { seedIfEmpty } from '@/db/seed'
+import { useHardwareBack, usePath, useRoutes, useScrollReset, navigate } from '@/router'
+import type { RouteDef } from '@/router'
+import { useI18n } from '@/i18n'
+import { Logo } from '@/components/Logo'
+import { Page, Shell } from '@/components/Shell'
+import { HomeScreen } from '@/features/home/HomeScreen'
+
+/**
+ * Boot, then routes.
+ *
+ * Nothing renders until the database is open and seeded. Screens can then read
+ * it without every one of them carrying its own "not ready yet" branch, which
+ * is the sort of thing that works on a fast phone and flickers on a slow one.
+ */
+
+type BootState = { status: 'loading' } | { status: 'ready' } | { status: 'error'; error: Error }
+
+function Splash() {
+  return (
+    <div className="min-h-dvh grid place-items-center">
+      <div className="flex flex-col items-center gap-3">
+        <Logo size={72} />
+        <p className="text-sm" style={{ color: 'var(--text-faint)' }}>
+          ಕೃಷಿ ಖಾತೆ
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function BootError({ error, onRetry }: { error: Error; onRetry: () => void }) {
+  return (
+    <div className="min-h-dvh grid place-items-center p-6">
+      <div className="card p-5 max-w-sm space-y-3">
+        <h1 className="text-lg font-semibold">Could not open the database</h1>
+        <p className="text-sm" style={{ color: 'var(--text-soft)' }}>
+          Your records are still on this phone — the app just could not reach them this
+          time. Try again, and if it keeps happening, restart the phone before
+          reinstalling, because reinstalling can remove the data.
+        </p>
+        <pre
+          className="text-xs overflow-x-auto p-2 rounded"
+          style={{ background: 'var(--surface-sunken)', color: 'var(--text-faint)' }}
+        >
+          {error.message}
+        </pre>
+        <button
+          onClick={onRetry}
+          className="w-full rounded-xl py-3 font-semibold text-white"
+          style={{ background: 'var(--color-brand-500)' }}
+        >
+          Try again
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/** Screens still to be built get this rather than a blank page. */
+function Placeholder({ title }: { title: string }) {
+  const { t } = useI18n()
+  return (
+    <Shell title={title}>
+      <Page>
+        <div className="card p-6 text-center text-sm" style={{ color: 'var(--text-faint)' }}>
+          {t('common.empty')}
+        </div>
+      </Page>
+    </Shell>
+  )
+}
+
+const ROUTES: RouteDef[] = [
+  { path: '/', render: () => <HomeScreen /> },
+  { path: '/entries', render: () => <Placeholder title="Entries" /> },
+  { path: '/add', render: () => <Placeholder title="Add" /> },
+  { path: '/labour', render: () => <Placeholder title="Labour" /> },
+  { path: '/reports', render: () => <Placeholder title="Reports" /> },
+  { path: '/settings', render: () => <Placeholder title="Settings" /> },
+]
+
+export default function App() {
+  const [boot, setBoot] = useState<BootState>({ status: 'loading' })
+  const path = usePath()
+
+  const start = useCallback(() => {
+    setBoot({ status: 'loading' })
+    void (async () => {
+      try {
+        await getDb()
+        await seedIfEmpty()
+        setBoot({ status: 'ready' })
+      } catch (err) {
+        setBoot({
+          status: 'error',
+          error: err instanceof Error ? err : new Error(String(err)),
+        })
+      }
+    })()
+  }, [])
+
+  useEffect(start, [start])
+
+  useScrollReset(path)
+  useHardwareBack(
+    useCallback(() => {
+      const h = window.location.hash
+      return h === '' || h === '#/' || h === '#'
+    }, []),
+  )
+
+  // The web build holds the database in memory until it is flushed, so a
+  // backgrounded tab that never comes back would lose the last few writes.
+  useEffect(() => {
+    const flush = () => void saveNow()
+    document.addEventListener('visibilitychange', flush)
+    window.addEventListener('pagehide', flush)
+    return () => {
+      document.removeEventListener('visibilitychange', flush)
+      window.removeEventListener('pagehide', flush)
+    }
+  }, [])
+
+  const screen = useRoutes(
+    ROUTES,
+    <Shell title="Not found" onBack={() => navigate('/')}>
+      <Page>
+        <p className="text-sm" style={{ color: 'var(--text-faint)' }}>
+          That screen does not exist.
+        </p>
+      </Page>
+    </Shell>,
+  )
+
+  if (boot.status === 'loading') return <Splash />
+  if (boot.status === 'error') return <BootError error={boot.error} onRetry={start} />
+  return <>{screen}</>
+}
