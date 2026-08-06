@@ -7,6 +7,13 @@ import { useI18n } from '@/i18n'
 import { Logo } from '@/components/Logo'
 import { Page, Shell } from '@/components/Shell'
 import { HomeScreen } from '@/features/home/HomeScreen'
+import { SettingsScreen } from '@/features/settings/SettingsScreen'
+import { AccountsScreen } from '@/features/settings/AccountsScreen'
+import { HeadsScreen } from '@/features/settings/HeadsScreen'
+import { SubHeadsScreen } from '@/features/settings/SubHeadsScreen'
+import { ActivitiesScreen } from '@/features/settings/ActivitiesScreen'
+import { LabourersScreen } from '@/features/settings/LabourersScreen'
+import { FarmProfileScreen } from '@/features/settings/FarmProfileScreen'
 
 /**
  * Boot, then routes.
@@ -79,7 +86,15 @@ const ROUTES: RouteDef[] = [
   { path: '/add', render: () => <Placeholder title="Add" /> },
   { path: '/labour', render: () => <Placeholder title="Labour" /> },
   { path: '/reports', render: () => <Placeholder title="Reports" /> },
-  { path: '/settings', render: () => <Placeholder title="Settings" /> },
+
+  { path: '/settings', render: () => <SettingsScreen /> },
+  { path: '/settings/profile', render: () => <FarmProfileScreen /> },
+  { path: '/settings/accounts', render: () => <AccountsScreen /> },
+  { path: '/settings/heads', render: () => <HeadsScreen /> },
+  { path: '/settings/sub-heads', render: () => <SubHeadsScreen /> },
+  { path: '/settings/activities', render: () => <ActivitiesScreen /> },
+  { path: '/settings/labourers', render: () => <LabourersScreen /> },
+  { path: '/settings/backup', render: () => <Placeholder title="Backup" /> },
 ]
 
 export default function App() {
