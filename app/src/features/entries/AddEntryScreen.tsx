@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { Check } from 'lucide-react'
 import { Page, Shell } from '@/components/Shell'
 import {
-  Button, ChipSingle, DateInput, Field, Input, MoneyInput, QuantityInput, Select, TextArea,
+  Button, ChipSingle, DateInput, Field, Input, MoneyInput, QuantityInput, Segmented,
+  Select, TextArea,
 } from '@/components/ui'
 import { useQuery } from '@/hooks/useQuery'
 import {
@@ -166,28 +167,46 @@ export function AddEntryScreen() {
   return (
     <Shell title={t('nav.add')}>
       <Page>
-        {/* Mode switch */}
-        <div className="grid grid-cols-3 gap-2">
-          {(['income', 'expense', 'transfer'] as EntryKind[]).map((k) => {
-            const on = kind === k
-            return (
-              <button
-                key={k}
-                onClick={() => {
-                  setKind(k)
-                  setTotalTouched(false)
-                }}
-                className="rounded-xl py-3 font-semibold text-sm border"
-                style={{
-                  borderColor: on ? KIND_COLOR[k] : 'var(--border)',
-                  background: on ? KIND_SOFT[k] : 'var(--surface-raised)',
-                  color: on ? KIND_COLOR[k] : 'var(--text-soft)',
-                }}
-              >
-                {t(`kind.${k}` as 'kind.income')}
-              </button>
-            )
-          })}
+        <Segmented
+          value={kind}
+          onChange={(k) => {
+            setKind(k)
+            setTotalTouched(false)
+          }}
+          options={(['income', 'expense', 'transfer'] as EntryKind[]).map((k) => ({
+            value: k,
+            label: t(`kind.${k}` as 'kind.income'),
+            color: KIND_COLOR[k],
+          }))}
+        />
+
+        {/* The amount leads. It is the one field that is never skipped, and
+            putting it first means the commonest entry is two taps and a
+            number rather than a scroll to the bottom of a form. */}
+        <div
+          className="card p-4 text-center"
+          style={{ background: KIND_SOFT[kind], borderColor: 'transparent' }}
+        >
+          <p
+            className="text-[11px] font-bold uppercase mb-1.5"
+            style={{ color: KIND_COLOR[kind], letterSpacing: '0.05em' }}
+          >
+            {t('common.amount')}
+          </p>
+          <div className="[&_input]:text-center [&_input]:text-3xl [&_input]:font-bold [&_input]:h-16 [&_input]:bg-transparent [&_input]:border-0 [&_input]:shadow-none [&_span]:hidden">
+            <MoneyInput
+              paise={amountPaise}
+              onChange={(p) => {
+                setAmountPaise(p)
+                if (kind === 'income') setTotalTouched(true)
+              }}
+            />
+          </div>
+          {kind === 'income' && computedTotal != null && !totalTouched ? (
+            <p className="text-xs" style={{ color: KIND_COLOR[kind] }}>
+              {t('entry.totalHint')}
+            </p>
+          ) : null}
         </div>
 
         <Field label={t('common.date')}>
@@ -312,24 +331,22 @@ export function AddEntryScreen() {
           </Field>
         )}
 
-        <Field
-          label={t('common.total')}
-          hint={
-            kind === 'income' && computedTotal != null && !totalTouched
-              ? `${t('entry.totalHint')} = ${formatRupees(computedTotal)}`
-              : kind === 'income' && totalTouched
-                ? 'Using the amount you typed, not quantity × rate.'
-                : undefined
-          }
-        >
-          <MoneyInput
-            paise={amountPaise}
-            onChange={(p) => {
-              setAmountPaise(p)
-              if (kind === 'income') setTotalTouched(true)
+        {/* Quantity × rate fills the amount above until the farmer types one
+            themselves — the trader rounds, and the money that changed hands
+            wins over the arithmetic. This offers the computed figure back. */}
+        {kind === 'income' && totalTouched && computedTotal != null && computedTotal !== amountPaise ? (
+          <button
+            onClick={() => {
+              setAmountPaise(computedTotal)
+              setTotalTouched(false)
             }}
-          />
-        </Field>
+            className="press w-full card p-3 text-sm text-left"
+            style={{ color: 'var(--text-soft)' }}
+          >
+            {t('entry.totalHint')} = <strong>{formatRupees(computedTotal)}</strong>
+            <span style={{ color: 'var(--color-brand-600)' }}> · {t('entry.useThis')}</span>
+          </button>
+        ) : null}
 
         {kind !== 'transfer' ? (
           <Field label={kind === 'income' ? t('entry.buyer') : t('entry.shop')}>

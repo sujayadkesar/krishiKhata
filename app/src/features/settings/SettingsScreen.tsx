@@ -14,13 +14,43 @@ import type { StringKey } from '@/i18n/strings'
  * which is why the first three rows are the ones a new user must fill in.
  */
 
-const SECTIONS: { path: string; label: StringKey; icon: typeof Wallet; hint: string }[] = [
-  { path: '/settings/profile', label: 'set.farmProfile', icon: Home, hint: 'Printed on statements' },
-  { path: '/settings/accounts', label: 'set.accounts', icon: Wallet, hint: 'Cash, bank, UPI' },
-  { path: '/settings/heads', label: 'set.heads', icon: Sprout, hint: 'Banana, Pepper, Arecanut…' },
-  { path: '/settings/sub-heads', label: 'set.subHeads', icon: Tags, hint: 'Labour, Fertilizer…' },
-  { path: '/settings/activities', label: 'set.activities', icon: Hammer, hint: 'Cutting, Spraying…' },
-  { path: '/settings/labourers', label: 'labour.labourers', icon: Users, hint: 'Names, phones, wages' },
+interface Row {
+  path: string
+  label: StringKey
+  icon: typeof Wallet
+  hint: string
+}
+
+/**
+ * Grouped, not one long list.
+ *
+ * Six identical rows give no clue which matter on day one. "Your farm" is what
+ * a new user must fill in before anything works; "What you grow and spend on"
+ * is the vocabulary; "Your team" is people. Someone who has just installed the
+ * app can work down the groups in order.
+ */
+const GROUPS: { title: string; rows: Row[] }[] = [
+  {
+    title: 'Your farm',
+    rows: [
+      { path: '/settings/profile', label: 'set.farmProfile', icon: Home, hint: 'Name and village, printed on every statement' },
+      { path: '/settings/accounts', label: 'set.accounts', icon: Wallet, hint: 'Cash, bank and UPI, with opening balances' },
+    ],
+  },
+  {
+    title: 'What you grow and spend on',
+    rows: [
+      { path: '/settings/heads', label: 'set.heads', icon: Sprout, hint: 'Crops, the units they sell in, and their colours' },
+      { path: '/settings/sub-heads', label: 'set.subHeads', icon: Tags, hint: 'Kinds of spending, and grades a crop is sold in' },
+      { path: '/settings/activities', label: 'set.activities', icon: Hammer, hint: 'The work itself — harvesting, spraying, weeding' },
+    ],
+  },
+  {
+    title: 'Your team',
+    rows: [
+      { path: '/settings/labourers', label: 'labour.labourers', icon: Users, hint: 'Names, phones and day rates' },
+    ],
+  },
 ]
 
 export function SettingsScreen() {
@@ -29,18 +59,35 @@ export function SettingsScreen() {
   return (
     <Shell title={t('set.title')} right={<span />}>
       <Page>
-        <Card>
-          {SECTIONS.map(({ path, label, icon: Icon, hint }) => (
-            <ListRow
-              key={path}
-              title={t(label)}
-              subtitle={hint}
-              onClick={() => navigate(path)}
-              leading={<Icon size={20} style={{ color: 'var(--color-brand-600)' }} />}
-              right={<ChevronRight size={18} style={{ color: 'var(--text-faint)' }} />}
-            />
-          ))}
-        </Card>
+        {GROUPS.map((group) => (
+          <section key={group.title}>
+            <SectionHeader>{group.title}</SectionHeader>
+            <Card>
+              {group.rows.map(({ path, label, icon: Icon, hint }) => (
+                <ListRow
+                  key={path}
+                  title={t(label)}
+                  subtitle={hint}
+                  onClick={() => navigate(path)}
+                  leading={
+                    <span
+                      className="grid place-items-center rounded-lg shrink-0"
+                      style={{
+                        width: 34,
+                        height: 34,
+                        background: 'var(--color-brand-50)',
+                        color: 'var(--color-brand-600)',
+                      }}
+                    >
+                      <Icon size={18} />
+                    </span>
+                  }
+                  right={<ChevronRight size={18} style={{ color: 'var(--text-faint)' }} />}
+                />
+              ))}
+            </Card>
+          </section>
+        ))}
 
         <div>
           <SectionHeader>{t('set.language')}</SectionHeader>

@@ -31,9 +31,17 @@ export function Button({
   full?: boolean
 }) {
   const styles: Record<string, React.CSSProperties> = {
-    primary: { background: 'var(--color-brand-500)', color: '#fff' },
+    primary: {
+      background: 'var(--color-brand-500)',
+      color: '#fff',
+      boxShadow: 'var(--shadow-rest)',
+    },
     soft: { background: 'var(--color-brand-50)', color: 'var(--color-brand-700)' },
-    ghost: { background: 'transparent', color: 'var(--text-soft)' },
+    ghost: {
+      background: 'transparent',
+      color: 'var(--text-soft)',
+      border: '1.5px solid var(--border-strong)',
+    },
     danger: { background: 'var(--color-expense-soft)', color: 'var(--color-expense)' },
   }
 
@@ -42,11 +50,75 @@ export function Button({
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className={`rounded-xl px-4 py-3 font-semibold ${full ? 'w-full' : ''}`}
-      style={{ ...styles[variant], opacity: disabled ? 0.45 : 1 }}
+      className={`press rounded-xl px-4 py-3 font-semibold ${full ? 'w-full' : ''}`}
+      style={{
+        ...styles[variant],
+        borderRadius: 'var(--radius-sm)',
+        opacity: disabled ? 0.4 : 1,
+        pointerEvents: disabled ? 'none' : undefined,
+      }}
     >
       {children}
     </button>
+  )
+}
+
+/**
+ * A segmented control — the row of mutually exclusive modes at the top of a
+ * screen. One filled segment, the rest quiet, sitting in a single tinted
+ * track so it reads as one control rather than three loose buttons.
+ */
+export function Segmented<T extends string>({
+  options,
+  value,
+  onChange,
+}: {
+  options: { value: T; label: string; color?: string }[]
+  value: T
+  onChange: (v: T) => void
+}) {
+  return (
+    <div
+      className="flex gap-1 p-1 rounded-xl"
+      style={{ background: 'var(--surface-sunken)', border: '1px solid var(--border)' }}
+    >
+      {options.map((o) => {
+        const on = value === o.value
+        const tint = o.color ?? 'var(--color-brand-500)'
+        return (
+          <button
+            key={o.value}
+            onClick={() => onChange(o.value)}
+            className="press flex-1 rounded-lg py-2.5 text-sm font-bold"
+            style={{
+              background: on ? tint : 'transparent',
+              color: on ? '#fff' : 'var(--text-soft)',
+              boxShadow: on ? 'var(--shadow-rest)' : 'none',
+            }}
+          >
+            {o.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+/** A labelled group of related fields, so a long form reads as a few blocks. */
+export function FieldGroup({
+  title,
+  children,
+  action,
+}: {
+  title?: string
+  children: ReactNode
+  action?: ReactNode
+}) {
+  return (
+    <section>
+      {title ? <SectionHeader action={action}>{title}</SectionHeader> : null}
+      <div className="card p-3.5 space-y-3.5">{children}</div>
+    </section>
   )
 }
 
@@ -490,8 +562,15 @@ export function Sheet({
         role="dialog"
         aria-modal="true"
         className="relative w-full max-w-2xl rounded-t-2xl max-h-[92dvh] flex flex-col"
-        style={{ background: 'var(--surface)' }}
+        style={{ background: 'var(--surface)', boxShadow: 'var(--shadow-pop)' }}
       >
+        {/* The grab handle is what tells people the sheet can be dismissed. */}
+        <div className="flex justify-center pt-2.5 pb-0.5 shrink-0">
+          <span
+            className="rounded-full"
+            style={{ width: 36, height: 4, background: 'var(--border-strong)' }}
+          />
+        </div>
         <header
           className="flex items-center gap-3 px-4 py-3 border-b shrink-0"
           style={{ borderColor: 'var(--border)' }}
@@ -640,10 +719,33 @@ export function QuickLink({
   )
 }
 
-export function EmptyState({ children }: { children: ReactNode }) {
+/**
+ * An empty state should say what to do next, not just that there is nothing.
+ * "Nothing here yet" alone leaves someone stuck on a screen they cannot use.
+ */
+export function EmptyState({
+  children,
+  icon: Icon,
+  action,
+}: {
+  children: ReactNode
+  icon?: (p: { size?: number; strokeWidth?: number }) => ReactNode
+  action?: ReactNode
+}) {
   return (
-    <div className="card p-6 text-center text-sm" style={{ color: 'var(--text-faint)' }}>
-      {children}
+    <div className="card px-6 py-8 text-center">
+      {Icon ? (
+        <span
+          className="inline-grid place-items-center rounded-full mb-3"
+          style={{ width: 48, height: 48, background: 'var(--surface-sunken)', color: 'var(--text-faint)' }}
+        >
+          <Icon size={22} strokeWidth={1.8} />
+        </span>
+      ) : null}
+      <p className="text-sm" style={{ color: 'var(--text-faint)' }}>
+        {children}
+      </p>
+      {action ? <div className="mt-3.5">{action}</div> : null}
     </div>
   )
 }

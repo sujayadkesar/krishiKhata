@@ -373,6 +373,45 @@ export const yieldByHead = (from: ISODate, to: ISODate) =>
     [from, to],
   )
 
+/**
+ * What each crop actually fetched per unit, month by month.
+ *
+ * Derived from the money and the quantity rather than the rate column, because
+ * the rate is what was quoted and the total is what was paid — the trader
+ * rounds, and only the total is real. Rows without a quantity are skipped
+ * entirely: a sale recorded as a lump sum has no meaningful per-unit price and
+ * averaging it in would drag the line somewhere untrue.
+ */
+export interface PriceRow {
+  month: string
+  head_id: string | null
+  name_en: string | null
+  name_kn: string | null
+  color: string | null
+  unit_short_en: string | null
+  unit_short_kn: string | null
+  quantity_milli: number
+  total_paise: number
+}
+
+export const priceHistory = (from: ISODate, to: ISODate) =>
+  all<PriceRow>(
+    `SELECT substr(e.date, 1, 7) AS month, e.head_id,
+            h.name_en, h.name_kn, h.color,
+            u.short_en AS unit_short_en, u.short_kn AS unit_short_kn,
+            SUM(e.quantity_milli) AS quantity_milli,
+            SUM(e.amount_paise) AS total_paise
+       FROM entries e
+       LEFT JOIN heads h ON h.id = e.head_id
+       LEFT JOIN units u ON u.id = e.unit_id
+      WHERE e.is_deleted = 0 AND e.kind = 'income'
+        AND e.quantity_milli IS NOT NULL AND e.quantity_milli > 0
+        AND e.date >= ? AND e.date <= ?
+      GROUP BY month, e.head_id, e.unit_id
+      ORDER BY month;`,
+    [from, to],
+  )
+
 /** Twelve months of income against expense, for the dashboard trend. */
 export interface MonthTotal {
   month: string

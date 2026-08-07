@@ -61,25 +61,49 @@
 
 :root {
   --surface: #ffffff;
-  --surface-sunken: #f4f6f5;
+  /* A hint of green in the page behind the cards. Pure grey next to a green
+     brand reads as dirty; this makes white cards look deliberately white. */
+  --surface-sunken: #f2f5f3;
   --surface-raised: #ffffff;
-  --border: #d9e0dc;
-  --text: #101a14;
-  --text-soft: #4a5a51;
-  --text-faint: #6b7c72;
+  --border: #e2e8e4;
+  --border-strong: #cbd6cf;
+  --text: #0d1711;
+  --text-soft: #46564c;
+  --text-faint: #74857a;
+
+  /*
+   * Two elevations, no more.
+   *
+   * Cards sit at rest; only something floating over the page — a sheet, the
+   * bottom bar — is allowed to lift. A screen where everything has a shadow
+   * has no hierarchy at all.
+   */
+  --shadow-rest: 0 1px 2px rgba(13, 23, 17, 0.04), 0 1px 3px rgba(13, 23, 17, 0.06);
+  --shadow-lift: 0 -2px 12px rgba(13, 23, 17, 0.08);
+  --shadow-pop: 0 8px 28px rgba(13, 23, 17, 0.16);
+
+  --radius-sm: 10px;
+  --radius: 14px;
+  --radius-lg: 18px;
 
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --surface: #101512;
-    --surface-sunken: #0a0e0c;
-    --surface-raised: #182019;
-    --border: #2a352e;
+    --surface: #131a16;
+    --surface-sunken: #0b100d;
+    --surface-raised: #1a221d;
+    --border: #2b352f;
+    --border-strong: #3a463e;
     --text: #eef3ef;
-    --text-soft: #b2c0b8;
-    --text-faint: #8b9a91;
+    --text-soft: #b4c2ba;
+    --text-faint: #8d9c93;
+
+    /* Shadows do not read on a dark background; borders carry elevation. */
+    --shadow-rest: none;
+    --shadow-lift: 0 -2px 12px rgba(0, 0, 0, 0.5);
+    --shadow-pop: 0 8px 28px rgba(0, 0, 0, 0.6);
 
     color-scheme: dark;
   }
@@ -155,7 +179,8 @@
   .card {
     background: var(--surface-raised);
     border: 1px solid var(--border);
-    border-radius: 14px;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-rest);
   }
 
   .field-label {
@@ -169,16 +194,53 @@
   .field {
     width: 100%;
     background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 11px;
+    border: 1.5px solid var(--border-strong);
+    border-radius: var(--radius-sm);
     padding: 0.75rem 0.875rem;
-    min-height: 48px;
+    min-height: 50px;
     outline: none;
+    transition: border-color 0.12s ease, box-shadow 0.12s ease;
   }
 
+  .field:focus,
   .field:focus-visible {
     border-color: var(--color-brand-500);
-    box-shadow: 0 0 0 3px var(--color-brand-100);
+    box-shadow: 0 0 0 3.5px var(--color-brand-100);
+  }
+
+  /*
+   * Every tappable thing dips slightly when pressed.
+   *
+   * A phone gives no other feedback that a tap registered, and without it
+   * people tap twice — which on a save button means two entries.
+   */
+  .press {
+    transition: transform 0.08s ease, opacity 0.08s ease;
+  }
+  .press:active {
+    transform: scale(0.975);
+    opacity: 0.9;
+  }
+
+  /* The big figure at the top of a screen: amount owed, balance, total. */
+  .hero-number {
+    font-size: 2.125rem;
+    font-weight: 700;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+
+  /* Small pill for a status word — Settled, Advance, Half day. */
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    border-radius: 999px;
+    padding: 0.125rem 0.5rem;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    line-height: 1.5;
   }
 }
 

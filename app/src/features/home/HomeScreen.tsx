@@ -11,12 +11,14 @@ import { Page, Shell } from '@/components/Shell'
 import { Card, EmptyState, QuickLink, SectionHeader, StatTile } from '@/components/ui'
 import { useQuery } from '@/hooks/useQuery'
 import {
-  accountBalances, expenseTotalsBySubHead, monthlyTotals, totalsByHead, totalsByKind,
+  accountBalances, expenseTotalsBySubHead, monthlyTotals, priceHistory, totalsByHead,
+  totalsByKind,
 } from '@/data/entries'
 import { labourBalances, totalOutstandingWages } from '@/data/labour'
 import { backupIsDue, lastBackupAt } from '@/data/backup'
 import { useI18n } from '@/i18n'
 import { formatCompactINR, formatRupees } from '@/lib/money'
+import { impliedRatePaise } from '@/lib/quantity'
 import { addMonths, formatMonth, monthEnd, monthStart, todayISO } from '@/lib/date'
 import { navigate } from '@/router'
 import { checkForUpdate, openDownload } from '@/lib/updates'
@@ -45,18 +47,20 @@ async function load() {
   const to = monthEnd(today)
   const trendFrom = monthStart(addMonths(today, -11))
 
-  const [kinds, byCrop, bySubHead, balances, trend, labour, outstanding, backupDue, lastBackup] =
-    await Promise.all([
-      totalsByKind(from, to),
-      totalsByHead('income', from, to),
-      expenseTotalsBySubHead(from, to),
-      accountBalances(),
-      monthlyTotals(trendFrom, to),
-      labourBalances(false),
-      totalOutstandingWages(),
-      backupIsDue(),
-      lastBackupAt(),
-    ])
+  const [
+    kinds, byCrop, bySubHead, balances, trend, labour, outstanding, backupDue, lastBackup, prices,
+  ] = await Promise.all([
+    totalsByKind(from, to),
+    totalsByHead('income', from, to),
+    expenseTotalsBySubHead(from, to),
+    accountBalances(),
+    monthlyTotals(trendFrom, to),
+    labourBalances(false),
+    totalOutstandingWages(),
+    backupIsDue(),
+    lastBackupAt(),
+    priceHistory(trendFrom, to),
+  ])
 
   const of = (k: string) => kinds.find((x) => x.kind === k)?.total ?? 0
   return {
@@ -70,6 +74,7 @@ async function load() {
     outstanding,
     backupDue,
     lastBackup,
+    prices,
   }
 }
 
@@ -134,6 +139,49 @@ export function HomeScreen() {
         })),
     [data?.bySubHead, nameOf],
   )
+
+  /**
+   * One line per crop, plotting realised price per unit.
+   *
+   * Each crop becomes its own key on a shared month axis so Recharts can draw
+   * them together; months where a crop was not sold are simply absent, and
+   * connectNulls bridges the gap rather than dropping the line to zero — a
+   * crop that was not harvested did not become worthless.
+   */
+  const priceSeries = useMemo(() => {
+    const rows = data?.prices ?? []
+    if (!rows.length) return { data: [], lines: [] }
+
+    const months = [...new Set(rows.map((r) => r.month))].sort()
+    const heads = new Map<string, { label: string; color: string }>()
+
+    rows.forEach((r, i) => {
+      const key = r.head_id ?? 'none'
+      if (heads.has(key)) return
+      const unit = (lang === 'en' ? r.unit_short_en : r.unit_short_kn) ?? ''
+      const name = r.name_en
+        ? nameOf({ name_en: r.name_en, name_kn: r.name_kn ?? r.name_en })
+        : '—'
+      heads.set(key, {
+        label: unit ? `${name} /${unit}` : name,
+        color: (r.color && SWATCH[r.color]) || FALLBACK[i % FALLBACK.length],
+      })
+    })
+
+    const points = months.map((m) => {
+      const point: Record<string, string | number> = { month: shortMonth(m, lang) }
+      for (const r of rows.filter((x) => x.month === m)) {
+        const rate = impliedRatePaise(r.quantity_milli, r.total_paise)
+        if (rate != null) point[r.head_id ?? 'none'] = rate
+      }
+      return point
+    })
+
+    return {
+      data: points,
+      lines: [...heads.entries()].map(([key, v]) => ({ key, ...v })),
+    }
+  }, [data?.prices, lang, nameOf])
 
   const trendData = useMemo(
     () =>
@@ -352,6 +400,41 @@ export function HomeScreen() {
             </div>
           )}
         </div>
+
+        {/* What the crop actually fetched, month by month. This is the number
+            a farmer argues with a trader about, and until now it lived only
+            inside individual entries. */}
+        {priceSeries.lines.length > 0 ? (
+          <section>
+            <SectionHeader>{t('dash.priceTrend')}</SectionHeader>
+            <div className="card p-3">
+              <ResponsiveContainer width="100%" height={200}>
+                <LineChart data={priceSeries.data} margin={{ left: 4, right: 12, top: 8 }}>
+                  <CartesianGrid stroke="var(--border)" vertical={false} />
+                  <XAxis dataKey="month" tick={axisStyle} />
+                  <YAxis tickFormatter={compactAxis} tick={axisStyle} width={44} />
+                  <Tooltip contentStyle={TOOLTIP_STYLE} formatter={moneyTip} />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  {priceSeries.lines.map((l) => (
+                    <Line
+                      key={l.key}
+                      type="monotone"
+                      dataKey={l.key}
+                      name={l.label}
+                      stroke={l.color}
+                      strokeWidth={2.5}
+                      dot={{ r: 3 }}
+                      connectNulls
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+              <p className="text-[11px] mt-1 px-1" style={{ color: 'var(--text-faint)' }}>
+                {t('dash.priceHint')}
+              </p>
+            </div>
+          </section>
+        ) : null}
 
         <section>
           <SectionHeader>{t('dash.goTo')}</SectionHeader>

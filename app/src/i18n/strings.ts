@@ -109,6 +109,7 @@ export const STRINGS = {
   'entry.saved': { kn: 'ಉಳಿಸಲಾಗಿದೆ', en: 'Saved' },
   'entry.totalHint': { kn: 'ಪ್ರಮಾಣ × ದರ', en: 'quantity × rate' },
   'entry.overrideTotal': { kn: 'ಒಟ್ಟು ಬದಲಾಯಿಸಿ', en: 'Change total' },
+  'entry.useThis': { kn: 'ಇದನ್ನೇ ಬಳಸಿ', en: 'use this' },
   'entry.sameAccount': { kn: 'ಎರಡೂ ಖಾತೆ ಒಂದೇ ಇರುವಂತಿಲ್ಲ', en: 'Pick two different accounts' },
 
   /* labour */
@@ -198,6 +199,11 @@ export const STRINGS = {
   'dash.trend': { kn: '12 ತಿಂಗಳ ಬೆಳವಣಿಗೆ', en: '12-month trend' },
   'dash.quickAdd': { kn: 'ಬೇಗ ಸೇರಿಸಿ', en: 'Quick add' },
   'dash.goTo': { kn: 'ಇನ್ನಷ್ಟು', en: 'Go to' },
+  'dash.priceTrend': { kn: 'ಸಿಕ್ಕ ದರ', en: 'Price you got' },
+  'dash.priceHint': {
+    kn: 'ಮಾರಾಟದ ಒಟ್ಟು ಮೊತ್ತ ಮತ್ತು ಪ್ರಮಾಣದಿಂದ ಲೆಕ್ಕ',
+    en: 'Worked out from what was actually paid, not the quoted rate',
+  },
   'dash.sales': { kn: 'ಮಾರಾಟ', en: 'sales' },
   'dash.spent': { kn: 'ಖರ್ಚಾಗಿದೆ', en: 'spent' },
 
