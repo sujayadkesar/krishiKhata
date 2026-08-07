@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Check, Users } from 'lucide-react'
 import { Page, Shell } from '@/components/Shell'
-import { Button, Field, Input, Select, Sheet, TextArea } from '@/components/ui'
+import { Button, Field, Input, MoneyInput, Select, TextArea } from '@/components/ui'
 import { MonthCalendar, type DaySelection } from '@/components/MonthCalendar'
 import { useQuery } from '@/hooks/useQuery'
 import { listActivities, listHeads, listLabourers, listSubHeads } from '@/data/masterData'
 import { attendanceInMonth, saveWorkSession } from '@/data/labour'
 import { useI18n } from '@/i18n'
 import { formatRupees } from '@/lib/money'
-import { attendanceAmountPaise } from '@/lib/labour'
+import { attendanceAmountPaise, crewWagePaise } from '@/lib/labour'
 import { FULL_DAY, HALF_DAY } from '@/db/types'
 import { monthEnd, monthStart } from '@/lib/date'
 import { back, navigate } from '@/router'
@@ -36,9 +36,20 @@ export function AddWorkScreen() {
   const [activityId, setActivityId] = useState<string | null>(null)
   const [note, setNote] = useState('')
   const [selection, setSelection] = useState<Map<ISODate, DaySelection>>(new Map())
-  const [countSheetFor, setCountSheetFor] = useState<ISODate | null>(null)
-  const [countDraft, setCountDraft] = useState('')
   const [saved, setSaved] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  /**
+   * Crew composition, shown as plain fields.
+   *
+   * This was a press-and-hold on a calendar day, which nobody discovers — a
+   * gesture with no affordance is a feature that does not exist. It now sits
+   * on the screen as two number fields, applied to every day selected.
+   */
+  const [males, setMales] = useState('')
+  const [females, setFemales] = useState('')
+  const [maleRate, setMaleRate] = useState<number | null>(null)
+  const [femaleRate, setFemaleRate] = useState<number | null>(null)
 
   const { data: labourers } = useQuery(() => listLabourers(false), [])
   const { data: heads } = useQuery(() => listHeads(false), [])
@@ -52,7 +63,18 @@ export function AddWorkScreen() {
 
   // A group lead among the selection turns on crew sizes for every day.
   const lead = selected.find((l) => l.is_group_lead === 1) ?? null
-  const defaultCount = lead?.typical_group_size ?? 1
+  const maleCount = lead ? Math.max(0, parseInt(males, 10) || 0) : 1
+  const femaleCount = lead ? Math.max(0, parseInt(females, 10) || 0) : 0
+  const defaultCount = Math.max(1, maleCount + femaleCount)
+
+  // Rates default to the lead's own, and stay editable because a crew's rate
+  // is negotiated per job as often as not.
+  useEffect(() => {
+    if (!lead) return
+    setMaleRate((r) => r ?? lead.daily_rate_paise)
+    setFemaleRate((r) => r ?? lead.female_rate_paise ?? lead.daily_rate_paise)
+    setMales((m) => m || String(lead.typical_group_size ?? ''))
+  }, [lead])
 
   const from = monthStart(`${year}-${String(monthIndex + 1).padStart(2, '0')}-01`)
   const to = monthEnd(from)
@@ -94,25 +116,6 @@ export function AddWorkScreen() {
     })
   }
 
-  function openCount(date: ISODate) {
-    if (!lead) return
-    const cur = selection.get(date)
-    setCountDraft(String(cur?.count ?? defaultCount))
-    setCountSheetFor(date)
-  }
-
-  function applyCount() {
-    if (!countSheetFor) return
-    const n = Math.max(1, parseInt(countDraft, 10) || 1)
-    setSelection((prev) => {
-      const next = new Map(prev)
-      const cur = next.get(countSheetFor) ?? { fraction: FULL_DAY, count: n }
-      next.set(countSheetFor, { ...cur, count: n })
-      return next
-    })
-    setCountSheetFor(null)
-  }
-
   /** Live total, so the figure is known before it is committed. */
   const summary = useMemo(() => {
     let total = 0
@@ -121,14 +124,29 @@ export function AddWorkScreen() {
 
     for (const [, sel] of selection) {
       for (const l of selected) {
-        const size = l.is_group_lead ? sel.count : 1
-        total += attendanceAmountPaise(sel.fraction, l.daily_rate_paise, l.half_day_rate_paise, size)
-        personDays += (sel.fraction / FULL_DAY) * size
+        if (l.is_group_lead) {
+          total += crewWagePaise(
+            sel.fraction,
+            maleCount,
+            maleRate ?? l.daily_rate_paise,
+            femaleCount,
+            femaleRate ?? l.daily_rate_paise,
+          )
+          personDays += (sel.fraction / FULL_DAY) * Math.max(1, maleCount + femaleCount)
+        } else {
+          total += attendanceAmountPaise(
+            sel.fraction,
+            l.daily_rate_paise,
+            l.half_day_rate_paise,
+            1,
+          )
+          personDays += sel.fraction / FULL_DAY
+        }
       }
       days += sel.fraction / FULL_DAY
     }
     return { total, days, personDays }
-  }, [selection, selected])
+  }, [selection, selected, maleCount, femaleCount, maleRate, femaleRate])
 
   const valid = selectedIds.length > 0 && selection.size > 0
 
@@ -142,28 +160,38 @@ export function AddWorkScreen() {
     const days: Parameters<typeof saveWorkSession>[0]['days'] = []
     for (const [date, sel] of selection) {
       for (const l of selected) {
+        const isCrew = l.is_group_lead === 1
         days.push({
           labourer_id: l.id,
           date,
           day_fraction: sel.fraction,
-          group_size: l.is_group_lead ? sel.count : 1,
           is_group: l.is_group_lead,
           daily_rate_paise: l.daily_rate_paise,
           half_day_rate_paise: l.half_day_rate_paise,
+          male_count: isCrew ? maleCount : 1,
+          female_count: isCrew ? femaleCount : 0,
+          male_rate_paise: isCrew ? (maleRate ?? l.daily_rate_paise) : l.daily_rate_paise,
+          female_rate_paise: isCrew ? (femaleRate ?? l.daily_rate_paise) : 0,
         })
       }
     }
 
-    await saveWorkSession({
-      head_id: headId,
-      activity_id: activityId,
-      sub_head_id: labourSubHead,
-      note: note.trim() || null,
-      days,
-    })
+    try {
+      await saveWorkSession({
+        head_id: headId,
+        activity_id: activityId,
+        sub_head_id: labourSubHead,
+        note: note.trim() || null,
+        days,
+      })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+      return
+    }
 
     setSelection(new Map())
     setNote('')
+    setError(null)
     setSaved(true)
     setTimeout(() => setSaved(false), 1800)
   }
@@ -234,20 +262,57 @@ export function AddWorkScreen() {
           </Field>
         </div>
 
+        {/* Crew composition, on the screen rather than behind a long-press. */}
+        {lead ? (
+          <div className="card p-3.5 space-y-3">
+            <p className="text-sm font-semibold">{t('labour.crewForTheDay')}</p>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label={t('labour.men')}>
+                <Input
+                  value={males}
+                  onChange={(v) => setMales(v.replace(/\D/g, '').slice(0, 3))}
+                  inputMode="numeric"
+                  placeholder="0"
+                />
+              </Field>
+              <Field label={t('labour.women')}>
+                <Input
+                  value={females}
+                  onChange={(v) => setFemales(v.replace(/\D/g, '').slice(0, 3))}
+                  inputMode="numeric"
+                  placeholder="0"
+                />
+              </Field>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label={t('labour.menRate')}>
+                <MoneyInput paise={maleRate} onChange={setMaleRate} />
+              </Field>
+              <Field label={t('labour.womenRate')}>
+                <MoneyInput paise={femaleRate} onChange={setFemaleRate} />
+              </Field>
+            </div>
+            {maleCount + femaleCount > 0 ? (
+              <p className="text-xs" style={{ color: 'var(--text-faint)' }}>
+                {maleCount + femaleCount} {t('labour.peopleTotal')} ·{' '}
+                {formatRupees(
+                  crewWagePaise(FULL_DAY, maleCount, maleRate ?? 0, femaleCount, femaleRate ?? 0),
+                )}{' '}
+                {t('labour.perDay')}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+
         <Field
           label={t('labour.selectDays')}
-          hint={
-            lead
-              ? 'Tap once for a full day, again for half. Press and hold a day to change how many people came.'
-              : 'Tap once for a full day, tap again for half a day.'
-          }
+          hint={t('labour.tapHint')}
         >
           <MonthCalendar
             year={year}
             monthIndex={monthIndex}
             selection={selection}
             onCycle={cycle}
-            onLongPress={lead ? openCount : undefined}
             alreadyRecorded={alreadyRecorded}
             onMonthChange={(y, m) => {
               setYear(y)
@@ -278,6 +343,15 @@ export function AddWorkScreen() {
           <TextArea value={note} onChange={setNote} />
         </Field>
 
+        {error ? (
+          <div
+            className="card p-3 text-sm"
+            style={{ background: 'var(--color-expense-soft)', color: 'var(--color-expense)' }}
+          >
+            {error}
+          </div>
+        ) : null}
+
         <div className="sticky bottom-2">
           <button
             onClick={submit}
@@ -294,41 +368,9 @@ export function AddWorkScreen() {
             )}
           </button>
           <p className="text-center text-xs mt-2" style={{ color: 'var(--text-faint)' }}>
-            This records work only. The expense appears when you pay.
+            {t('labour.recordsWorkOnly')}
           </p>
         </div>
-
-        <Sheet
-          open={!!countSheetFor}
-          onClose={() => setCountSheetFor(null)}
-          title={t('labour.groupSize')}
-          footer={
-            <Button full onClick={applyCount}>
-              {t('common.done')}
-            </Button>
-          }
-        >
-          <Field label={t('labour.groupSize')} hint="Just for this day.">
-            <Input
-              value={countDraft}
-              onChange={(v) => setCountDraft(v.replace(/\D/g, '').slice(0, 3))}
-              inputMode="numeric"
-              autoFocus
-            />
-          </Field>
-          <div className="flex flex-wrap gap-2">
-            {[4, 6, 8, 10, 12, 15, 20].map((n) => (
-              <button
-                key={n}
-                onClick={() => setCountDraft(String(n))}
-                className="rounded-full px-4 py-2 text-sm font-semibold border"
-                style={{ borderColor: 'var(--border)', color: 'var(--text-soft)' }}
-              >
-                {n}
-              </button>
-            ))}
-          </div>
-        </Sheet>
       </Page>
     </Shell>
   )

@@ -22,12 +22,20 @@ interface NavItem {
   prefix?: string
 }
 
+/**
+ * Settings sits in the bottom bar and Reports moved to the header.
+ *
+ * Settings is where the app is shaped to the farm — crops, grades, wages,
+ * labourers — and it gets opened constantly while getting set up. Reports are
+ * read occasionally and usually while sitting down. The one used most often
+ * belongs within thumb reach.
+ */
 const NAV: NavItem[] = [
   { path: '/', label: 'nav.home', icon: House },
   { path: '/entries', label: 'nav.entries', icon: ReceiptText, prefix: '/entries' },
   { path: '/add', label: 'nav.add', icon: Plus, prefix: '/add' },
   { path: '/labour', label: 'nav.labour', icon: Users, prefix: '/labour' },
-  { path: '/reports', label: 'nav.reports', icon: ChartColumn, prefix: '/reports' },
+  { path: '/settings', label: 'nav.settings', icon: Settings, prefix: '/settings' },
 ]
 
 function isActive(item: NavItem, path: string): boolean {
@@ -76,12 +84,12 @@ export function Shell({
 
         {right ?? (
           <button
-            onClick={() => navigate('/settings')}
-            aria-label={t('nav.settings')}
+            onClick={() => navigate('/reports')}
+            aria-label={t('nav.reports')}
             className="p-2 -mr-2"
             style={{ color: 'var(--text-soft)' }}
           >
-            <Settings size={22} />
+            <ChartColumn size={22} />
           </button>
         )}
       </header>

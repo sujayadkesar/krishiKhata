@@ -11,7 +11,7 @@
  * about what the table looks like. Add a new migration instead.
  */
 
-export const SCHEMA_VERSION = 2
+export const SCHEMA_VERSION = 3
 
 const V1 = `
 CREATE TABLE IF NOT EXISTS settings (
@@ -234,5 +234,39 @@ ALTER TABLE labour_payments ADD COLUMN direction TEXT NOT NULL DEFAULT 'out';
 CREATE INDEX IF NOT EXISTS idx_pay_direction ON labour_payments(labourer_id, direction);
 `
 
+/**
+ * Two things the first cut got wrong about how a farm actually works.
+ *
+ * A CREW IS NOT INTERCHANGEABLE PEOPLE. "Ten labourers" is really six men and
+ * four women, paid at different day rates, and a single head-count times a
+ * single rate cannot express that. The counts and both rates are stored per
+ * attendance row, snapshotted like every other rate.
+ *
+ * A CROP IS SOLD IN GRADES. Banana goes out as first class and second class at
+ * different prices on the same day. Sub-heads were expense-only and global;
+ * they now carry an optional head and a direction, so "First class" can belong
+ * to Banana on the income side while "Fertilizer" stays global on the expense
+ * side. group_size stays as the total so every existing row and query keeps
+ * working.
+ */
+const V3 = `
+ALTER TABLE attendance ADD COLUMN male_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE attendance ADD COLUMN female_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE attendance ADD COLUMN male_rate_paise INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE attendance ADD COLUMN female_rate_paise INTEGER NOT NULL DEFAULT 0;
+
+ALTER TABLE sub_heads ADD COLUMN head_id TEXT REFERENCES heads(id);
+ALTER TABLE sub_heads ADD COLUMN used_for TEXT NOT NULL DEFAULT 'expense';
+
+ALTER TABLE labourers ADD COLUMN female_rate_paise INTEGER;
+
+CREATE INDEX IF NOT EXISTS idx_subhead_head ON sub_heads(head_id, used_for);
+
+-- Existing rows are all-male crews at the rate they were entered with, which
+-- is exactly what they meant before genders existed.
+UPDATE attendance SET male_count = group_size, male_rate_paise = rate_paise
+ WHERE male_count = 0 AND female_count = 0;
+`
+
 /** Index in this array + 1 is the version it produces. Append only. */
-export const MIGRATIONS: string[] = [V1, V2]
+export const MIGRATIONS: string[] = [V1, V2, V3]

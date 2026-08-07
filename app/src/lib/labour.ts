@@ -48,6 +48,32 @@ export function attendanceAmountPaise(
   return per * Math.max(1, groupSize)
 }
 
+/**
+ * What a mixed crew costs for one day.
+ *
+ * "Ten labourers" is really six men and four women on different day rates, and
+ * a single head-count times a single rate cannot say that. Each side rounds on
+ * the per-person figure before multiplying — the same rule as an individual,
+ * and the one that matches how it is worked out aloud in the yard.
+ */
+export function crewWagePaise(
+  dayFraction: number,
+  maleCount: number,
+  maleRatePaise: number,
+  femaleCount: number,
+  femaleRatePaise: number,
+): number {
+  const half = dayFraction === HALF_DAY
+  const perMale = half ? Math.round(maleRatePaise / 2) : maleRatePaise
+  const perFemale = half ? Math.round(femaleRatePaise / 2) : femaleRatePaise
+  return perMale * Math.max(0, maleCount) + perFemale * Math.max(0, femaleCount)
+}
+
+/** Total people in a crew, used wherever a plain head-count is wanted. */
+export function crewSize(maleCount: number, femaleCount: number): number {
+  return Math.max(0, maleCount) + Math.max(0, femaleCount)
+}
+
 /** Calendar days, where a half day counts as half. */
 export function daysFromFractions(fractions: number[]): number {
   return fractions.reduce((sum, f) => sum + f / FULL_DAY, 0)

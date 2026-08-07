@@ -89,6 +89,15 @@ export interface SubHead extends MasterRow {
    * than from a shop bill. Wage payments are posted against one of these.
    */
   is_labour: Bool
+  /**
+   * Scopes this sub-head to one crop. Null means it applies to everything.
+   *
+   * Grades live here: "First class" and "Second class" belong to Banana and
+   * make no sense anywhere else, while "Fertilizer" is global.
+   */
+  head_id: string | null
+  /** Income sub-heads are grades; expense sub-heads are kinds of spend. */
+  used_for: 'income' | 'expense' | 'both'
 }
 
 /** The granular work: Harvesting, Spraying, Weeding, Loading, Pruning... */
@@ -108,6 +117,11 @@ export interface Labourer extends MasterRow {
   daily_rate_paise: number
   /** null means "half of daily_rate_paise", which is the usual arrangement. */
   half_day_rate_paise: number | null
+  /**
+   * A crew's women are usually on a different day rate. Only meaningful for a
+   * group lead; null falls back to the daily rate.
+   */
+  female_rate_paise: number | null
   /** Pre-fills the count on the attendance screen for a group lead. */
   typical_group_size: number | null
   note: string | null
@@ -198,8 +212,20 @@ export interface Attendance extends BaseRow {
   date: ISODate
 
   is_group: Bool
-  /** 12 people under a lead. 1 for an individual. Varies day to day. */
+  /**
+   * Total people: male_count + female_count. Kept as its own column because
+   * every existing row, report and query counts on it.
+   */
   group_size: number
+  /**
+   * A crew is rarely interchangeable people. Six men and four women on
+   * different day rates is the normal case, and one head-count times one rate
+   * cannot express it. Both rates are snapshotted like every other rate.
+   */
+  male_count: number
+  female_count: number
+  male_rate_paise: number
+  female_rate_paise: number
   /** Optional free-text list, for the rare case the crew is known. */
   member_names: string | null
 

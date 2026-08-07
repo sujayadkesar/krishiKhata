@@ -1,10 +1,10 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
 import {
-  TrendingUp, TrendingDown, Users, Plus, CalendarPlus, Wallet, CloudUpload,
+  TrendingUp, TrendingDown, Users, Plus, CalendarPlus, Wallet, CloudUpload, Download,
 } from 'lucide-react'
 import { Page, Shell } from '@/components/Shell'
 import { Card, EmptyState, SectionHeader } from '@/components/ui'
@@ -18,6 +18,8 @@ import { useI18n } from '@/i18n'
 import { formatCompactINR, formatRupees } from '@/lib/money'
 import { addMonths, formatMonth, monthEnd, monthStart, todayISO } from '@/lib/date'
 import { navigate } from '@/router'
+import { checkForUpdate, openDownload } from '@/lib/updates'
+import type { UpdateInfo } from '@/lib/updates'
 import type { Lang } from '@/i18n/strings'
 
 /**
@@ -95,7 +97,10 @@ function Stat({
           {label}
         </span>
       </div>
-      <div className="text-lg font-semibold tnum truncate" style={{ color: colour }}>
+      {/* Three tiles across a 360px screen leaves roughly 100px each, which
+          full Indian grouping overflows the moment a figure passes a lakh —
+          "₹2,77,..." is worse than useless. Compact keeps it whole. */}
+      <div className="text-lg font-semibold tnum" style={{ color: colour }}>
         {value}
       </div>
     </div>
@@ -127,6 +132,14 @@ const TOOLTIP_STYLE = {
 export function HomeScreen() {
   const { t, lang, nameOf } = useI18n()
   const { data, loading } = useQuery(load, [])
+
+  // Checked on launch, throttled to once every six hours inside the helper.
+  // Failures are silent — an update check is not worth an error message in
+  // front of somebody trying to record a sale.
+  const [update, setUpdate] = useState<UpdateInfo | null>(null)
+  useEffect(() => {
+    void checkForUpdate().then(setUpdate)
+  }, [])
 
   const net = (data?.income ?? 0) - (data?.expense ?? 0)
   const owed = (data?.labour ?? []).reduce((s, r) => s + Math.max(0, r.balance_paise), 0)
@@ -169,6 +182,28 @@ export function HomeScreen() {
   return (
     <Shell>
       <Page>
+        {update ? (
+          <button
+            onClick={() => openDownload(update.url)}
+            className="card p-3.5 w-full text-left flex items-center gap-3"
+            style={{
+              background: 'var(--color-brand-50)',
+              borderColor: 'var(--color-brand-300)',
+              color: 'var(--color-brand-700)',
+            }}
+          >
+            <Download size={20} className="shrink-0" />
+            <span className="flex-1 min-w-0">
+              <span className="block text-sm font-semibold">
+                {t('update.available')} {update.version}
+              </span>
+              <span className="block text-xs" style={{ color: 'var(--color-brand-600)' }}>
+                {t('update.tapToGet')}
+              </span>
+            </span>
+          </button>
+        ) : null}
+
         {/* A reminder rather than a silent background backup, because there is
             no silent one to run: with no server there is no refresh token, so
             reaching Drive needs the farmer present. Saying so beats pretending. */}
@@ -198,19 +233,19 @@ export function HomeScreen() {
         <div className="grid grid-cols-3 gap-2.5">
           <Stat
             label={t('dash.income')}
-            value={loading ? '—' : formatRupees(data?.income ?? 0)}
+            value={loading ? '—' : formatCompactINR(data?.income ?? 0)}
             tone="income"
             icon={TrendingUp}
           />
           <Stat
             label={t('dash.expense')}
-            value={loading ? '—' : formatRupees(data?.expense ?? 0)}
+            value={loading ? '—' : formatCompactINR(data?.expense ?? 0)}
             tone="expense"
             icon={TrendingDown}
           />
           <Stat
             label={t('dash.net')}
-            value={loading ? '—' : formatRupees(net)}
+            value={loading ? '—' : formatCompactINR(net)}
             tone={net < 0 ? 'expense' : 'neutral'}
           />
         </div>
@@ -231,7 +266,7 @@ export function HomeScreen() {
               className="text-lg font-semibold tnum block"
               style={{ color: owed > 0 ? 'var(--color-expense)' : 'var(--text-faint)' }}
             >
-              {loading ? '—' : formatRupees(owed)}
+              {loading ? '—' : formatCompactINR(owed)}
             </span>
           </button>
           <div className="card p-3.5">

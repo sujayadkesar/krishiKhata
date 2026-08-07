@@ -6,7 +6,7 @@ import {
 } from '@/components/ui'
 import { useQuery } from '@/hooks/useQuery'
 import {
-  getHeadUnits, listAccounts, listActivities, listHeads, listSubHeads,
+  getHeadUnits, listAccounts, listActivities, listGrades, listHeads, listSubHeads,
 } from '@/data/masterData'
 import { saveEntry } from '@/data/entries'
 import { useI18n } from '@/i18n'
@@ -68,6 +68,12 @@ export function AddEntryScreen() {
   const { data: accounts } = useQuery(() => listAccounts(false), [])
   const { data: headUnits } = useQuery(
     () => (headId ? getHeadUnits(headId) : Promise.resolve([])),
+    [headId],
+  )
+  // Grades belong to their crop: Banana has first class and second class,
+  // and they mean nothing under Pepper.
+  const { data: grades } = useQuery(
+    () => (headId ? listGrades(headId) : Promise.resolve([])),
     [headId],
   )
 
@@ -207,6 +213,7 @@ export function AddEntryScreen() {
               options={visibleHeads.map((h) => ({ value: h.id, label: nameOf(h) }))}
               value={headId}
               onChange={setHeadId}
+              onAdd={() => navigate('/settings/heads')}
             />
           </Field>
         ) : null}
@@ -214,6 +221,20 @@ export function AddEntryScreen() {
         {/* ---------------------------------------------------- income -- */}
         {kind === 'income' ? (
           <>
+            {/* Grades: first class and second class go out on the same day at
+                different prices, so each is its own entry. */}
+            {headId ? (
+              <Field label={t('entry.grade')}>
+                <ChipSingle
+                  options={(grades ?? []).map((g) => ({ value: g.id, label: nameOf(g) }))}
+                  value={subHeadId}
+                  onChange={setSubHeadId}
+                  onAdd={() => navigate('/settings/sub-heads')}
+                  allowClear
+                />
+              </Field>
+            ) : null}
+
             {headUnits && headUnits.length > 1 ? (
               <Field label={t('entry.unit')}>
                 <ChipSingle

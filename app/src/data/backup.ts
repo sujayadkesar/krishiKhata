@@ -1,3 +1,6 @@
+import { Capacitor } from '@capacitor/core'
+import { Filesystem, Directory } from '@capacitor/filesystem'
+import { Share } from '@capacitor/share'
 import { exportTables, saveNow, tx } from '@/db/db'
 import { SCHEMA_VERSION } from '@/db/schema'
 import { notifyDataChanged } from '@/hooks/useQuery'
@@ -177,6 +180,59 @@ export async function restoreSnapshot(snapshot: BackupFile): Promise<RestoreResu
 /* ------------------------------------------------------------------ *
  * Scheduling
  * ------------------------------------------------------------------ */
+
+/**
+ * Back up in one tap, with no setup at all.
+ *
+ * The Google Drive route needs an OAuth client ID created in the Cloud
+ * console, which is not something to ask a farmer to do. The Android share
+ * sheet already lists Drive — along with WhatsApp, Files and a memory card —
+ * so writing the file and offering it there gets the backup into Drive with
+ * the farmer choosing where, and no credentials anywhere.
+ */
+export async function shareBackup(): Promise<{ fileName: string; rows: number }> {
+  const snapshot = await buildSnapshot()
+  const { blob, gzipped } = await encodeBackup(snapshot)
+  const fileName = backupFileName(gzipped)
+  const rows = Object.values(snapshot.counts).reduce((a, b) => a + b, 0)
+
+  if (!Capacitor.isNativePlatform()) {
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = fileName
+    a.click()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+    await markBackedUp()
+    return { fileName, rows }
+  }
+
+  // Filesystem wants text, and a gzip blob is not text — base64 is the only
+  // encoding that survives the bridge intact.
+  const base64 = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result).split(',')[1] ?? '')
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(blob)
+  })
+
+  const written = await Filesystem.writeFile({
+    path: fileName,
+    data: base64,
+    directory: Directory.Cache,
+    recursive: true,
+  })
+
+  await Share.share({
+    title: 'Krishi Khata backup',
+    text: `Krishi Khata backup — ${rows} records`,
+    url: written.uri,
+    dialogTitle: 'Save your backup',
+  })
+
+  await markBackedUp()
+  return { fileName, rows }
+}
 
 export async function lastBackupAt(): Promise<string | null> {
   return getSetting(LAST_BACKUP_KEY)

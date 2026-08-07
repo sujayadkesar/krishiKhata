@@ -77,6 +77,13 @@ export const STRINGS = {
   /* entry form */
   'entry.head': { kn: 'ಬೆಳೆ / ಶೀರ್ಷಿಕೆ', en: 'Crop / Head' },
   'entry.subHead': { kn: 'ಉಪ ಶೀರ್ಷಿಕೆ', en: 'Sub-head' },
+  'entry.grade': { kn: 'ದರ್ಜೆ', en: 'Grade' },
+  'subhead.usedFor': { kn: 'ಯಾವುದಕ್ಕೆ', en: 'Used for' },
+  'subhead.incomeGrade': { kn: 'ಮಾರಾಟದ ದರ್ಜೆ', en: 'Sale grade' },
+  'subhead.belongsTo': { kn: 'ಯಾವ ಬೆಳೆಗೆ', en: 'Belongs to crop' },
+  'subhead.gradeOf': { kn: 'ದರ್ಜೆ ·', en: 'Grade of' },
+  'update.available': { kn: 'ಹೊಸ ಆವೃತ್ತಿ ಬಂದಿದೆ', en: 'New version available' },
+  'update.tapToGet': { kn: 'ಡೌನ್‌ಲೋಡ್ ಮಾಡಲು ಒತ್ತಿ', en: 'Tap to download and install' },
   'entry.activity': { kn: 'ಯಾವ ಕೆಲಸ', en: 'Work done' },
   'entry.account': { kn: 'ಖಾತೆ', en: 'Account' },
   'entry.accountIn': { kn: 'ಯಾವ ಖಾತೆಗೆ ಬಂತು', en: 'Received into' },
@@ -134,6 +141,21 @@ export const STRINGS = {
   'labour.longest': { kn: 'ಗರಿಷ್ಠ', en: 'longest' },
   'labour.waitingSince': { kn: 'ಇಂದಿನಿಂದ ಬಾಕಿ', en: 'Unpaid since' },
   'labour.days': { kn: 'ದಿನ', en: 'days' },
+  'labour.crewForTheDay': { kn: 'ಎಷ್ಟು ಜನ ಬಂದರು', en: 'Who came' },
+  'labour.men': { kn: 'ಗಂಡಸರು', en: 'Men' },
+  'labour.women': { kn: 'ಹೆಂಗಸರು', en: 'Women' },
+  'labour.menRate': { kn: 'ಗಂಡಸರ ಕೂಲಿ', en: 'Men’s wage' },
+  'labour.womenRate': { kn: 'ಹೆಂಗಸರ ಕೂಲಿ', en: 'Women’s wage' },
+  'labour.peopleTotal': { kn: 'ಜನ', en: 'people' },
+  'labour.perDay': { kn: 'ದಿನಕ್ಕೆ', en: 'per day' },
+  'labour.recordsWorkOnly': {
+    kn: 'ಇದು ಕೆಲಸ ಮಾತ್ರ ದಾಖಲಿಸುತ್ತದೆ. ಹಣ ಕೊಟ್ಟಾಗ ಖರ್ಚು ಆಗುತ್ತದೆ.',
+    en: 'This records work only. The expense appears when you pay.',
+  },
+  'labour.tapHint': {
+    kn: 'ಒಮ್ಮೆ ಒತ್ತಿ = ಪೂರ್ಣ ದಿನ, ಎರಡು ಬಾರಿ = ಅರ್ಧ ದಿನ',
+    en: 'Tap once for a full day, tap again for half a day',
+  },
   'labour.payExpenseNote': {
     kn: 'ಇದು ಇಂದಿನ ದಿನಾಂಕದ ಖರ್ಚಾಗಿ ದಾಖಲಾಗುತ್ತದೆ',
     en: 'This is what becomes an expense, dated today',
@@ -201,6 +223,11 @@ export const STRINGS = {
   'backup.restore': { kn: 'ಮರುಸ್ಥಾಪಿಸಿ', en: 'Restore' },
   'backup.signIn': { kn: 'Google ನಲ್ಲಿ ಸೈನ್ ಇನ್ ಮಾಡಿ', en: 'Sign in with Google' },
   'backup.signOut': { kn: 'ಸೈನ್ ಔಟ್', en: 'Sign out' },
+  'backup.shareHint': {
+    kn: 'Google Drive, WhatsApp ಅಥವಾ ಫೈಲ್ಸ್ — ಎಲ್ಲಿ ಬೇಕಾದರೂ ಉಳಿಸಿ',
+    en: 'Then pick Google Drive, WhatsApp or Files — wherever you want it kept',
+  },
+  'backup.otherWays': { kn: 'ಇತರ ವಿಧಾನಗಳು', en: 'Other ways' },
   'backup.explain': {
     kn: 'ನಿಮ್ಮ ಮಾಹಿತಿ ಫೋನಿನಲ್ಲೇ ಇರುತ್ತದೆ. ಬ್ಯಾಕಪ್ ಚಾಲು ಮಾಡಿದರೆ ನಿಮ್ಮದೇ Google Drive ಗೆ ಪ್ರತಿ ಹೋಗುತ್ತದೆ.',
     en: 'Your data stays on this phone. Turn on backup and a copy goes to your own Google Drive.',

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { CloudUpload, Download, Share2, RotateCcw, Check, TriangleAlert } from 'lucide-react'
+import { CloudUpload, Share2, RotateCcw, Check, TriangleAlert } from 'lucide-react'
 import { Page, Shell } from '@/components/Shell'
 import { Button, Card, Confirm, EmptyState, Field, ListRow, SectionHeader, Select, Switch } from '@/components/ui'
 import { useQuery } from '@/hooks/useQuery'
@@ -7,9 +7,9 @@ import { useI18n } from '@/i18n'
 import { back } from '@/router'
 import { setSetting } from '@/data/masterData'
 import {
-  BACKUP_ENABLED_KEY, BACKUP_FREQUENCY_KEY, backupEnabled, backupFileName,
-  backupFrequencyDays, buildSnapshot, decodeBackup, encodeBackup, lastBackupAt,
-  markBackedUp, restoreSnapshot,
+  BACKUP_ENABLED_KEY, BACKUP_FREQUENCY_KEY, backupEnabled, backupFrequencyDays,
+  backupFileName, buildSnapshot, decodeBackup, encodeBackup, lastBackupAt,
+  markBackedUp, restoreSnapshot, shareBackup,
 } from '@/data/backup'
 import {
   DriveNotConfigured, deleteBackup, downloadBackup, isDriveConfigured, isSignedIn,
@@ -90,11 +90,9 @@ export function BackupScreen() {
 
   const saveLocal = () =>
     run('local', async () => {
-      const snapshot = await buildSnapshot()
-      const { blob, gzipped } = await encodeBackup(snapshot)
-      download(blob, backupFileName(gzipped))
-      const rows = Object.values(snapshot.counts).reduce((a, b) => a + b, 0)
-      setMessage(`Saved a copy of ${rows} records to your device.`)
+      const { rows } = await shareBackup()
+      reload()
+      setMessage(`Backed up ${rows} records. Choose Drive to keep it safe off the phone.`)
     })
 
   const backupNow = () =>
@@ -183,16 +181,24 @@ export function BackupScreen() {
           </div>
         ) : null}
 
-        {/* Always available, no setup, no account. */}
+        {/* The recommended route: no account, no setup, and Drive is one of the
+            choices the share sheet already offers. */}
+        <button
+          onClick={() => void saveLocal()}
+          disabled={!!busy}
+          className="w-full rounded-xl py-4 font-semibold text-white text-lg flex items-center justify-center gap-2"
+          style={{ background: 'var(--color-brand-500)', opacity: busy ? 0.5 : 1 }}
+        >
+          <CloudUpload size={20} />
+          {busy === 'local' ? t('common.loading') : t('backup.now')}
+        </button>
+        <p className="text-center text-xs -mt-2" style={{ color: 'var(--text-faint)' }}>
+          {t('backup.shareHint')}
+        </p>
+
         <div>
-          <SectionHeader>Save a copy</SectionHeader>
+          <SectionHeader>{t('backup.otherWays')}</SectionHeader>
           <Card>
-            <ListRow
-              title="Save to this device"
-              subtitle="A single file you can keep, or send on WhatsApp"
-              leading={<Download size={19} style={{ color: 'var(--color-brand-600)' }} />}
-              onClick={() => void saveLocal()}
-            />
             <label className="w-full flex items-center gap-3 px-4 py-3 cursor-pointer">
               <RotateCcw size={19} style={{ color: 'var(--color-brand-600)' }} />
               <span className="flex-1 text-left">

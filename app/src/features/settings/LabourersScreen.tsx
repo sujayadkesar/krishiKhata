@@ -30,6 +30,7 @@ interface Draft {
   is_group_lead: Bool
   daily_rate_paise: number | null
   half_day_rate_paise: number | null
+  female_rate_paise: number | null
   typical_group_size: string
   note: string
 }
@@ -37,7 +38,7 @@ interface Draft {
 const blank = (): Draft => ({
   name_en: '', name_kn: '', phone: '', village: '',
   is_group_lead: 0, daily_rate_paise: null, half_day_rate_paise: null,
-  typical_group_size: '', note: '',
+  female_rate_paise: null, typical_group_size: '', note: '',
 })
 
 export function LabourersScreen() {
@@ -62,6 +63,7 @@ export function LabourersScreen() {
       is_group_lead: draft.is_group_lead,
       daily_rate_paise: draft.daily_rate_paise ?? 0,
       half_day_rate_paise: draft.half_day_rate_paise,
+      female_rate_paise: draft.female_rate_paise,
       typical_group_size: draft.is_group_lead && Number.isFinite(size) ? size : null,
       note: draft.note.trim() || null,
     })
@@ -118,6 +120,7 @@ export function LabourersScreen() {
           is_group_lead: l.is_group_lead,
           daily_rate_paise: l.daily_rate_paise,
           half_day_rate_paise: l.half_day_rate_paise,
+          female_rate_paise: l.female_rate_paise,
           typical_group_size: l.typical_group_size ? String(l.typical_group_size) : '',
           note: l.note ?? '',
         })
@@ -210,6 +213,18 @@ export function LabourersScreen() {
                 onChange={(p) => setDraft({ ...draft, daily_rate_paise: p })}
               />
             </Field>
+
+            {draft.is_group_lead === 1 ? (
+              <Field
+                label={t('labour.womenRate')}
+                hint="Crews are usually mixed and the two rates differ. Still editable on each day's entry."
+              >
+                <MoneyInput
+                  paise={draft.female_rate_paise}
+                  onChange={(p) => setDraft({ ...draft, female_rate_paise: p })}
+                />
+              </Field>
+            ) : null}
 
             <Field
               label={t('labour.halfDayRate')}

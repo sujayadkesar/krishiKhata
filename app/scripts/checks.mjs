@@ -20,8 +20,9 @@ import {
 } from '../src/lib/date.ts'
 import {
   perPersonWagePaise, attendanceAmountPaise, daysFromFractions, personDaysFromRows,
-  matchFifo, balancePaise, balanceState, splitByHead,
+  matchFifo, balancePaise, balanceState, splitByHead, crewWagePaise, crewSize,
 } from '../src/lib/labour.ts'
+import { isNewer } from '../src/lib/updates.ts'
 
 let passed = 0
 const failures = []
@@ -117,6 +118,17 @@ eq(attendanceAmountPaise(500, 50000, null, 12), 300000, 'labour: group, half day
 eq(attendanceAmountPaise(1000, 50000, null, 1), 50000, 'labour: individual')
 // Rounding is per person, then multiplied — matching how it is worked out aloud.
 eq(attendanceAmountPaise(500, 33333, null, 12), 200004, 'labour: rounds per person, not per crew')
+
+// A crew of 6 men at ₹500 and 4 women at ₹400 = 3000 + 1600 = ₹4,600
+eq(crewWagePaise(1000, 6, 50000, 4, 40000), 460000, 'crew: mixed crew full day')
+eq(crewWagePaise(500, 6, 50000, 4, 40000), 230000, 'crew: mixed crew half day')
+eq(crewWagePaise(1000, 10, 50000, 0, 0), 500000, 'crew: all male')
+eq(crewWagePaise(1000, 0, 0, 3, 40000), 120000, 'crew: all female')
+eq(crewWagePaise(1000, 0, 50000, 0, 40000), 0, 'crew: nobody came')
+// Odd rate halves per person, then multiplies — not the other way round.
+eq(crewWagePaise(500, 3, 33333, 0, 0), 50001, 'crew: rounds per person, not per crew')
+eq(crewSize(6, 4), 10, 'crew: size')
+eq(crewSize(-1, 4), 4, 'crew: negative counts ignored')
 
 eq(daysFromFractions([1000, 1000, 500]), 2.5, 'labour: half day counts as half')
 eq(
@@ -222,6 +234,15 @@ eq(balanceState(0), 'settled', 'balance: settled')
   eq(byHead.get('pepper'), 30000, 'split: pepper labour')
   eq(unallocated, 10000, 'split: work with no crop is its own line, not dropped')
 }
+
+/* --------------------------------------------------------- updates ------ */
+
+ok(isNewer('1.0.1', '1.0.0'), 'update: patch bump')
+ok(isNewer('v1.1.0', '1.0.9'), 'update: leading v tolerated')
+ok(isNewer('1.2.10', '1.2.9'), 'update: compared numerically, not as strings')
+ok(!isNewer('1.0.0', '1.0.0'), 'update: same version is not newer')
+ok(!isNewer('0.9.9', '1.0.0'), 'update: older is not newer')
+ok(isNewer('1.0', '0.9.9'), 'update: short version still compares')
 
 /* ------------------------------------------------------------------------ */
 

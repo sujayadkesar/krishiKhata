@@ -58,9 +58,21 @@ export const listUnits = (includeInactive = false) =>
 export const listHeads = (includeInactive = false) =>
   all<Head>(`SELECT * FROM heads ${activeClause(includeInactive)} ORDER BY sort_order, name_en;`)
 
+/**
+ * Expense sub-heads: the global ones plus any scoped to a crop.
+ * Grades (income-only) are excluded — see `listGrades`.
+ */
 export const listSubHeads = (includeInactive = false) =>
   all<SubHead>(
-    `SELECT * FROM sub_heads ${activeClause(includeInactive)} ORDER BY sort_order, name_en;`,
+    `SELECT * FROM sub_heads
+      WHERE used_for IN ('expense', 'both') ${includeInactive ? '' : 'AND is_active = 1'}
+      ORDER BY sort_order, name_en;`,
+  )
+
+/** Every sub-head, grades included — for the Settings list. */
+export const listAllSubHeads = (includeInactive = false) =>
+  all<SubHead>(
+    `SELECT * FROM sub_heads ${activeClause(includeInactive)} ORDER BY used_for, sort_order, name_en;`,
   )
 
 export const listActivities = (includeInactive = false) =>
@@ -181,14 +193,22 @@ export interface SubHeadInput {
   name_en: string
   name_kn: string
   is_labour: Bool
+  /** Scopes a grade to one crop. Null keeps it global. */
+  head_id?: string | null
+  used_for?: 'income' | 'expense' | 'both'
 }
 
 export async function saveSubHead(input: SubHeadInput): Promise<string> {
   const ts = nowISO()
+  const headId = input.head_id ?? null
+  const usedFor = input.used_for ?? 'expense'
+
   if (input.id) {
-    await run('UPDATE sub_heads SET name_en=?, name_kn=?, is_labour=?, updated_at=? WHERE id=?;', [
-      input.name_en, input.name_kn, input.is_labour, ts, input.id,
-    ])
+    await run(
+      `UPDATE sub_heads SET name_en=?, name_kn=?, is_labour=?, head_id=?, used_for=?, updated_at=?
+       WHERE id=?;`,
+      [input.name_en, input.name_kn, input.is_labour, headId, usedFor, ts, input.id],
+    )
     await logChange('sub_heads', input.id, 'update', input.name_en)
     notifyDataChanged()
     return input.id
@@ -196,14 +216,33 @@ export async function saveSubHead(input: SubHeadInput): Promise<string> {
 
   const id = newId()
   await run(
-    `INSERT INTO sub_heads (id, name_en, name_kn, is_labour, is_active, sort_order, created_at, updated_at)
-     VALUES (?, ?, ?, ?, 1, ?, ?, ?);`,
-    [id, input.name_en, input.name_kn, input.is_labour, await nextOrder('sub_heads'), ts, ts],
+    `INSERT INTO sub_heads
+       (id, name_en, name_kn, is_labour, head_id, used_for, is_active, sort_order, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?);`,
+    [
+      id, input.name_en, input.name_kn, input.is_labour, headId, usedFor,
+      await nextOrder('sub_heads'), ts, ts,
+    ],
   )
   await logChange('sub_heads', id, 'create', input.name_en)
   notifyDataChanged()
   return id
 }
+
+/**
+ * The grades a crop is sold in — "First class", "Second class".
+ *
+ * Returns only sub-heads scoped to this head, because a grade belongs to its
+ * crop; a global expense sub-head like Fertilizer has no business appearing
+ * when recording a sale.
+ */
+export const listGrades = (headId: string) =>
+  all<SubHead>(
+    `SELECT * FROM sub_heads
+      WHERE is_active = 1 AND head_id = ? AND used_for IN ('income', 'both')
+      ORDER BY sort_order, name_en;`,
+    [headId],
+  )
 
 export interface ActivityInput {
   id?: string
@@ -244,6 +283,7 @@ export interface LabourerInput {
   is_group_lead: Bool
   daily_rate_paise: number
   half_day_rate_paise: number | null
+  female_rate_paise: number | null
   typical_group_size: number | null
   note: string | null
 }
@@ -255,12 +295,13 @@ export async function saveLabourer(input: LabourerInput): Promise<string> {
     // carry their own snapshot and must not be touched — see CLAUDE.md rule 6.
     await run(
       `UPDATE labourers SET name_en=?, name_kn=?, phone=?, village=?, is_group_lead=?,
-              daily_rate_paise=?, half_day_rate_paise=?, typical_group_size=?, note=?, updated_at=?
+              daily_rate_paise=?, half_day_rate_paise=?, female_rate_paise=?,
+              typical_group_size=?, note=?, updated_at=?
        WHERE id=?;`,
       [
         input.name_en, input.name_kn, input.phone, input.village, input.is_group_lead,
-        input.daily_rate_paise, input.half_day_rate_paise, input.typical_group_size,
-        input.note, ts, input.id,
+        input.daily_rate_paise, input.half_day_rate_paise, input.female_rate_paise,
+        input.typical_group_size, input.note, ts, input.id,
       ],
     )
     await logChange('labourers', input.id, 'update', input.name_en)
@@ -272,12 +313,13 @@ export async function saveLabourer(input: LabourerInput): Promise<string> {
   await run(
     `INSERT INTO labourers
        (id, name_en, name_kn, phone, village, is_group_lead, daily_rate_paise,
-        half_day_rate_paise, typical_group_size, note, is_active, sort_order, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?);`,
+        half_day_rate_paise, female_rate_paise, typical_group_size, note,
+        is_active, sort_order, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?);`,
     [
       id, input.name_en, input.name_kn, input.phone, input.village, input.is_group_lead,
-      input.daily_rate_paise, input.half_day_rate_paise, input.typical_group_size,
-      input.note, await nextOrder('labourers'), ts, ts,
+      input.daily_rate_paise, input.half_day_rate_paise, input.female_rate_paise,
+      input.typical_group_size, input.note, await nextOrder('labourers'), ts, ts,
     ],
   )
   await logChange('labourers', id, 'create', input.name_en)

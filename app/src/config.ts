@@ -38,3 +38,12 @@ export const DRIVE_FOLDER_NAME = 'Krishi Khata Backups'
 
 /** How many backups to keep in Drive before the oldest are removed. */
 export const BACKUP_RETENTION = 12
+
+/**
+ * Where the app looks for new versions, as "owner/repo".
+ *
+ * GitHub's releases API is public and needs no key, so this is the whole
+ * update mechanism: tag a release with the APK attached and every phone offers
+ * it on next launch. Set to '' to switch update checking off entirely.
+ */
+export const UPDATE_REPO = 'sujayadkesar/krishiKhata'

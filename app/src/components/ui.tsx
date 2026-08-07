@@ -347,11 +347,21 @@ export function ChipSingle<T extends string>({
   value,
   onChange,
   colorOf,
+  onAdd,
+  allowClear,
 }: {
   options: { value: T; label: string }[]
   value: T | null
-  onChange: (v: T) => void
+  onChange: (v: T | null) => void
   colorOf?: (v: T) => string | undefined
+  /**
+   * Shows a "+" that jumps to Settings. Realising mid-entry that a crop or a
+   * grade is missing is common, and without this the farmer has to abandon
+   * what they were typing to go and find the right screen.
+   */
+  onAdd?: () => void
+  /** Tapping the selected chip again clears it. */
+  allowClear?: boolean
 }) {
   return (
     <div className="flex flex-wrap gap-2">
@@ -361,7 +371,7 @@ export function ChipSingle<T extends string>({
         return (
           <button
             key={o.value}
-            onClick={() => onChange(o.value)}
+            onClick={() => onChange(on && allowClear ? null : o.value)}
             className="rounded-full px-3.5 py-2 text-sm font-medium border"
             style={{
               minHeight: 42,
@@ -374,6 +384,22 @@ export function ChipSingle<T extends string>({
           </button>
         )
       })}
+
+      {onAdd ? (
+        <button
+          onClick={onAdd}
+          aria-label="Add"
+          className="rounded-full px-3.5 py-2 text-sm font-semibold border border-dashed"
+          style={{
+            minHeight: 42,
+            borderColor: 'var(--color-brand-400)',
+            color: 'var(--color-brand-600)',
+            background: 'transparent',
+          }}
+        >
+          +
+        </button>
+      ) : null}
     </div>
   )
 }

@@ -1,7 +1,7 @@
 import { all, one, run, tx } from '@/db/db'
 import { newId } from '@/lib/ids'
 import { notifyDataChanged } from '@/hooks/useQuery'
-import { attendanceAmountPaise, matchFifo } from '@/lib/labour'
+import { attendanceAmountPaise, crewSize, crewWagePaise, matchFifo } from '@/lib/labour'
 import type { Alloc, OpenPayment, OpenWork } from '@/lib/labour'
 import type { Bool, ISODate, PaymentMode } from '@/db/types'
 
@@ -29,11 +29,18 @@ export interface WorkDay {
   date: ISODate
   /** FULL_DAY (1000) or HALF_DAY (500). */
   day_fraction: number
-  group_size: number
   is_group: Bool
   /** Snapshotted from the labourer at entry time. Never re-read later. */
   daily_rate_paise: number
   half_day_rate_paise: number | null
+  /**
+   * A crew, split by the rates actually paid. For an individual this is
+   * simply one person on the male side; group_size and amount are derived.
+   */
+  male_count: number
+  female_count: number
+  male_rate_paise: number
+  female_rate_paise: number
   member_names?: string | null
 }
 
@@ -64,20 +71,33 @@ export async function saveWorkSession(input: WorkSessionInput): Promise<string> 
     )
 
     for (const d of input.days) {
-      const amount = attendanceAmountPaise(
-        d.day_fraction,
-        d.daily_rate_paise,
-        d.half_day_rate_paise,
-        d.group_size,
-      )
+      const size = crewSize(d.male_count, d.female_count)
+
+      // An individual with no explicit split is one person at their own rate,
+      // which is exactly what the crew formula gives for 1 male and 0 female —
+      // except where they have a separate half-day rate agreed, which only
+      // applies to individuals and wins.
+      const amount =
+        d.is_group || size !== 1 || d.female_count > 0
+          ? crewWagePaise(
+              d.day_fraction,
+              d.male_count,
+              d.male_rate_paise,
+              d.female_count,
+              d.female_rate_paise,
+            )
+          : attendanceAmountPaise(d.day_fraction, d.daily_rate_paise, d.half_day_rate_paise, 1)
+
       await exec(
         `INSERT INTO attendance
-           (id, work_session_id, labourer_id, date, is_group, group_size, member_names,
-            day_fraction, rate_paise, amount_paise, head_id, activity_id, note,
-            is_deleted, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 0, ?, ?);`,
+           (id, work_session_id, labourer_id, date, is_group, group_size,
+            male_count, female_count, male_rate_paise, female_rate_paise,
+            member_names, day_fraction, rate_paise, amount_paise, head_id,
+            activity_id, note, is_deleted, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 0, ?, ?);`,
         [
-          newId(), sessionId, d.labourer_id, d.date, d.is_group, d.group_size,
+          newId(), sessionId, d.labourer_id, d.date, d.is_group, Math.max(1, size),
+          d.male_count, d.female_count, d.male_rate_paise, d.female_rate_paise,
           d.member_names ?? null, d.day_fraction, d.daily_rate_paise, amount,
           input.head_id, input.activity_id, ts, ts,
         ],
