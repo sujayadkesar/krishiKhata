@@ -9,7 +9,9 @@
     "check": "vite-node scripts/checks.mjs",
     "lint": "oxlint",
     "preview": "vite preview",
-    "sync": "npm run build && cap sync android"
+    "sync": "npm run build && cap sync android",
+    "apk": "npm run sync && cd android && gradlew assembleDebug",
+    "apk:release": "npm run sync && cd android && gradlew assembleRelease"
   },
   "dependencies": {
     "@capacitor-community/sqlite": "^8.1.1",
