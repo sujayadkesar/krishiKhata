@@ -71,6 +71,14 @@ jobs:
         working-directory: app
         run: npx cap sync android
 
+      # Git on Windows does not record the executable bit, so gradlew can be
+      # committed as mode 100644 and the Linux runner then refuses to run it
+      # ("Permission denied", exit 126). The bit is set correctly in the repo
+      # now; this keeps the build working even if a future Windows commit
+      # drops it again.
+      - name: Make gradlew executable
+        run: chmod +x app/android/gradlew
+
       - name: Decide build type
         id: decide
         run: |
