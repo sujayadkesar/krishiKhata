@@ -477,6 +477,182 @@ export function attendanceInMonth(
 }
 
 /* ------------------------------------------------------------------ *
+ * The khata book view
+ * ------------------------------------------------------------------ */
+
+export type LedgerKind = 'work' | 'payment' | 'return'
+
+export interface LedgerRow {
+  id: string
+  kind: LedgerKind
+  date: ISODate
+  /** What the labourer earned that day (work), else 0. */
+  credit_paise: number
+  /** What was handed over (payment), negative for money coming back. */
+  debit_paise: number
+  running_balance_paise: number
+  label: string
+  detail: string
+  day_fraction?: number
+  group_size?: number
+}
+
+/**
+ * Everything that happened, oldest first, with a running balance — the way a
+ * khata book actually reads.
+ *
+ * Work and money are separate tables by design, but the farmer and the
+ * labourer settle up by running a finger down one column. Interleaving them
+ * here is a reporting concern only; nothing about the underlying separation
+ * changes.
+ */
+export async function labourLedger(labourerId: string): Promise<LedgerRow[]> {
+  const [work, payments] = await Promise.all([
+    attendanceFor(labourerId, 2000),
+    paymentsFor(labourerId, 2000),
+  ])
+
+  const rows: Omit<LedgerRow, 'running_balance_paise'>[] = [
+    ...work.map((w) => ({
+      id: w.id,
+      kind: 'work' as const,
+      date: w.date,
+      credit_paise: w.amount_paise,
+      debit_paise: 0,
+      label: 'work',
+      detail: [w.head_name_en, w.activity_name_en].filter(Boolean).join(' · '),
+      day_fraction: w.day_fraction,
+      group_size: w.group_size,
+    })),
+    ...payments.map((p) => ({
+      id: p.id,
+      kind: (p.direction === 'in' ? 'return' : 'payment') as LedgerKind,
+      date: p.date,
+      credit_paise: p.direction === 'in' ? p.amount_paise : 0,
+      debit_paise: p.direction === 'in' ? 0 : p.amount_paise,
+      label: p.direction === 'in' ? 'return' : p.is_advance ? 'advance' : 'payment',
+      detail: p.note ?? '',
+    })),
+  ]
+
+  rows.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.id < b.id ? -1 : 1))
+
+  let balance = 0
+  return rows.map((r) => {
+    // Earning raises what is owed; money handed over lowers it; money coming
+    // back raises it again.
+    balance += r.kind === 'work' ? r.credit_paise : r.kind === 'return' ? r.credit_paise : -r.debit_paise
+    return { ...r, running_balance_paise: balance }
+  })
+}
+
+/** Work grouped by crop, for the per-labourer chart. */
+export interface LabourerCropRow {
+  head_id: string | null
+  name_en: string | null
+  name_kn: string | null
+  color: string | null
+  person_days: number
+  earned_paise: number
+}
+
+export const workByCropFor = (labourerId: string) =>
+  all<LabourerCropRow>(
+    `SELECT a.head_id, h.name_en, h.name_kn, h.color,
+            SUM(a.day_fraction * a.group_size) / 1000.0 AS person_days,
+            SUM(a.amount_paise) AS earned_paise
+       FROM attendance a
+       LEFT JOIN heads h ON h.id = a.head_id
+      WHERE a.labourer_id = ? AND a.is_deleted = 0
+      GROUP BY a.head_id
+      ORDER BY earned_paise DESC;`,
+    [labourerId],
+  )
+
+/** Month-by-month work against money, for the per-labourer trend. */
+export interface LabourerMonthRow {
+  month: string
+  earned: number
+  paid: number
+  days: number
+}
+
+export async function monthlyFor(labourerId: string): Promise<LabourerMonthRow[]> {
+  const earned = await all<{ month: string; earned: number; days: number }>(
+    `SELECT substr(date, 1, 7) AS month, SUM(amount_paise) AS earned,
+            SUM(day_fraction) / 1000.0 AS days
+       FROM attendance WHERE labourer_id = ? AND is_deleted = 0
+      GROUP BY month;`,
+    [labourerId],
+  )
+  const paid = await all<{ month: string; paid: number }>(
+    `SELECT substr(date, 1, 7) AS month,
+            SUM(CASE WHEN direction = 'in' THEN -amount_paise ELSE amount_paise END) AS paid
+       FROM labour_payments WHERE labourer_id = ? AND is_deleted = 0
+      GROUP BY month;`,
+    [labourerId],
+  )
+
+  const months = new Map<string, LabourerMonthRow>()
+  for (const e of earned) {
+    months.set(e.month, { month: e.month, earned: e.earned, paid: 0, days: e.days })
+  }
+  for (const p of paid) {
+    const row = months.get(p.month)
+    if (row) row.paid = p.paid
+    else months.set(p.month, { month: p.month, earned: 0, paid: p.paid, days: 0 })
+  }
+
+  return [...months.values()].sort((a, b) => a.month.localeCompare(b.month))
+}
+
+/**
+ * How long the farm typically takes to pay this person.
+ *
+ * The gap between working and being paid is the thing a labourer actually
+ * feels, and the thing that decides whether they come back next season.
+ */
+export interface PaymentGap {
+  averageDays: number | null
+  longestDays: number | null
+  unpaidOldest: ISODate | null
+  unpaidDays: number | null
+}
+
+export async function paymentGapFor(labourerId: string): Promise<PaymentGap> {
+  const open = await openWork(labourerId)
+  const settled = await all<{ worked: ISODate; paid: ISODate }>(
+    `SELECT a.date AS worked, p.date AS paid
+       FROM payment_allocations pa
+       JOIN attendance a      ON a.id = pa.attendance_id AND a.is_deleted = 0
+       JOIN labour_payments p ON p.id = pa.payment_id AND p.is_deleted = 0
+      WHERE a.labourer_id = ?;`,
+    [labourerId],
+  )
+
+  // Only days where the money came AFTER the work count as a wait. An advance
+  // settles work that had not happened yet, which would otherwise report as a
+  // negative gap — "usually paid after -2 days" is nonsense to read.
+  const gaps = settled
+    .map((s) =>
+      Math.round((new Date(s.paid).getTime() - new Date(s.worked).getTime()) / 86_400_000),
+    )
+    .filter((d) => d >= 0)
+
+  const oldest = open.length ? open[0].date : null
+  const today = new Date()
+
+  return {
+    averageDays: gaps.length ? Math.round(gaps.reduce((a, b) => a + b, 0) / gaps.length) : null,
+    longestDays: gaps.length ? Math.max(...gaps) : null,
+    unpaidOldest: oldest,
+    unpaidDays: oldest
+      ? Math.round((today.getTime() - new Date(oldest).getTime()) / 86_400_000)
+      : null,
+  }
+}
+
+/* ------------------------------------------------------------------ *
  * Cash-basis crop attribution
  * ------------------------------------------------------------------ */
 

@@ -141,14 +141,31 @@ const ENTRY_SELECT = `
     LEFT JOIN units      u  ON u.id  = e.unit_id
 `
 
+export type EntrySort = 'date-desc' | 'date-asc' | 'amount-desc' | 'amount-asc'
+
 export interface EntryFilter {
   kind?: EntryKind
   headId?: string
+  subHeadId?: string
+  activityId?: string
   accountId?: string
+  unitId?: string
   from?: ISODate
   to?: ISODate
+  minPaise?: number
+  maxPaise?: number
   search?: string
+  sort?: EntrySort
   limit?: number
+}
+
+const ORDER_BY: Record<EntrySort, string> = {
+  // created_at breaks the tie so two entries on one day keep the order they
+  // were typed in, which is the order the farmer remembers them in.
+  'date-desc': 'e.date DESC, e.created_at DESC',
+  'date-asc': 'e.date ASC, e.created_at ASC',
+  'amount-desc': 'e.amount_paise DESC, e.date DESC',
+  'amount-asc': 'e.amount_paise ASC, e.date DESC',
 }
 
 export async function listEntries(filter: EntryFilter = {}): Promise<EntryRow[]> {
@@ -163,9 +180,29 @@ export async function listEntries(filter: EntryFilter = {}): Promise<EntryRow[]>
     where.push('e.head_id = ?')
     params.push(filter.headId)
   }
+  if (filter.subHeadId) {
+    where.push('e.sub_head_id = ?')
+    params.push(filter.subHeadId)
+  }
+  if (filter.activityId) {
+    where.push('e.activity_id = ?')
+    params.push(filter.activityId)
+  }
+  if (filter.unitId) {
+    where.push('e.unit_id = ?')
+    params.push(filter.unitId)
+  }
   if (filter.accountId) {
     where.push('(e.account_id = ? OR e.to_account_id = ?)')
     params.push(filter.accountId, filter.accountId)
+  }
+  if (filter.minPaise != null) {
+    where.push('e.amount_paise >= ?')
+    params.push(filter.minPaise)
+  }
+  if (filter.maxPaise != null) {
+    where.push('e.amount_paise <= ?')
+    params.push(filter.maxPaise)
   }
   if (filter.from) {
     where.push('e.date >= ?')
@@ -181,13 +218,36 @@ export async function listEntries(filter: EntryFilter = {}): Promise<EntryRow[]>
     params.push(like, like)
   }
 
-  // created_at breaks the tie so two entries on one day keep the order they
-  // were typed in, which is the order the farmer remembers them in.
   const sql = `${ENTRY_SELECT} WHERE ${where.join(' AND ')}
-               ORDER BY e.date DESC, e.created_at DESC
+               ORDER BY ${ORDER_BY[filter.sort ?? 'date-desc']}
                LIMIT ${Math.max(1, Math.min(filter.limit ?? 200, 2000))};`
 
   return all<EntryRow>(sql, params)
+}
+
+/**
+ * How many filters are narrowing the list.
+ *
+ * Lives here rather than beside the filter sheet so that file exports only
+ * components — mixing the two breaks Fast Refresh, and the last time that
+ * happened it crashed every screen below the provider until a full reload.
+ */
+export function activeFilterCount(f: EntryFilter): number {
+  return [
+    f.headId, f.subHeadId, f.activityId, f.accountId, f.unitId,
+    f.from, f.to, f.minPaise, f.maxPaise,
+  ].filter((v) => v != null && v !== '').length
+}
+
+/** The totals for whatever the current filter matches. */
+export async function filteredTotals(
+  filter: EntryFilter,
+): Promise<{ count: number; total: number }> {
+  const rows = await listEntries({ ...filter, limit: 2000 })
+  return {
+    count: rows.length,
+    total: rows.reduce((s, r) => s + r.amount_paise, 0),
+  }
 }
 
 export async function getEntry(id: string): Promise<EntryRow | null> {

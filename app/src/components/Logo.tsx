@@ -97,20 +97,20 @@ export function Wordmark({
 }: {
   size?: number
   tone?: 'colour' | 'mono'
-  lang?: 'kn' | 'en'
+  lang?: 'kn' | 'en' | 'both'
 }) {
+  // The wordmark always shows both names stacked, so 'both' needs no special
+  // case — it only decides which one leads.
+  const knLeads = lang !== 'en'
   return (
     <span className="inline-flex items-center gap-2.5">
       <Logo size={size} tone={tone} />
       <span className="leading-none">
         <span className="block font-semibold" style={{ fontSize: size * 0.5 }}>
-          {lang === 'kn' ? 'ಕೃಷಿ ಖಾತೆ' : 'Krishi Khata'}
+          {knLeads ? 'ಕೃಷಿ ಖಾತೆ' : 'Krishi Khata'}
         </span>
-        <span
-          className="block"
-          style={{ fontSize: size * 0.3, color: 'var(--text-faint)' }}
-        >
-          {lang === 'kn' ? 'Krishi Khata' : 'ಕೃಷಿ ಖಾತೆ'}
+        <span className="block" style={{ fontSize: size * 0.3, color: 'var(--text-faint)' }}>
+          {knLeads ? 'Krishi Khata' : 'ಕೃಷಿ ಖಾತೆ'}
         </span>
       </span>
     </span>

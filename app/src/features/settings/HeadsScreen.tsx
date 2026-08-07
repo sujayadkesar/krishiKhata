@@ -167,7 +167,7 @@ export function HeadsScreen() {
               <ChipMulti
                 options={(units ?? []).map((u) => ({
                   value: u.id,
-                  label: `${nameOf(u)} (${lang === 'kn' ? u.short_kn : u.short_en})`,
+                  label: `${nameOf(u)} (${lang === 'en' ? u.short_en : u.short_kn})`,
                 }))}
                 selected={new Set(draft.unitIds)}
                 onToggle={toggleUnit}

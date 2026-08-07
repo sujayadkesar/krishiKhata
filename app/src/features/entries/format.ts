@@ -15,7 +15,7 @@ export const formatDate = fmtDate
 export function formatQuantityLabel(e: EntryRow, lang: Lang): string {
   if (e.quantity_milli == null) return ''
 
-  const unit = (lang === 'kn' ? e.unit_short_kn : e.unit_short_en) ?? ''
+  const unit = (lang === 'en' ? e.unit_short_en : e.unit_short_kn) ?? ''
   const qty = `${formatQuantity(e.quantity_milli)}${unit ? ' ' + unit : ''}`
 
   if (e.rate_paise == null) return qty

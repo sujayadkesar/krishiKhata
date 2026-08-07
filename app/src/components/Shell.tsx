@@ -49,7 +49,8 @@ export function Shell({
   onBack?: () => void
 }) {
   const path = usePath()
-  const { t } = useI18n()
+  // `ts` not `t`: five bottom-nav labels have no room for "ಮುಖಪುಟ · Home".
+  const { t, ts } = useI18n()
 
   return (
     <div className="min-h-dvh flex flex-col">
@@ -134,7 +135,7 @@ export function Shell({
                       className="text-[11px] leading-tight"
                       style={{ fontWeight: active ? 600 : 400 }}
                     >
-                      {t(item.label)}
+                      {ts(item.label)}
                     </span>
                   </button>
                 </li>

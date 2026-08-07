@@ -15,9 +15,14 @@ import type { Lang, StringKey } from './strings'
 export interface I18nValue {
   lang: Lang
   setLang: (l: Lang) => void
+  /** Full label. In 'both' mode this is "ಕನ್ನಡ · English". */
   t: (key: StringKey) => string
+  /** Leading language only — for bottom-nav labels and other tight spots. */
+  ts: (key: StringKey) => string
   /** Pick the right column off a master-data row. */
   nameOf: (row: { name_en: string; name_kn: string } | null | undefined) => string
+  /** Leading language only, for a master-data row. */
+  nameShort: (row: { name_en: string; name_kn: string } | null | undefined) => string
 }
 
 export const I18nContext = createContext<I18nValue | null>(null)

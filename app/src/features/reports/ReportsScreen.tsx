@@ -128,7 +128,7 @@ export function ReportsScreen() {
 
   const title = (id: ReportId) => {
     const r = REPORTS.find((x) => x.id === id)!
-    return lang === 'kn' ? r.kn : r.en
+    return lang === 'en' ? r.en : lang === 'both' ? `${r.kn} · ${r.en}` : r.kn
   }
 
   async function build(id: ReportId): Promise<string> {
@@ -268,7 +268,7 @@ export function ReportsScreen() {
             {REPORTS.map((r) => (
               <ListRow
                 key={r.id}
-                title={lang === 'kn' ? r.kn : r.en}
+                title={lang === 'en' ? r.en : lang === 'both' ? `${r.kn} · ${r.en}` : r.kn}
                 subtitle={r.hint}
                 leading={<r.icon size={19} style={{ color: 'var(--color-brand-600)' }} />}
                 right={<ChevronRight size={16} style={{ color: 'var(--text-faint)' }} />}

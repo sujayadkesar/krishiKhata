@@ -41,7 +41,7 @@ export function FarmProfileScreen() {
           <Input
             value={form.farm_name}
             onChange={(v) => setForm({ ...form, farm_name: v })}
-            placeholder="ಶ್ರೀ ಗುರು ತೋಟ"
+            placeholder="ತೋಟದ ಹೆಸರು"
           />
         </Field>
 
@@ -49,7 +49,7 @@ export function FarmProfileScreen() {
           <Input
             value={form.owner_name}
             onChange={(v) => setForm({ ...form, owner_name: v })}
-            placeholder="ಸುಜಯ್"
+            placeholder="ರೈತರ ಹೆಸರು"
           />
         </Field>
 
@@ -86,9 +86,9 @@ export function FarmProfileScreen() {
               className="mt-3 pt-3 border-t"
               style={{ borderColor: 'var(--border)' }}
             >
-              <p className="font-semibold">{form.farm_name || 'Farm name'}</p>
+              <p className="font-semibold">{form.farm_name || 'ತೋಟದ ಹೆಸರು'}</p>
               <p className="text-sm" style={{ color: 'var(--text-soft)' }}>
-                {form.owner_name || 'Farmer name'}
+                {form.owner_name || 'ರೈತರ ಹೆಸರು'}
               </p>
             </div>
           </div>

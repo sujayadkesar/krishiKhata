@@ -42,7 +42,7 @@ function letterhead(ctx: DocContext, title: string): string {
 
   // The farm's own name leads. Krishi Khata made the document, but it is the
   // farmer's statement, not the app's advertisement.
-  const farm = profile.farm_name || (lang === 'kn' ? 'ತೋಟದ ಹೆಸರು' : 'Farm name')
+  const farm = profile.farm_name || L(lang, 'ತೋಟದ ಹೆಸರು', 'Farm name')
   const contact = [profile.village, profile.phone].filter(Boolean).map(escapeHtml).join(' · ')
 
   return `
@@ -92,7 +92,7 @@ function bar(value: number, max: number, tone: 'income' | 'expense' = 'income'):
 }
 
 function footer(lang: Lang): string {
-  const generated = lang === 'kn' ? 'ತಯಾರಿಸಿದ ದಿನಾಂಕ' : 'Generated'
+  const generated = L(lang, 'ತಯಾರಿಸಿದ ದಿನಾಂಕ', 'Generated')
   const today = formatDate(new Date().toISOString().slice(0, 10), lang)
   return `<div class="foot"><span>${escapeHtml(generated)}: ${escapeHtml(today)}</span>
           <span>ಕೃಷಿ ಖಾತೆ · Krishi Khata</span></div>`
@@ -107,11 +107,11 @@ function footer(lang: Lang): string {
  */
 function outstandingNote(outstanding: number, lang: Lang): string {
   if (outstanding <= 0) return ''
-  const text =
-    lang === 'kn'
-      ? `ಈ ಲೆಕ್ಕವು ಕೊಟ್ಟ ಹಣವನ್ನು ಮಾತ್ರ ತೋರಿಸುತ್ತದೆ. ಇನ್ನೂ ಕೊಡಬೇಕಾದ ಕೂಲಿ: ${formatINR(outstanding, { decimals: false })}`
-      : `These figures count wages only when they were paid. Wages earned but still unpaid: ${formatINR(outstanding, { decimals: false })}`
-  return `<div class="note">${escapeHtml(text)}</div>`
+  const amount = formatINR(outstanding, { decimals: false })
+  const kn = `ಈ ಲೆಕ್ಕವು ಕೊಟ್ಟ ಹಣವನ್ನು ಮಾತ್ರ ತೋರಿಸುತ್ತದೆ. ಇನ್ನೂ ಕೊಡಬೇಕಾದ ಕೂಲಿ: ${amount}`
+  const en = `These figures count wages only when they were paid. Wages earned but still unpaid: ${amount}`
+  const text = lang === 'en' ? en : lang === 'both' ? `${kn}\n${en}` : kn
+  return `<div class="note">${escapeHtml(text).replace(/\n/g, '<br>')}</div>`
 }
 
 function table(
@@ -139,7 +139,14 @@ function table(
   return `<table><thead><tr>${th}</tr></thead><tbody>${body}</tbody>${tfoot}</table>`
 }
 
-const L = (lang: Lang, kn: string, en: string) => (lang === 'kn' ? kn : en)
+/**
+ * A label in the document's language.
+ *
+ * In 'both' mode every heading carries both, because a statement is exactly
+ * the thing a farmer hands to someone who reads the other language.
+ */
+const L = (lang: Lang, kn: string, en: string) =>
+  lang === 'en' ? en : lang === 'both' ? `${kn} · ${en}` : kn
 
 /* ------------------------------------------------------------------ *
  * Income & Expense statement
@@ -214,7 +221,7 @@ export function incomeExpenseDoc(
 
 export function cropProfitDoc(ctx: DocContext, rows: CropRow[], outstanding: number): string {
   const { lang } = ctx
-  const unit = (r: CropRow) => (lang === 'kn' ? r.unit_short_kn : r.unit_short_en) ?? ''
+  const unit = (r: CropRow) => (lang === 'en' ? r.unit_short_en : r.unit_short_kn) ?? ''
 
   const totals = {
     income: rows.reduce((s, r) => s + r.income_paise, 0),

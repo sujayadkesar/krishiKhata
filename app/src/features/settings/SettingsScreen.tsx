@@ -44,14 +44,14 @@ export function SettingsScreen() {
 
         <div>
           <SectionHeader>{t('set.language')}</SectionHeader>
-          <div className="grid grid-cols-2 gap-2.5">
+          <div className="grid grid-cols-3 gap-2">
             {LANGS.map((l) => {
               const on = l.id === lang
               return (
                 <button
                   key={l.id}
                   onClick={() => setLang(l.id)}
-                  className="card p-4 font-semibold flex items-center justify-center gap-2"
+                  className="card px-2 py-3.5 text-sm font-semibold flex flex-col items-center justify-center gap-1.5 text-center leading-tight"
                   style={{
                     borderColor: on ? 'var(--color-brand-500)' : 'var(--border)',
                     background: on ? 'var(--color-brand-50)' : 'var(--surface-raised)',

@@ -154,7 +154,8 @@ export function AddEntryScreen() {
 
   const accountOptions = (accounts ?? []).map((a) => ({ value: a.id, label: nameOf(a) }))
   const unit = headUnits?.find((u) => u.unit_id === unitId)
-  const unitShort = unit ? (lang === 'kn' ? unit.short_kn : unit.short_en) : ''
+  // Unit codes stay single-language — "ಕೆ.ಜಿ · kg" inside a field suffix is noise.
+  const unitShort = unit ? (lang === 'en' ? unit.short_en : unit.short_kn) : ''
 
   return (
     <Shell title={t('nav.add')}>
@@ -218,7 +219,7 @@ export function AddEntryScreen() {
                 <ChipSingle
                   options={headUnits.map((u) => ({
                     value: u.unit_id,
-                    label: `${nameOf(u)} (${lang === 'kn' ? u.short_kn : u.short_en})`,
+                    label: `${nameOf(u)} (${lang === 'en' ? u.short_en : u.short_kn})`,
                   }))}
                   value={unitId}
                   onChange={setUnitId}

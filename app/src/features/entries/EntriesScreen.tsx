@@ -3,7 +3,9 @@ import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Search } from 'lucide-reac
 import { Page, Shell } from '@/components/Shell'
 import { Card, EmptyState, Input } from '@/components/ui'
 import { useQuery } from '@/hooks/useQuery'
-import { listEntries } from '@/data/entries'
+import { activeFilterCount, listEntries } from '@/data/entries'
+import type { EntryFilter } from '@/data/entries'
+import { EntryFilterSheet, FilterButton } from './EntryFilters'
 import { useI18n } from '@/i18n'
 import { formatDate, formatQuantityLabel } from './format'
 import { formatRupees } from '@/lib/money'
@@ -35,12 +37,22 @@ type Filter = 'all' | EntryKind
 
 export function EntriesScreen() {
   const { t, lang, nameOf } = useI18n()
-  const [filter, setFilter] = useState<Filter>('all')
+  const [kind, setKind] = useState<Filter>('all')
   const [search, setSearch] = useState('')
+  const [filters, setFilters] = useState<EntryFilter>({ sort: 'date-desc' })
+  const [filterOpen, setFilterOpen] = useState(false)
 
-  const { data, loading } = useQuery(
-    () => listEntries({ kind: filter === 'all' ? undefined : filter, search, limit: 400 }),
-    [filter, search],
+  const query = useMemo<EntryFilter>(
+    () => ({ ...filters, kind: kind === 'all' ? undefined : kind, search, limit: 500 }),
+    [filters, kind, search],
+  )
+
+  const { data, loading } = useQuery(() => listEntries(query), [JSON.stringify(query)])
+
+  const shown = data ?? []
+  const shownTotal = shown.reduce(
+    (s, e) => s + (e.kind === 'expense' ? -e.amount_paise : e.kind === 'income' ? e.amount_paise : 0),
+    0,
   )
 
   const groups = useMemo(() => {
@@ -84,12 +96,12 @@ export function EntriesScreen() {
       <Page>
         <div className="grid grid-cols-4 gap-2">
           {(['all', 'income', 'expense', 'transfer'] as Filter[]).map((f) => {
-            const on = filter === f
+            const on = kind === f
             const colour = f === 'all' ? 'var(--color-brand-600)' : COLOR[f]
             return (
               <button
                 key={f}
-                onClick={() => setFilter(f)}
+                onClick={() => setKind(f)}
                 className="rounded-xl py-2.5 text-sm font-semibold border"
                 style={{
                   borderColor: on ? colour : 'var(--border)',
@@ -103,16 +115,42 @@ export function EntriesScreen() {
           })}
         </div>
 
-        <div className="relative">
-          <Search
-            size={17}
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
-            style={{ color: 'var(--text-faint)' }}
-          />
-          <div className="[&_input]:pl-10">
-            <Input value={search} onChange={setSearch} placeholder={t('common.search')} />
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search
+              size={17}
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10"
+              style={{ color: 'var(--text-faint)' }}
+            />
+            <div className="[&_input]:pl-10">
+              <Input value={search} onChange={setSearch} placeholder={t('common.search')} />
+            </div>
           </div>
+          <FilterButton count={activeFilterCount(filters)} onClick={() => setFilterOpen(true)} />
         </div>
+
+        {/* What the current filter adds up to. Scrolling a filtered list to
+            total it by eye is exactly what a ledger should save you from. */}
+        {shown.length > 0 ? (
+          <div
+            className="flex items-center justify-between px-1 text-xs"
+            style={{ color: 'var(--text-faint)' }}
+          >
+            <span>
+              {shown.length} {t('nav.entries')}
+            </span>
+            <span className="tnum font-semibold" style={{ color: 'var(--text-soft)' }}>
+              {t('dash.net')} {formatRupees(shownTotal)}
+            </span>
+          </div>
+        ) : null}
+
+        <EntryFilterSheet
+          open={filterOpen}
+          filter={filters}
+          onChange={setFilters}
+          onClose={() => setFilterOpen(false)}
+        />
 
         {loading ? (
           <EmptyState>{t('common.loading')}</EmptyState>

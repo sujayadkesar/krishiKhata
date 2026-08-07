@@ -108,10 +108,14 @@ const MONTHS_EN_FULL = [
 export const WEEKDAYS_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 export const WEEKDAYS_KN = ['ಭಾನು', 'ಸೋಮ', 'ಮಂಗಳ', 'ಬುಧ', 'ಗುರು', 'ಶುಕ್ರ', 'ಶನಿ']
 
-export type Lang = 'kn' | 'en'
+/**
+ * Mirrors the i18n language, but a date is never printed twice.
+ * "06 ಆಗಸ್ಟ್ 2026 · 06 Aug 2026" helps nobody, so 'both' follows Kannada.
+ */
+export type Lang = 'kn' | 'en' | 'both'
 
 export function monthName(monthIndex: number, lang: Lang, full = false): string {
-  if (lang === 'kn') return MONTHS_KN[monthIndex]
+  if (lang !== 'en') return MONTHS_KN[monthIndex]
   return full ? MONTHS_EN_FULL[monthIndex] : MONTHS_EN[monthIndex]
 }
 
@@ -129,7 +133,7 @@ export function formatMonth(iso: ISODate, lang: Lang = 'kn'): string {
 
 export function weekdayName(iso: ISODate, lang: Lang = 'kn'): string {
   const i = fromISODate(iso).getDay()
-  return lang === 'kn' ? WEEKDAYS_KN[i] : WEEKDAYS_EN[i]
+  return lang === 'en' ? WEEKDAYS_EN[i] : WEEKDAYS_KN[i]
 }
 
 /* ------------------------------------------------------------------ *

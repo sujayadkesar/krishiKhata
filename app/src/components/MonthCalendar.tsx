@@ -47,7 +47,8 @@ export function MonthCalendar({
   onMonthChange: (year: number, monthIndex: number) => void
 }) {
   const { lang } = useI18n()
-  const weekdays = lang === 'kn' ? WEEKDAYS_KN : WEEKDAYS_EN
+  // Weekday initials stay single-language: a calendar cell has no room for two.
+  const weekdays = lang === 'en' ? WEEKDAYS_EN : WEEKDAYS_KN
   const cells = calendarGrid(year, monthIndex)
 
   // Long-press without hijacking the tap: a timer that the tap cancels.

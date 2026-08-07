@@ -383,7 +383,7 @@ export function HomeScreen() {
   )
 }
 
-/** "2026-08" -> "Aug" / "ಆಗಸ್ಟ್", for a crowded axis. */
+/** "2026-08" -> "Aug" / "ಆಗಸ್ಟ್". Single-language always: a chart axis has no room. */
 function shortMonth(ym: string, lang: Lang): string {
   const [y, m] = ym.split('-').map(Number)
   return formatMonth(`${y}-${String(m).padStart(2, '0')}-01`, lang).split(' ')[0]

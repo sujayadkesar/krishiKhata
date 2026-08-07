@@ -10,12 +10,24 @@
  * one-handed, outdoors, often in sunlight.
  */
 
-export type Lang = 'kn' | 'en'
+/**
+ * 'both' shows Kannada and English together, separated by a middle dot.
+ *
+ * It exists because a farm is rarely one person: the farmer reads Kannada, a
+ * son or an accountant may read English, and being able to hand the phone
+ * across without changing a setting is worth the extra width.
+ */
+export type Lang = 'kn' | 'en' | 'both'
 
 export const LANGS: { id: Lang; label: string }[] = [
   { id: 'kn', label: 'ಕನ್ನಡ' },
   { id: 'en', label: 'English' },
+  { id: 'both', label: 'ಕನ್ನಡ + English' },
 ]
+
+/** The language whose text leads in 'both' mode. */
+export type BaseLang = 'kn' | 'en'
+export const primaryOf = (lang: Lang): BaseLang => (lang === 'en' ? 'en' : 'kn')
 
 type Entry = { kn: string; en: string }
 
@@ -114,6 +126,14 @@ export const STRINGS = {
   'labour.payOut': { kn: 'ಹಣ ಕೊಟ್ಟೆ', en: 'I paid them' },
   'labour.payIn': { kn: 'ಹಣ ವಾಪಸ್ ಬಂತು', en: 'They returned money' },
   'labour.returned': { kn: 'ವಾಪಸ್', en: 'Returned' },
+  'labour.advanceHeld': { kn: 'ಮುಂಗಡ ಇಟ್ಟಿದ್ದಾರೆ', en: 'They hold your advance' },
+  'labour.workDay': { kn: 'ಕೆಲಸ', en: 'Worked' },
+  'labour.workByCrop': { kn: 'ಬೆಳೆವಾರು ಕೆಲಸ', en: 'Work by crop' },
+  'labour.earnedVsPaid': { kn: 'ಗಳಿಕೆ ಮತ್ತು ಪಾವತಿ', en: 'Earned against paid' },
+  'labour.avgGap': { kn: 'ಸರಾಸರಿ ಪಾವತಿ ಅಂತರ', en: 'Usually paid after' },
+  'labour.longest': { kn: 'ಗರಿಷ್ಠ', en: 'longest' },
+  'labour.waitingSince': { kn: 'ಇಂದಿನಿಂದ ಬಾಕಿ', en: 'Unpaid since' },
+  'labour.days': { kn: 'ದಿನ', en: 'days' },
   'labour.payExpenseNote': {
     kn: 'ಇದು ಇಂದಿನ ದಿನಾಂಕದ ಖರ್ಚಾಗಿ ದಾಖಲಾಗುತ್ತದೆ',
     en: 'This is what becomes an expense, dated today',
@@ -190,5 +210,14 @@ export const STRINGS = {
 export type StringKey = keyof typeof STRINGS
 
 export function translate(key: StringKey, lang: Lang): string {
-  return STRINGS[key][lang]
+  const entry = STRINGS[key]
+  if (lang === 'both') {
+    return entry.kn === entry.en ? entry.kn : `${entry.kn} · ${entry.en}`
+  }
+  return entry[lang]
+}
+
+/** Just the leading language — for bottom-nav labels and other tight spots. */
+export function translateShort(key: StringKey, lang: Lang): string {
+  return STRINGS[key][primaryOf(lang)]
 }
