@@ -131,20 +131,46 @@ export function openWork(labourerId: string): Promise<OpenWorkRow[]> {
   )
 }
 
-/** Payments with money not yet tied to any work day — advances, in effect. */
-export function openPayments(labourerId: string): Promise<OpenPayment[]> {
-  return all<OpenPayment>(
+/**
+ * Payments with money not yet tied to any work day — advances, in effect.
+ *
+ * Money the labourer has handed BACK is subtracted from that pool, newest
+ * advance first. Without this, repaying an advance in cash would leave the app
+ * still believing it was holding money on the farm's behalf, and it would
+ * silently absorb the next few days of work the labourer had already been paid
+ * back for.
+ */
+export async function openPayments(labourerId: string): Promise<OpenPayment[]> {
+  const advances = await all<OpenPayment>(
     `SELECT * FROM (
        SELECT p.id AS payment_id, p.date,
               p.amount_paise - COALESCE(
                 (SELECT SUM(pa.amount_paise) FROM payment_allocations pa
                   WHERE pa.payment_id = p.id), 0) AS unallocated_paise
          FROM labour_payments p
-        WHERE p.labourer_id = ? AND p.is_deleted = 0
+        WHERE p.labourer_id = ? AND p.is_deleted = 0 AND p.direction = 'out'
      ) WHERE unallocated_paise > 0
      ORDER BY date, payment_id;`,
     [labourerId],
   )
+
+  const returned = await one<{ total: number }>(
+    `SELECT COALESCE(SUM(amount_paise), 0) AS total FROM labour_payments
+      WHERE labourer_id = ? AND is_deleted = 0 AND direction = 'in';`,
+    [labourerId],
+  )
+
+  let toAbsorb = returned?.total ?? 0
+  if (toAbsorb <= 0) return advances
+
+  // Newest first: the most recent advance is the one being repaid.
+  for (let i = advances.length - 1; i >= 0 && toAbsorb > 0; i--) {
+    const take = Math.min(advances[i].unallocated_paise, toAbsorb)
+    advances[i].unallocated_paise -= take
+    toAbsorb -= take
+  }
+
+  return advances.filter((a) => a.unallocated_paise > 0)
 }
 
 async function writeAllocations(allocs: Alloc[]): Promise<void> {
@@ -180,6 +206,8 @@ export async function settleOutstanding(labourerId: string): Promise<Alloc[]> {
  * Paying
  * ------------------------------------------------------------------ */
 
+export type PaymentDirection = 'out' | 'in'
+
 export interface PaymentInput {
   labourer_id: string
   date: ISODate
@@ -189,6 +217,8 @@ export interface PaymentInput {
   note: string | null
   /** The sub-head the resulting expense is filed under (a labour one). */
   sub_head_id: string | null
+  /** 'out' pays the labourer; 'in' records money they handed back. */
+  direction?: PaymentDirection
 }
 
 /**
@@ -207,26 +237,34 @@ export async function recordPayment(input: PaymentInput): Promise<string> {
   const ts = nowISO()
   const paymentId = newId()
   const entryId = newId()
+  const direction: PaymentDirection = input.direction ?? 'out'
+  const amount = Math.abs(Math.round(input.amount_paise))
 
   const outstandingBefore = await openWork(input.labourer_id)
   const totalOutstanding = outstandingBefore.reduce((s, w) => s + w.unpaid_paise, 0)
   // Money handed over with no work waiting for it is an advance. This is a
   // label only — the arithmetic is the same either way.
-  const isAdvance: Bool = totalOutstanding <= 0 ? 1 : 0
+  const isAdvance: Bool = direction === 'out' && totalOutstanding <= 0 ? 1 : 0
+
+  /**
+   * Money coming BACK is a negative expense, not income.
+   *
+   * A returned advance reduces what the farm spent on labour; calling it
+   * income would inflate the crop takings with money that was never earned.
+   * Recording it negative also means every existing SUM keeps working
+   * untouched: expense totals net down, and the cash balance — which
+   * subtracts expenses — goes up by the right amount.
+   *
+   * This is the one place a negative amount_paise is written, and it is
+   * always paired with a labour_payment_id.
+   */
+  const entryAmount = direction === 'in' ? -amount : amount
 
   await tx(async (exec) => {
-    await exec(
-      `INSERT INTO labour_payments
-         (id, labourer_id, date, account_id, amount_paise, mode, is_advance, note,
-          entry_id, is_deleted, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?);`,
-      [
-        paymentId, input.labourer_id, input.date, input.account_id,
-        Math.abs(Math.round(input.amount_paise)), input.mode, isAdvance,
-        input.note, entryId, ts, ts,
-      ],
-    )
-
+    // The ENTRY first. labour_payments.entry_id has a foreign key onto
+    // entries(id), so writing the payment first fails with "FOREIGN KEY
+    // constraint failed" and no payment can ever be saved. entries has no
+    // matching constraint back, so this order is the safe one.
     await exec(
       `INSERT INTO entries
          (id, kind, date, head_id, sub_head_id, activity_id, account_id, to_account_id,
@@ -235,7 +273,18 @@ export async function recordPayment(input: PaymentInput): Promise<string> {
        VALUES (?, 'expense', ?, NULL, ?, NULL, ?, NULL, NULL, NULL, NULL, ?, NULL, ?, NULL, ?, 0, ?, ?);`,
       [
         entryId, input.date, input.sub_head_id, input.account_id,
-        Math.abs(Math.round(input.amount_paise)), input.note, paymentId, ts, ts,
+        entryAmount, input.note, paymentId, ts, ts,
+      ],
+    )
+
+    await exec(
+      `INSERT INTO labour_payments
+         (id, labourer_id, date, account_id, amount_paise, mode, is_advance, note,
+          entry_id, direction, is_deleted, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?);`,
+      [
+        paymentId, input.labourer_id, input.date, input.account_id,
+        amount, input.mode, isAdvance, input.note, entryId, direction, ts, ts,
       ],
     )
   })
@@ -333,7 +382,11 @@ export function labourBalances(includeInactive = false): Promise<LabourBalanceRo
            FROM attendance WHERE is_deleted = 0 GROUP BY labourer_id
        ) w ON w.labourer_id = l.id
        LEFT JOIN (
-         SELECT labourer_id, SUM(amount_paise) AS paid, MAX(date) AS last_paid_on
+         -- Net of anything handed back, so a repaid advance stops counting
+         -- as money the labourer has had.
+         SELECT labourer_id,
+                SUM(CASE WHEN direction = 'in' THEN -amount_paise ELSE amount_paise END) AS paid,
+                MAX(date) AS last_paid_on
            FROM labour_payments WHERE is_deleted = 0 GROUP BY labourer_id
        ) p ON p.labourer_id = l.id
       ${includeInactive ? '' : 'WHERE l.is_active = 1'}
@@ -381,6 +434,7 @@ export interface PaymentRow {
   amount_paise: number
   mode: PaymentMode
   is_advance: Bool
+  direction: PaymentDirection
   note: string | null
   account_name_en: string | null
   account_name_kn: string | null
@@ -389,7 +443,7 @@ export interface PaymentRow {
 
 export function paymentsFor(labourerId: string, limit = 400): Promise<PaymentRow[]> {
   return all<PaymentRow>(
-    `SELECT p.id, p.date, p.amount_paise, p.mode, p.is_advance, p.note,
+    `SELECT p.id, p.date, p.amount_paise, p.mode, p.is_advance, p.direction, p.note,
             a.name_en AS account_name_en, a.name_kn AS account_name_kn,
             COALESCE((SELECT SUM(pa.amount_paise) FROM payment_allocations pa
                        WHERE pa.payment_id = p.id), 0) AS allocated_paise
@@ -462,7 +516,9 @@ export async function totalOutstandingWages(): Promise<number> {
     `SELECT COALESCE(SUM(earned), 0) - COALESCE(SUM(paid), 0) AS total FROM (
        SELECT COALESCE((SELECT SUM(amount_paise) FROM attendance
                          WHERE labourer_id = l.id AND is_deleted = 0), 0) AS earned,
-              COALESCE((SELECT SUM(amount_paise) FROM labour_payments
+              COALESCE((SELECT SUM(CASE WHEN direction = 'in' THEN -amount_paise
+                                        ELSE amount_paise END)
+                          FROM labour_payments
                          WHERE labourer_id = l.id AND is_deleted = 0), 0) AS paid
          FROM labourers l
      );`,

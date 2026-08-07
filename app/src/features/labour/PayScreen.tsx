@@ -11,6 +11,7 @@ import { matchFifo } from '@/lib/labour'
 import { formatDate, todayISO } from '@/lib/date'
 import { back } from '@/router'
 import type { PaymentMode } from '@/db/types'
+import type { PaymentDirection } from '@/data/labour'
 
 /**
  * Paying wages.
@@ -31,6 +32,8 @@ export function PayScreen({ labourerId }: { labourerId?: string }) {
   const [mode, setMode] = useState<PaymentMode>('cash')
   const [note, setNote] = useState('')
   const [saved, setSaved] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [direction, setDirection] = useState<PaymentDirection>('out')
 
   const { data: labourers } = useQuery(() => listLabourers(false), [])
   const { data: accounts } = useQuery(() => listAccounts(false), [])
@@ -54,6 +57,8 @@ export function PayScreen({ labourerId }: { labourerId?: string }) {
    * how a preview becomes a lie.
    */
   const preview = useMemo(() => {
+    // Money coming back settles nothing — it reduces an advance already held.
+    if (direction === 'in') return { allocs: [], advance: 0 }
     if (!amountPaise || !outstanding?.length) return { allocs: [], advance: amountPaise ?? 0 }
     const allocs = matchFifo(
       [{ payment_id: 'preview', date, unallocated_paise: amountPaise }],
@@ -61,23 +66,32 @@ export function PayScreen({ labourerId }: { labourerId?: string }) {
     )
     const used = allocs.reduce((s, a) => s + a.amount_paise, 0)
     return { allocs, advance: amountPaise - used }
-  }, [amountPaise, outstanding, date])
+  }, [amountPaise, outstanding, date, direction])
 
   const valid = !!selectedId && !!amountPaise && amountPaise > 0 && !!accountId
 
   async function submit() {
     if (!valid) return
+    setError(null)
     const labourSubHead = (subHeads ?? []).find((s) => s.is_labour === 1)?.id ?? null
 
-    await recordPayment({
-      labourer_id: selectedId!,
-      date,
-      account_id: accountId!,
-      amount_paise: amountPaise!,
-      mode,
-      note: note.trim() || null,
-      sub_head_id: labourSubHead,
-    })
+    try {
+      await recordPayment({
+        labourer_id: selectedId!,
+        date,
+        account_id: accountId!,
+        amount_paise: amountPaise!,
+        mode,
+        note: note.trim() || null,
+        sub_head_id: labourSubHead,
+        direction,
+      })
+    } catch (err) {
+      // Silence here is what made this look like the app simply refusing to
+      // save. Whatever went wrong, the farmer should see it.
+      setError(err instanceof Error ? err.message : String(err))
+      return
+    }
 
     setAmountPaise(null)
     setNote('')
@@ -90,6 +104,34 @@ export function PayScreen({ labourerId }: { labourerId?: string }) {
   return (
     <Shell title={t('labour.pay')} onBack={back} right={<span />}>
       <Page>
+        {/* Money moves both ways in a khata. A labourer who took an advance
+            often returns part of it in cash rather than working it off, and
+            with no way to record that the balance stays wrong forever. */}
+        <div className="grid grid-cols-2 gap-2">
+          {(
+            [
+              ['out', t('labour.payOut'), 'var(--color-expense)'],
+              ['in', t('labour.payIn'), 'var(--color-income)'],
+            ] as [PaymentDirection, string, string][]
+          ).map(([dir, label, colour]) => {
+            const on = direction === dir
+            return (
+              <button
+                key={dir}
+                onClick={() => setDirection(dir)}
+                className="rounded-xl py-3 font-semibold text-sm border"
+                style={{
+                  borderColor: on ? colour : 'var(--border)',
+                  background: on ? colour : 'var(--surface-raised)',
+                  color: on ? '#fff' : 'var(--text-soft)',
+                }}
+              >
+                {label}
+              </button>
+            )
+          })}
+        </div>
+
         <Field label={t('labour.payTo')}>
           <Select
             value={selectedId}
@@ -202,23 +244,37 @@ export function PayScreen({ labourerId }: { labourerId?: string }) {
           <TextArea value={note} onChange={setNote} />
         </Field>
 
+        {error ? (
+          <div
+            className="card p-3 text-sm"
+            style={{ background: 'var(--color-expense-soft)', color: 'var(--color-expense)' }}
+          >
+            {error}
+          </div>
+        ) : null}
+
         <div className="sticky bottom-2">
           <button
             onClick={submit}
             disabled={!valid}
             className="w-full rounded-xl py-4 font-semibold text-white text-lg flex items-center justify-center gap-2"
-            style={{ background: 'var(--color-expense)', opacity: valid ? 1 : 0.45 }}
+            style={{
+              background: direction === 'in' ? 'var(--color-income)' : 'var(--color-expense)',
+              opacity: valid ? 1 : 0.45,
+            }}
           >
             {saved ? (
               <>
                 <Check size={20} /> {t('entry.saved')}
               </>
             ) : (
-              `${t('labour.pay')} ${amountPaise ? formatRupees(amountPaise) : ''}`
+              `${direction === 'in' ? t('labour.payIn') : t('labour.pay')} ${
+                amountPaise ? formatRupees(amountPaise) : ''
+              }`
             )}
           </button>
           <p className="text-center text-xs mt-2" style={{ color: 'var(--text-faint)' }}>
-            This is what becomes an expense, dated today.
+            {direction === 'in' ? t('labour.repayNote') : t('labour.payExpenseNote')}
           </p>
         </div>
       </Page>

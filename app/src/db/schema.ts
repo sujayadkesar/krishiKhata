@@ -11,7 +11,7 @@
  * about what the table looks like. Add a new migration instead.
  */
 
-export const SCHEMA_VERSION = 1
+export const SCHEMA_VERSION = 2
 
 const V1 = `
 CREATE TABLE IF NOT EXISTS settings (
@@ -217,5 +217,22 @@ CREATE TABLE IF NOT EXISTS change_log (
 CREATE INDEX IF NOT EXISTS idx_changelog_at ON change_log(at);
 `
 
+/**
+ * Money can move BACK from a labourer.
+ *
+ * A farmhand who took an advance sometimes repays it in cash rather than
+ * working it off, and the khata has to show that. Without a direction, the
+ * only way to record it would be a second, negative payment, which makes every
+ * balance query carry a sign convention it can get wrong.
+ *
+ * 'out' — the farm paid the labourer (wages or an advance).
+ * 'in'  — the labourer handed money back.
+ */
+const V2 = `
+ALTER TABLE labour_payments ADD COLUMN direction TEXT NOT NULL DEFAULT 'out';
+
+CREATE INDEX IF NOT EXISTS idx_pay_direction ON labour_payments(labourer_id, direction);
+`
+
 /** Index in this array + 1 is the version it produces. Append only. */
-export const MIGRATIONS: string[] = [V1]
+export const MIGRATIONS: string[] = [V1, V2]

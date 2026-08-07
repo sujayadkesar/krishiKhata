@@ -111,6 +111,17 @@ export const STRINGS = {
   'labour.balance': { kn: 'ಬಾಕಿ', en: 'Balance' },
   'labour.outstanding': { kn: 'ಬಾಕಿ ಕೂಲಿ', en: 'Unpaid wages' },
   'labour.payTo': { kn: 'ಯಾರಿಗೆ ಕೊಡಬೇಕು', en: 'Pay to' },
+  'labour.payOut': { kn: 'ಹಣ ಕೊಟ್ಟೆ', en: 'I paid them' },
+  'labour.payIn': { kn: 'ಹಣ ವಾಪಸ್ ಬಂತು', en: 'They returned money' },
+  'labour.returned': { kn: 'ವಾಪಸ್', en: 'Returned' },
+  'labour.payExpenseNote': {
+    kn: 'ಇದು ಇಂದಿನ ದಿನಾಂಕದ ಖರ್ಚಾಗಿ ದಾಖಲಾಗುತ್ತದೆ',
+    en: 'This is what becomes an expense, dated today',
+  },
+  'labour.repayNote': {
+    kn: 'ಮುಂಗಡ ತೆಗೆದುಕೊಂಡು ವಾಪಸ್ ಕೊಟ್ಟರೆ ಇಲ್ಲಿ ದಾಖಲಿಸಿ',
+    en: 'Use this when they hand back money from an advance',
+  },
   'labour.settles': { kn: 'ಈ ದಿನಗಳಿಗೆ ಸಂದಾಯ', en: 'Settles these days' },
   'labour.advanceNote': {
     kn: 'ಕೆಲಸ ಇಲ್ಲದೆ ಕೊಟ್ಟ ಹಣ ಮುಂಗಡವಾಗಿ ಉಳಿಯುತ್ತದೆ',
