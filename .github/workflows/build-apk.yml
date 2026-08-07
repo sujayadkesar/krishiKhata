@@ -109,15 +109,18 @@ jobs:
           keyPassword=$KEY_PASSWORD
           EOF
 
+      # Invoked as `sh gradlew`, not `./gradlew`. The wrapper is a POSIX shell
+      # script, so running it through sh ignores the executable bit entirely —
+      # which is the one thing Git on Windows cannot be relied on to preserve.
       - name: Build release APK
         if: steps.decide.outputs.type == 'release'
         working-directory: app/android
-        run: ./gradlew assembleRelease --no-daemon --stacktrace
+        run: sh gradlew assembleRelease --no-daemon --stacktrace
 
       - name: Build debug APK
         if: steps.decide.outputs.type == 'debug'
         working-directory: app/android
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+        run: sh gradlew assembleDebug --no-daemon --stacktrace
 
       # The signing material must not outlive the job, even on a private runner.
       - name: Shred signing material
