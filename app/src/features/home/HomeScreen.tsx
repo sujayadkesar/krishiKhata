@@ -4,10 +4,11 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
 import {
-  TrendingUp, TrendingDown, Users, Plus, CalendarPlus, Wallet, CloudUpload, Download,
+  Users, Plus, CalendarPlus, Wallet, CloudUpload, Download,
+  IndianRupee, ReceiptText, ChartColumn,
 } from 'lucide-react'
 import { Page, Shell } from '@/components/Shell'
-import { Card, EmptyState, SectionHeader } from '@/components/ui'
+import { Card, EmptyState, QuickLink, SectionHeader, StatTile } from '@/components/ui'
 import { useQuery } from '@/hooks/useQuery'
 import {
   accountBalances, expenseTotalsBySubHead, monthlyTotals, totalsByHead, totalsByKind,
@@ -70,41 +71,6 @@ async function load() {
     backupDue,
     lastBackup,
   }
-}
-
-function Stat({
-  label,
-  value,
-  tone,
-  icon: Icon,
-}: {
-  label: string
-  value: string
-  tone: 'income' | 'expense' | 'neutral'
-  icon?: typeof TrendingUp
-}) {
-  const colour =
-    tone === 'income'
-      ? 'var(--color-income)'
-      : tone === 'expense'
-        ? 'var(--color-expense)'
-        : 'var(--text)'
-  return (
-    <div className="card p-3.5">
-      <div className="flex items-center gap-1.5 mb-1">
-        {Icon ? <Icon size={14} style={{ color: colour }} /> : null}
-        <span className="text-[11px] font-semibold" style={{ color: 'var(--text-soft)' }}>
-          {label}
-        </span>
-      </div>
-      {/* Three tiles across a 360px screen leaves roughly 100px each, which
-          full Indian grouping overflows the moment a figure passes a lakh —
-          "₹2,77,..." is worse than useless. Compact keeps it whole. */}
-      <div className="text-lg font-semibold tnum" style={{ color: colour }}>
-        {value}
-      </div>
-    </div>
-  )
 }
 
 const axisStyle = { fontSize: 11, fill: 'var(--text-faint)' }
@@ -226,58 +192,61 @@ export function HomeScreen() {
           </button>
         ) : null}
 
-        <SectionHeader>
-          {t('dash.thisMonth')} · {formatMonth(todayISO(), lang)}
-        </SectionHeader>
-
-        <div className="grid grid-cols-3 gap-2.5">
-          <Stat
-            label={t('dash.income')}
-            value={loading ? '—' : formatCompactINR(data?.income ?? 0)}
-            tone="income"
-            icon={TrendingUp}
-          />
-          <Stat
-            label={t('dash.expense')}
-            value={loading ? '—' : formatCompactINR(data?.expense ?? 0)}
-            tone="expense"
-            icon={TrendingDown}
-          />
-          <Stat
-            label={t('dash.net')}
-            value={loading ? '—' : formatCompactINR(net)}
-            tone={net < 0 ? 'expense' : 'neutral'}
-          />
-        </div>
-
-        {/* Paid and owed sit side by side deliberately: on a cash basis the
-            books show only what has been paid, and the farmer must be able to
-            see what is still hanging over them without going looking. */}
-        <div className="grid grid-cols-2 gap-2.5">
+        {/* Two large actions, first thing. Recording is what the app is for,
+            and it happens standing up with one hand; everything else is
+            reference and can wait below. */}
+        <div className="grid grid-cols-2 gap-3">
           <button
-            onClick={() => navigate('/labour')}
-            className="card p-3.5 text-left"
-            aria-label={t('labour.owed')}
+            onClick={() => navigate('/add')}
+            className="flex flex-col items-center justify-center gap-2.5 rounded-2xl px-4 py-8 text-white active:scale-[.98] transition"
+            style={{ background: 'var(--color-brand-500)' }}
           >
-            <span className="text-[11px] font-semibold block" style={{ color: 'var(--text-soft)' }}>
-              {t('labour.outstanding')}
-            </span>
-            <span
-              className="text-lg font-semibold tnum block"
-              style={{ color: owed > 0 ? 'var(--color-expense)' : 'var(--text-faint)' }}
-            >
-              {loading ? '—' : formatCompactINR(owed)}
-            </span>
+            <Plus size={36} strokeWidth={1.8} />
+            <span className="text-lg font-bold">{t('nav.add')}</span>
           </button>
-          <div className="card p-3.5">
-            <span className="text-[11px] font-semibold block" style={{ color: 'var(--text-soft)' }}>
-              {t('labour.daysWorked')}
-            </span>
-            <span className="text-lg font-semibold tnum block">
-              {loading ? '—' : daysThisMonth}
-            </span>
-          </div>
+          <button
+            onClick={() => navigate('/labour/work')}
+            className="card flex flex-col items-center justify-center gap-2.5 rounded-2xl px-4 py-8 active:scale-[.98] transition"
+            style={{ color: 'var(--color-brand-700)' }}
+          >
+            <CalendarPlus size={36} strokeWidth={1.8} />
+            <span className="text-lg font-bold">{t('labour.workShort')}</span>
+          </button>
         </div>
+
+        <section>
+          <SectionHeader>
+            {t('dash.thisMonth')} · {formatMonth(todayISO(), lang)}
+          </SectionHeader>
+          <div className="grid grid-cols-2 gap-2.5">
+            <StatTile
+              label={t('dash.income')}
+              value={loading ? '—' : formatCompactINR(data?.income ?? 0)}
+              sub={t('dash.sales')}
+              tone="income"
+            />
+            <StatTile
+              label={t('dash.expense')}
+              value={loading ? '—' : formatCompactINR(data?.expense ?? 0)}
+              sub={t('dash.spent')}
+              tone="expense"
+            />
+            <StatTile
+              label={t('dash.net')}
+              value={loading ? '—' : formatCompactINR(net)}
+              tone={net < 0 ? 'expense' : 'income'}
+            />
+            {/* Owed sits beside net deliberately: on a cash basis the books
+                show only what has been paid, so unpaid wages would otherwise
+                be invisible until somebody turns up asking. */}
+            <StatTile
+              label={t('labour.outstanding')}
+              value={loading ? '—' : formatCompactINR(owed)}
+              sub={`${daysThisMonth} ${t('labour.days')}`}
+              tone={owed > 0 ? 'expense' : 'neutral'}
+            />
+          </div>
+        </section>
 
         <div>
           <SectionHeader>{t('dash.balances')}</SectionHeader>
@@ -384,35 +353,32 @@ export function HomeScreen() {
           )}
         </div>
 
-        <div>
-          <SectionHeader>{t('dash.quickAdd')}</SectionHeader>
-          <div className="grid grid-cols-3 gap-2.5">
-            <button
-              onClick={() => navigate('/add')}
-              className="card p-4 flex flex-col items-center gap-1.5 text-sm font-semibold"
-              style={{ color: 'var(--color-brand-600)' }}
-            >
-              <Plus size={20} />
-              {t('nav.add')}
-            </button>
-            <button
-              onClick={() => navigate('/labour/work')}
-              className="card p-4 flex flex-col items-center gap-1.5 text-sm font-semibold"
-              style={{ color: 'var(--color-brand-600)' }}
-            >
-              <CalendarPlus size={20} />
-              {t('labour.addWork')}
-            </button>
-            <button
+        <section>
+          <SectionHeader>{t('dash.goTo')}</SectionHeader>
+          <div className="grid grid-cols-4 gap-2.5">
+            <QuickLink
+              icon={(p) => <IndianRupee {...p} />}
+              label={t('labour.pay')}
               onClick={() => navigate('/labour/pay')}
-              className="card p-4 flex flex-col items-center gap-1.5 text-sm font-semibold"
-              style={{ color: 'var(--color-expense)' }}
-            >
-              <Users size={20} />
-              {t('labour.pay')}
-            </button>
+              tone="var(--color-expense)"
+            />
+            <QuickLink
+              icon={(p) => <Users {...p} />}
+              label={t('nav.labour')}
+              onClick={() => navigate('/labour')}
+            />
+            <QuickLink
+              icon={(p) => <ReceiptText {...p} />}
+              label={t('nav.entries')}
+              onClick={() => navigate('/entries')}
+            />
+            <QuickLink
+              icon={(p) => <ChartColumn {...p} />}
+              label={t('nav.reports')}
+              onClick={() => navigate('/reports')}
+            />
           </div>
-        </div>
+        </section>
       </Page>
     </Shell>
   )

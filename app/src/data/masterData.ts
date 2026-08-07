@@ -36,6 +36,24 @@ async function logChange(
   )
 }
 
+/**
+ * The next free worker code.
+ *
+ * Derived from the highest existing number rather than a count, so deleting
+ * somebody never causes the next person to reuse their code — a reused code on
+ * a statement points at the wrong person.
+ */
+async function nextWorkerCode(): Promise<string> {
+  const rows = await all<{ code: string | null }>(
+    `SELECT code FROM labourers WHERE code LIKE 'W%';`,
+  )
+  const highest = rows.reduce((max, r) => {
+    const n = parseInt((r.code ?? '').slice(1), 10)
+    return Number.isFinite(n) && n > max ? n : max
+  }, 0)
+  return 'W' + String(highest + 1).padStart(3, '0')
+}
+
 /** Next sort_order for a table, so new rows land at the end of the list. */
 async function nextOrder(table: string): Promise<number> {
   return (await scalar(`SELECT COALESCE(MAX(sort_order), -1) + 1 FROM ${table};`)) || 0
@@ -310,14 +328,15 @@ export async function saveLabourer(input: LabourerInput): Promise<string> {
   }
 
   const id = newId()
+  const code = await nextWorkerCode()
   await run(
     `INSERT INTO labourers
-       (id, name_en, name_kn, phone, village, is_group_lead, daily_rate_paise,
+       (id, code, name_en, name_kn, phone, village, is_group_lead, daily_rate_paise,
         half_day_rate_paise, female_rate_paise, typical_group_size, note,
         is_active, sort_order, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?);`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?);`,
     [
-      id, input.name_en, input.name_kn, input.phone, input.village, input.is_group_lead,
+      id, code, input.name_en, input.name_kn, input.phone, input.village, input.is_group_lead,
       input.daily_rate_paise, input.half_day_rate_paise, input.female_rate_paise,
       input.typical_group_size, input.note, await nextOrder('labourers'), ts, ts,
     ],

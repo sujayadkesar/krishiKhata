@@ -373,12 +373,18 @@ export function labourDuesDoc(ctx: DocContext, rows: DuesRow[], effort: EffortRo
     ${footer(lang)}`
 }
 
+export interface WorkerCharts {
+  byCrop: { name_en: string | null; name_kn: string | null; person_days: number; earned_paise: number }[]
+  monthly: { month: string; earned: number; paid: number; days: number }[]
+}
+
 export function labourStatementDoc(
   ctx: DocContext,
-  labourer: { name_en: string; name_kn: string; phone: string | null },
+  labourer: { name_en: string; name_kn: string; phone: string | null; code?: string | null },
   work: AttendanceRow[],
   payments: PaymentRow[],
   balance: number,
+  charts?: WorkerCharts,
 ): string {
   const { lang } = ctx
   const earned = work.reduce((s, w) => s + w.amount_paise, 0)
@@ -444,10 +450,60 @@ export function labourStatementDoc(
   const days = work.reduce((s, w) => s + w.day_fraction / 1000, 0)
   const personDays = work.reduce((s, w) => s + (w.day_fraction / 1000) * Math.max(1, w.group_size), 0)
 
+  // Charts, drawn as bars in tables. A statement handed to somebody should
+  // show them the shape of their own year, not just columns of figures.
+  const cropPeak = Math.max(1, ...(charts?.byCrop ?? []).map((c) => c.earned_paise))
+  const cropChart = charts?.byCrop.length
+    ? `<h2 class="section">${escapeHtml(L(lang, 'ಯಾವ ಬೆಳೆಗೆ ಕೆಲಸ', 'Work by crop'))}</h2>` +
+      table(
+        [
+          L(lang, 'ಬೆಳೆ', 'Crop'),
+          L(lang, 'ಆಳು-ದಿನ', 'Days'),
+          L(lang, 'ಗಳಿಕೆ', 'Earned'),
+          '',
+        ],
+        charts.byCrop.map((c) => [
+          escapeHtml(ctx.name({ name_en: c.name_en, name_kn: c.name_kn }) || '—'),
+          String(c.person_days),
+          plain(c.earned_paise),
+          bar(c.earned_paise, cropPeak),
+        ]),
+        { numeric: [1, 2] },
+      )
+    : ''
+
+  const monthPeak = Math.max(
+    1,
+    ...(charts?.monthly ?? []).map((m) => Math.max(m.earned, m.paid)),
+  )
+  const monthChart = charts?.monthly.length
+    ? `<h2 class="section">${escapeHtml(L(lang, 'ತಿಂಗಳವಾರು', 'Month by month'))}</h2>` +
+      table(
+        [
+          L(lang, 'ತಿಂಗಳು', 'Month'),
+          L(lang, 'ದಿನ', 'Days'),
+          L(lang, 'ಗಳಿಕೆ', 'Earned'),
+          '',
+          L(lang, 'ಪಾವತಿ', 'Paid'),
+          '',
+        ],
+        charts.monthly.map((m) => [
+          escapeHtml(monthLabel(m.month, lang)),
+          String(m.days),
+          plain(m.earned),
+          bar(m.earned, monthPeak),
+          plain(m.paid),
+          bar(m.paid, monthPeak, 'expense'),
+        ]),
+        { numeric: [1, 2, 4] },
+      )
+    : ''
+
   return `
-    ${letterhead(ctx, L(lang, 'ಕೂಲಿಯಾಳಿನ ಖಾತೆ', 'Labour Statement'))}
+    ${letterhead(ctx, L(lang, 'ಕೆಲಸ ಮತ್ತು ಪಾವತಿ ವಿವರ', 'Work & Payment Statement'))}
     <div class="block" style="font-size:12pt;font-weight:600;margin-bottom:10px">
       ${escapeHtml(ctx.name(labourer))}
+      ${labourer.code ? `<span class="muted"> · ${escapeHtml(labourer.code)}</span>` : ''}
       ${labourer.phone ? `<span class="muted"> · ${escapeHtml(labourer.phone)}</span>` : ''}
     </div>
     ${cards([
@@ -461,11 +517,12 @@ export function labourStatementDoc(
         balance > 0 ? 'expense' : 'neutral',
       ],
     ])}
+    ${cropChart}
+    ${monthChart}
     <h2 class="section">${escapeHtml(L(lang, 'ಕೆಲಸದ ದಿನಗಳು', 'Days worked'))}</h2>
     ${workTable}
     <h2 class="section">${escapeHtml(L(lang, 'ಪಾವತಿ ಮತ್ತು ವಾಪಸಾತಿ', 'Payments and returns'))}</h2>
     ${payTable}
-    <div class="sign"><div>${escapeHtml(L(lang, 'ಸಹಿ', 'Signature'))}</div></div>
     ${footer(lang)}`
 }
 

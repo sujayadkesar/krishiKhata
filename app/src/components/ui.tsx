@@ -557,14 +557,86 @@ export function Confirm({
 
 /* ------------------------------------------------------------------ */
 
+/**
+ * Section heading: small, uppercase, letter-spaced.
+ *
+ * The tracking is safe here because these are interface labels, never
+ * farmer-entered text — Kannada names must never be letter-spaced, which is
+ * why `nameOf` output never goes through this.
+ */
 export function SectionHeader({ children, action }: { children: ReactNode; action?: ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-3 mb-2">
-      <h2 className="text-sm font-semibold" style={{ color: 'var(--text-soft)' }}>
+    <div className="flex items-baseline justify-between gap-3 mb-2">
+      <h2
+        className="text-[11px] font-bold uppercase"
+        style={{ color: 'var(--text-faint)', letterSpacing: '0.06em' }}
+      >
         {children}
       </h2>
       {action}
     </div>
+  )
+}
+
+/** A headline figure with an optional supporting line underneath. */
+export function StatTile({
+  label,
+  value,
+  sub,
+  tone = 'neutral',
+}: {
+  label: string
+  value: string
+  sub?: string
+  tone?: 'income' | 'expense' | 'neutral'
+}) {
+  const colour =
+    tone === 'income'
+      ? 'var(--color-income)'
+      : tone === 'expense'
+        ? 'var(--color-expense)'
+        : 'var(--text)'
+  return (
+    <div className="card p-3.5">
+      <p
+        className="text-[11px] font-semibold uppercase mb-1"
+        style={{ color: 'var(--text-faint)', letterSpacing: '0.04em' }}
+      >
+        {label}
+      </p>
+      <p className="text-xl font-bold tnum leading-tight" style={{ color: colour }}>
+        {value}
+      </p>
+      {sub ? (
+        <p className="text-[11px] mt-0.5 truncate" style={{ color: 'var(--text-faint)' }}>
+          {sub}
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
+/** Small square destination tile, for the grid of secondary screens. */
+export function QuickLink({
+  icon: Icon,
+  label,
+  onClick,
+  tone,
+}: {
+  icon: (p: { size?: number; strokeWidth?: number }) => ReactNode
+  label: string
+  onClick: () => void
+  tone?: string
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="card flex flex-col items-center justify-center gap-1.5 px-2 py-3.5 text-center"
+      style={{ color: tone ?? 'var(--text-soft)' }}
+    >
+      <Icon size={21} strokeWidth={1.9} />
+      <span className="text-[11px] font-semibold leading-tight">{label}</span>
+    </button>
   )
 }
 

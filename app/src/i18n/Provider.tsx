@@ -52,16 +52,11 @@ export function I18nProvider({ children }: { children: ReactNode }) {
       setLang,
       t: (key) => translate(key, lang),
       ts: (key) => translateShort(key, lang),
-      nameOf: (row) => {
-        if (!row) return ''
-        if (lang !== 'both') return pick(row, lang)
-        const kn = pick(row, 'kn')
-        const en = pick(row, 'en')
-        // Only show both when they actually differ; "Banana · Banana" on a
-        // row the farmer never translated is noise.
-        return kn && en && kn !== en ? `${kn} · ${en}` : kn || en
-      },
-      nameShort: (row) => (row ? pick(row, primaryOf(lang)) : ''),
+      // In 'both' the interface is English but the farm's own words stay
+      // Kannada — ಬಾಳೆಕಾಯಿ, ಕಳೆ ತೆಗೆಯುವುದು — because those are what is said in
+      // the field and there is no useful English for them.
+      nameOf: (row) => (row ? pick(row, lang === 'both' ? 'kn' : lang) : ''),
+      nameShort: (row) => (row ? pick(row, lang === 'both' ? 'kn' : primaryOf(lang)) : ''),
     }
   }, [lang, setLang])
 

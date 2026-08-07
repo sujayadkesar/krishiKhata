@@ -107,6 +107,12 @@ export interface Activity extends MasterRow {
 }
 
 export interface Labourer extends MasterRow {
+  /**
+   * A short human code — W001. Two Rameshas in one village is normal and a
+   * UUID cannot be said out loud; this settles which one is meant, and is
+   * what the statement carries.
+   */
+  code: string | null
   phone: string | null
   village: string | null
   /**

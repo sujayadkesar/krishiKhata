@@ -11,18 +11,22 @@
  */
 
 /**
- * 'both' shows Kannada and English together, separated by a middle dot.
+ * 'both' is English chrome with Kannada names — not everything doubled.
  *
- * It exists because a farm is rarely one person: the farmer reads Kannada, a
- * son or an accountant may read English, and being able to hand the phone
- * across without changing a setting is worth the extra width.
+ * Doubling every label produced "ಆದಾಯ · Income" on buttons, tiles and menus,
+ * which is noise: words like Entry, Report and Save are understood either way.
+ * What genuinely needs Kannada is the farm's own vocabulary — ಬಾಳೆಕಾಯಿ,
+ * ಕಾಳುಮೆಣಸು, ಗುಂಡಿ ತೋಡುವುದು, ಕಳೆ ತೆಗೆಯುವುದು — because those are the words
+ * spoken in the field and there is no useful English for them.
+ *
+ * So: interface in English, everything the farmer named in Kannada.
  */
 export type Lang = 'kn' | 'en' | 'both'
 
 export const LANGS: { id: Lang; label: string }[] = [
   { id: 'kn', label: 'ಕನ್ನಡ' },
   { id: 'en', label: 'English' },
-  { id: 'both', label: 'ಕನ್ನಡ + English' },
+  { id: 'both', label: 'English + ಕನ್ನಡ ಹೆಸರು' },
 ]
 
 /** The language whose text leads in 'both' mode. */
@@ -40,7 +44,12 @@ export const STRINGS = {
   'nav.home': { kn: 'ಮುಖಪುಟ', en: 'Home' },
   'nav.entries': { kn: 'ವ್ಯವಹಾರ', en: 'Entries' },
   'nav.add': { kn: 'ಸೇರಿಸಿ', en: 'Add' },
-  'nav.labour': { kn: 'ಕೂಲಿ', en: 'Labour' },
+  // People are "workers", never "labourers".
+  //
+  // ಕೂಲಿಯಾಳು carries a class edge that the person named on the statement can
+  // feel, and these statements get handed to them. ಕೂಲಿ is kept only where it
+  // means the WAGE — money is money — but never where it names a person.
+  'nav.labour': { kn: 'ಕೆಲಸಗಾರರು', en: 'Team' },
   'nav.reports': { kn: 'ವರದಿ', en: 'Reports' },
   'nav.settings': { kn: 'ಸೆಟ್ಟಿಂಗ್ಸ್', en: 'Settings' },
 
@@ -103,12 +112,14 @@ export const STRINGS = {
   'entry.sameAccount': { kn: 'ಎರಡೂ ಖಾತೆ ಒಂದೇ ಇರುವಂತಿಲ್ಲ', en: 'Pick two different accounts' },
 
   /* labour */
-  'labour.title': { kn: 'ಕೂಲಿ', en: 'Labour' },
+  'labour.title': { kn: 'ಕೆಲಸಗಾರರು', en: 'Team' },
   'labour.addWork': { kn: 'ಕೆಲಸದ ದಿನ ಸೇರಿಸಿ', en: 'Add work days' },
+  'labour.workShort': { kn: 'ಕೆಲಸ', en: 'Work' },
   'labour.pay': { kn: 'ಪಾವತಿ', en: 'Pay' },
   'labour.khata': { kn: 'ಖಾತೆ', en: 'Khata' },
-  'labour.labourer': { kn: 'ಕೂಲಿಯಾಳು', en: 'Labourer' },
-  'labour.labourers': { kn: 'ಕೂಲಿಯಾಳುಗಳು', en: 'Labourers' },
+  'labour.labourer': { kn: 'ಕೆಲಸಗಾರ', en: 'Worker' },
+  'labour.labourers': { kn: 'ಕೆಲಸಗಾರರು', en: 'Workers' },
+  'labour.workerId': { kn: 'ಗುರುತು ಸಂಖ್ಯೆ', en: 'Worker ID' },
   'labour.groupLead': { kn: 'ಗುಂಪಿನ ಮುಖ್ಯಸ್ಥ', en: 'Group lead' },
   'labour.groupSize': { kn: 'ಎಷ್ಟು ಜನ', en: 'How many people' },
   'labour.individual': { kn: 'ಒಬ್ಬರೇ', en: 'Individual' },
@@ -186,18 +197,21 @@ export const STRINGS = {
   'dash.bySubHead': { kn: 'ಖರ್ಚಿನ ವಿಧ', en: 'Spend by type' },
   'dash.trend': { kn: '12 ತಿಂಗಳ ಬೆಳವಣಿಗೆ', en: '12-month trend' },
   'dash.quickAdd': { kn: 'ಬೇಗ ಸೇರಿಸಿ', en: 'Quick add' },
+  'dash.goTo': { kn: 'ಇನ್ನಷ್ಟು', en: 'Go to' },
+  'dash.sales': { kn: 'ಮಾರಾಟ', en: 'sales' },
+  'dash.spent': { kn: 'ಖರ್ಚಾಗಿದೆ', en: 'spent' },
 
   /* reports */
   'report.title': { kn: 'ವರದಿಗಳು', en: 'Reports' },
   'report.incomeExpense': { kn: 'ಆದಾಯ ಮತ್ತು ಖರ್ಚು', en: 'Income & Expense' },
   'report.cropWise': { kn: 'ಬೆಳೆವಾರು ಲಾಭ', en: 'Crop-wise profit' },
-  'report.labourStatement': { kn: 'ಕೂಲಿಯಾಳಿನ ಖಾತೆ', en: 'Labour statement' },
-  'report.labourDues': { kn: 'ಕೂಲಿ ಬಾಕಿ', en: 'Labour dues' },
+  'report.labourStatement': { kn: 'ಕೆಲಸ ಮತ್ತು ಪಾವತಿ ವಿವರ', en: 'Work & Payment Statement' },
+  'report.labourDues': { kn: 'ಪಾವತಿ ಬಾಕಿ', en: 'Payments due' },
   'report.dayBook': { kn: 'ದಿನಚರಿ', en: 'Day book' },
   'report.cashBook': { kn: 'ನಗದು ಪುಸ್ತಕ', en: 'Cash book' },
   'report.period': { kn: 'ಅವಧಿ', en: 'Period' },
   'report.download': { kn: 'PDF ಪಡೆಯಿರಿ', en: 'Get PDF' },
-  'report.share': { kn: 'ಹಂಚಿಕೊಳ್ಳಿ', en: 'Share' },
+  'report.share': { kn: 'ವರದಿ ಹಂಚಿಕೊಳ್ಳಿ', en: 'Share report' },
 
   /* settings */
   'set.title': { kn: 'ಸೆಟ್ಟಿಂಗ್ಸ್', en: 'Settings' },
@@ -237,14 +251,12 @@ export const STRINGS = {
 export type StringKey = keyof typeof STRINGS
 
 export function translate(key: StringKey, lang: Lang): string {
-  const entry = STRINGS[key]
-  if (lang === 'both') {
-    return entry.kn === entry.en ? entry.kn : `${entry.kn} · ${entry.en}`
-  }
-  return entry[lang]
+  // 'both' takes the English side: the interface is chrome, and doubling it
+  // only makes every button longer. Names come through nameOf instead.
+  return STRINGS[key][lang === 'both' ? 'en' : lang]
 }
 
 /** Just the leading language — for bottom-nav labels and other tight spots. */
 export function translateShort(key: StringKey, lang: Lang): string {
-  return STRINGS[key][primaryOf(lang)]
+  return STRINGS[key][lang === 'both' ? 'en' : primaryOf(lang)]
 }

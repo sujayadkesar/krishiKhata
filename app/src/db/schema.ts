@@ -11,7 +11,7 @@
  * about what the table looks like. Add a new migration instead.
  */
 
-export const SCHEMA_VERSION = 3
+export const SCHEMA_VERSION = 4
 
 const V1 = `
 CREATE TABLE IF NOT EXISTS settings (
@@ -268,5 +268,27 @@ UPDATE attendance SET male_count = group_size, male_rate_paise = rate_paise
  WHERE male_count = 0 AND female_count = 0;
 `
 
+/**
+ * A short worker code — W001, W002.
+ *
+ * Two people called Ramesha in one village is the normal case, and a UUID is
+ * not something anyone can say out loud. A short code is searchable, fits on a
+ * statement, and settles which Ramesha is meant without anybody having to
+ * describe him.
+ *
+ * Backfilled by creation order, using a correlated count rather than a window
+ * function so it works on whatever SQLite the phone happens to have.
+ */
+const V4 = `
+ALTER TABLE labourers ADD COLUMN code TEXT;
+
+UPDATE labourers
+   SET code = 'W' || substr('000' ||
+       (SELECT COUNT(*) FROM labourers l2 WHERE l2.created_at <= labourers.created_at), -3)
+ WHERE code IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_labourer_code ON labourers(code);
+`
+
 /** Index in this array + 1 is the version it produces. Append only. */
-export const MIGRATIONS: string[] = [V1, V2, V3]
+export const MIGRATIONS: string[] = [V1, V2, V3, V4]

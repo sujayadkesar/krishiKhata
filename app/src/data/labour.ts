@@ -361,6 +361,7 @@ export async function deletePayment(paymentId: string): Promise<void> {
 
 export interface LabourBalanceRow {
   labourer_id: string
+  code: string | null
   name_en: string
   name_kn: string
   phone: string | null
@@ -384,7 +385,7 @@ export interface LabourBalanceRow {
  */
 export function labourBalances(includeInactive = false): Promise<LabourBalanceRow[]> {
   return all<LabourBalanceRow>(
-    `SELECT l.id AS labourer_id, l.name_en, l.name_kn, l.phone,
+    `SELECT l.id AS labourer_id, l.code, l.name_en, l.name_kn, l.phone,
             l.is_group_lead, l.daily_rate_paise,
             COALESCE(w.earned, 0) AS earned_paise,
             COALESCE(p.paid, 0)   AS paid_paise,

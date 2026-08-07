@@ -95,6 +95,7 @@ export function LabourScreen() {
                     <span className="flex-1 min-w-0">
                       <span className="block font-medium truncate">{nameOf(r)}</span>
                       <span className="block text-xs" style={{ color: 'var(--text-faint)' }}>
+                        {r.code ? `${r.code} · ` : ''}
                         {r.days} {t('labour.daysWorked')}
                         {r.person_days !== r.days
                           ? ` · ${r.person_days} ${t('labour.personDays')}`

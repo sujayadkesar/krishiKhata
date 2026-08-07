@@ -3,7 +3,7 @@ import {
   Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer,
   Tooltip, XAxis, YAxis,
 } from 'recharts'
-import { Phone, IndianRupee, Trash2, Share2, Printer, Clock } from 'lucide-react'
+import { Phone, IndianRupee, Trash2, Share2, Clock } from 'lucide-react'
 import { Page, Shell } from '@/components/Shell'
 import { Button, Card, Confirm, EmptyState, SectionHeader } from '@/components/ui'
 import { useQuery } from '@/hooks/useQuery'
@@ -118,9 +118,14 @@ export function LabourerDetailScreen({ id }: { id: string }) {
         work,
         payments,
         me.balance_paise,
+        { byCrop: byCrop ?? [], monthly: monthly ?? [] },
       )
       const run = mode === 'print' ? printReport : shareReport
-      await run(html, `${nameOf(me)} — ${t('labour.khata')}`, reportFileName(nameOf(me), '', ''))
+      await run(
+        html,
+        `${nameOf(me)} — ${t('report.labourStatement')}`,
+        reportFileName(me.code ?? nameOf(me), '', ''),
+      )
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -357,18 +362,11 @@ export function LabourerDetailScreen({ id }: { id: string }) {
           </div>
         ) : null}
 
-        <div className="grid grid-cols-2 gap-2.5">
-          <Button variant="soft" full onClick={() => void output('print')} disabled={!!busy}>
-            <span className="inline-flex items-center gap-2 justify-center">
-              <Printer size={16} /> {busy === 'print' ? t('common.loading') : t('report.download')}
-            </span>
-          </Button>
-          <Button variant="soft" full onClick={() => void output('share')} disabled={!!busy}>
-            <span className="inline-flex items-center gap-2 justify-center">
-              <Share2 size={16} /> {busy === 'share' ? t('common.loading') : t('report.share')}
-            </span>
-          </Button>
-        </div>
+        <Button variant="soft" full onClick={() => void output('share')} disabled={!!busy}>
+          <span className="inline-flex items-center gap-2 justify-center">
+            <Share2 size={17} /> {busy === 'share' ? t('common.loading') : t('report.share')}
+          </span>
+        </Button>
 
         <Confirm
           open={!!removeWork}

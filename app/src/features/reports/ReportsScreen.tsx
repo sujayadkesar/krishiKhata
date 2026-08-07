@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  FileText, Sprout, Users, BookOpen, Printer, ChevronRight, User, LayoutDashboard, Share2,
+  FileText, Sprout, Users, BookOpen, ChevronRight, User, LayoutDashboard, Share2,
 } from 'lucide-react'
 import { Page, Shell } from '@/components/Shell'
 import { Button, Card, DateInput, EmptyState, Field, ListRow, Select, SectionHeader } from '@/components/ui'
@@ -11,7 +11,9 @@ import {
   cropProfitability, dayBook, effortByCrop, expenseBySubHead, expenseDetail,
   incomeByHead, labourDues,
 } from '@/data/reports'
-import { attendanceFor, labourBalances, paymentsFor, totalOutstandingWages } from '@/data/labour'
+import {
+  attendanceFor, labourBalances, monthlyFor, paymentsFor, totalOutstandingWages, workByCropFor,
+} from '@/data/labour'
 import {
   comprehensiveDoc, cropProfitDoc, dayBookDoc, incomeExpenseDoc, labourDuesDoc,
   labourStatementDoc,
@@ -66,16 +68,16 @@ const REPORTS: { id: ReportId; icon: typeof FileText; kn: string; en: string; hi
   {
     id: 'labour-dues',
     icon: Users,
-    kn: 'ಕೂಲಿ ಬಾಕಿ',
-    en: 'Labour dues',
+    kn: 'ಪಾವತಿ ಬಾಕಿ',
+    en: 'Payments due',
     hint: 'Who is owed, and effort by crop',
   },
   {
     id: 'labour-statement',
     icon: User,
-    kn: 'ಕೂಲಿಯಾಳಿನ ಖಾತೆ',
-    en: 'Labour statement',
-    hint: 'One person: days, wages, payments',
+    kn: 'ಕೆಲಸ ಮತ್ತು ಪಾವತಿ ವಿವರ',
+    en: 'Work & Payment Statement',
+    hint: 'One person: days, work, payments, charts',
   },
   {
     id: 'day-book',
@@ -128,7 +130,8 @@ export function ReportsScreen() {
 
   const title = (id: ReportId) => {
     const r = REPORTS.find((x) => x.id === id)!
-    return lang === 'en' ? r.en : lang === 'both' ? `${r.kn} · ${r.en}` : r.kn
+    // 'both' is English chrome with Kannada names; a report title is chrome.
+    return lang === 'kn' ? r.kn : r.en
   }
 
   async function build(id: ReportId): Promise<string> {
@@ -180,14 +183,19 @@ export function ReportsScreen() {
         return labourDuesDoc(ctx, dues, effort)
       }
       case 'labour-statement': {
-        if (!labourerId) throw new Error('Choose a labourer first.')
+        if (!labourerId) throw new Error('Choose someone first.')
         const person = labourers?.find((l) => l.labourer_id === labourerId)
-        if (!person) throw new Error('That labourer no longer exists.')
-        const [work, payments] = await Promise.all([
+        if (!person) throw new Error('That person is no longer on the list.')
+        const [work, payments, byCrop, monthly] = await Promise.all([
           attendanceFor(labourerId),
           paymentsFor(labourerId),
+          workByCropFor(labourerId),
+          monthlyFor(labourerId),
         ])
-        return labourStatementDoc(ctx, person, work, payments, person.balance_paise)
+        return labourStatementDoc(ctx, person, work, payments, person.balance_paise, {
+          byCrop,
+          monthly,
+        })
       }
       case 'day-book': {
         const rows = await dayBook(period)
@@ -268,7 +276,7 @@ export function ReportsScreen() {
             {REPORTS.map((r) => (
               <ListRow
                 key={r.id}
-                title={lang === 'en' ? r.en : lang === 'both' ? `${r.kn} · ${r.en}` : r.kn}
+                title={lang === 'kn' ? r.kn : r.en}
                 subtitle={r.hint}
                 leading={<r.icon size={19} style={{ color: 'var(--color-brand-600)' }} />}
                 right={<ChevronRight size={16} style={{ color: 'var(--text-faint)' }} />}
@@ -289,7 +297,7 @@ export function ReportsScreen() {
               placeholder={t('common.select')}
               options={(labourers ?? []).map((l) => ({
                 value: l.labourer_id,
-                label: nameOf(l),
+                label: l.code ? `${l.code} · ${nameOf(l)}` : nameOf(l),
               }))}
             />
           </Field>
@@ -328,20 +336,16 @@ export function ReportsScreen() {
               style={{ height: '68vh', background: '#fff' }}
             />
 
-            <div className="grid grid-cols-2 gap-2.5">
-              <Button full onClick={() => void output('print')} disabled={!!busy}>
-                <span className="inline-flex items-center gap-2 justify-center">
-                  <Printer size={17} />
-                  {busy === 'print' ? t('common.loading') : t('report.download')}
-                </span>
-              </Button>
-              <Button variant="soft" full onClick={() => void output('share')} disabled={!!busy}>
-                <span className="inline-flex items-center gap-2 justify-center">
-                  <Share2 size={17} />
-                  {busy === 'share' ? t('common.loading') : t('report.share')}
-                </span>
-              </Button>
-            </div>
+            {/* One action, not two. Nothing is written quietly into the
+                phone's storage — the report is handed to the share sheet, and
+                the farmer decides whether it goes to WhatsApp, Drive, or a
+                printer. */}
+            <Button full onClick={() => void output('share')} disabled={!!busy}>
+              <span className="inline-flex items-center gap-2 justify-center">
+                <Share2 size={18} />
+                {busy === 'share' ? t('common.loading') : t('report.share')}
+              </span>
+            </Button>
           </div>
         ) : null}
       </Page>
