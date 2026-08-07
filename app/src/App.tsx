@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Capacitor } from '@capacitor/core'
+import { SplashScreen } from '@capacitor/splash-screen'
 import { getDb, saveNow } from '@/db/db'
 import { seedIfEmpty } from '@/db/seed'
 import { useHardwareBack, usePath, useRoutes, useScrollReset, navigate } from '@/router'
@@ -32,6 +34,27 @@ import { BackupScreen } from '@/features/settings/BackupScreen'
  */
 
 type BootState = { status: 'loading' } | { status: 'ready' } | { status: 'error'; error: Error }
+
+/**
+ * The native splash is configured with launchAutoHide: false, so it stays up
+ * until this is called. That is deliberate — it hides the moment the database
+ * is open, instead of uncovering a half-drawn screen — but it means EVERY exit
+ * from boot has to call it. Missing one leaves the app frozen on the splash
+ * with no error and nothing to tap, which is exactly what happened.
+ */
+function hideSplash(): void {
+  if (!Capacitor.isNativePlatform()) return
+  void SplashScreen.hide().catch(() => {
+    // Plugin missing or already hidden; nothing useful to do either way.
+  })
+}
+
+/**
+ * Opening the database should take milliseconds. If it has not finished in
+ * twenty seconds it is not going to, and showing the farmer a recoverable
+ * error beats a screen that never changes.
+ */
+const BOOT_TIMEOUT_MS = 20_000
 
 function Splash() {
   return (
@@ -104,14 +127,27 @@ export default function App() {
     setBoot({ status: 'loading' })
     void (async () => {
       try {
-        await getDb()
-        await seedIfEmpty()
+        await Promise.race([
+          (async () => {
+            await getDb()
+            await seedIfEmpty()
+          })(),
+          new Promise<never>((_, reject) =>
+            setTimeout(
+              () => reject(new Error('The database did not open in time.')),
+              BOOT_TIMEOUT_MS,
+            ),
+          ),
+        ])
         setBoot({ status: 'ready' })
       } catch (err) {
         setBoot({
           status: 'error',
           error: err instanceof Error ? err : new Error(String(err)),
         })
+      } finally {
+        // Both paths, always. The error screen is only useful if it is visible.
+        hideSplash()
       }
     })()
   }, [])

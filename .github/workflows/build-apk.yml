@@ -1,20 +1,36 @@
 name: Build APK
 
-# Builds and signs the Android app in the cloud, so no Android SDK or Java
-# install is needed locally. Free: GitHub Actions costs nothing for public
-# repositories, and for private ones this uses a few minutes of the monthly
-# free allowance per build.
+# Builds and signs the Android app in the cloud, so no Android SDK or JDK is
+# needed locally. GitHub's ubuntu-latest runner ships both.
 #
-# Trigger it by hand from the Actions tab, or by pushing a v* tag.
+# Free: Actions costs nothing on public repositories. On private ones a build
+# uses a few minutes of the monthly free allowance.
+#
+# Run it from the Actions tab, or push a v* tag to also publish a Release.
 
 on:
   workflow_dispatch:
+    inputs:
+      build_type:
+        description: Which build to produce
+        type: choice
+        options: [auto, debug, release]
+        default: auto
   push:
     tags: ['v*']
+
+permissions:
+  contents: write # needed only to attach the APK to a tagged Release
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
+    env:
+      # The `secrets` context cannot be read from a step-level `if:` — doing so
+      # fails the run with "Unrecognized named-value: 'secrets'". Lifting it
+      # into an env var at job level is the pattern that works.
+      HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
 
     steps:
       - uses: actions/checkout@v4
@@ -30,16 +46,22 @@ jobs:
           distribution: temurin
           java-version: 21
 
+      - uses: gradle/actions/setup-gradle@v4
+
       - name: Install dependencies
         working-directory: app
         run: npm ci
 
-      # The gate. A build that fails these must never reach a phone, because
-      # the FIFO allocation engine decides what a farmer owes someone standing
-      # in front of them.
+      # The gate. A build that fails these must never reach a phone: the FIFO
+      # allocation engine decides what a farmer owes someone standing in front
+      # of them.
       - name: Run checks
         working-directory: app
         run: npm run check
+
+      - name: Lint
+        working-directory: app
+        run: npm run lint
 
       - name: Build web assets
         working-directory: app
@@ -49,48 +71,86 @@ jobs:
         working-directory: app
         run: npx cap sync android
 
-      - name: Decode keystore
-        # Optional. Without the secrets this still produces a debug-signed APK,
-        # which installs fine for testing but cannot be upgraded over a
-        # release-signed one later, so set the secrets before sharing widely.
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+      - name: Decide build type
+        id: decide
         run: |
-          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > app/android/release.keystore
-          cat >> app/android/keystore.properties <<EOF
+          REQUESTED="${{ inputs.build_type || 'auto' }}"
+          if [ "$REQUESTED" = "release" ] || { [ "$REQUESTED" = "auto" ] && [ "$HAS_KEYSTORE" = "true" ]; }; then
+            if [ "$HAS_KEYSTORE" != "true" ]; then
+              echo "::error::A release build was requested but ANDROID_KEYSTORE_BASE64 is not set. Run the 'Create signing key' workflow first."
+              exit 1
+            fi
+            echo "type=release" >> "$GITHUB_OUTPUT"
+          else
+            echo "type=debug" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Restore keystore
+        if: steps.decide.outputs.type == 'release'
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          echo "$KEYSTORE_B64" | base64 -d > app/android/release.keystore
+          cat > app/android/keystore.properties <<EOF
           storeFile=../release.keystore
-          storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
-          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
+          storePassword=$STORE_PASSWORD
+          keyAlias=$KEY_ALIAS
+          keyPassword=$KEY_PASSWORD
           EOF
 
       - name: Build release APK
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        if: steps.decide.outputs.type == 'release'
         working-directory: app/android
-        run: ./gradlew assembleRelease --no-daemon
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
 
       - name: Build debug APK
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 == '' }}
+        if: steps.decide.outputs.type == 'debug'
         working-directory: app/android
-        run: ./gradlew assembleDebug --no-daemon
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
+
+      # The signing material must not outlive the job, even on a private runner.
+      - name: Shred signing material
+        if: always()
+        run: rm -f app/android/release.keystore app/android/keystore.properties
 
       - name: Collect APK
+        id: collect
         run: |
           mkdir -p out
-          find app/android -name "*.apk" -path "*/outputs/*" -exec cp {} out/ \;
+          find app/android -path "*/outputs/apk/*" -name "*.apk" -exec cp {} out/ \;
           ls -la out
+          echo "name=$(ls out | head -1)" >> "$GITHUB_OUTPUT"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: krishi-khata-apk
+          name: krishi-khata-apk-${{ steps.decide.outputs.type }}
           path: out/*.apk
           retention-days: 30
 
-      # A tagged build also becomes a release, which is the link to send a
-      # farmer. GitHub serves release assets from private repositories only to
-      # people who can see the repository, so make it public or share the APK
-      # directly.
+      - name: Summary
+        run: |
+          {
+            echo "### Krishi Khata APK"
+            echo ""
+            echo "**Build type:** ${{ steps.decide.outputs.type }}"
+            echo "**File:** ${{ steps.collect.outputs.name }}"
+            echo ""
+            if [ "${{ steps.decide.outputs.type }}" = "debug" ]; then
+              echo "> This is a **debug** build. Fine for testing, but do not share it:"
+              echo "> a release-signed APK cannot be installed over a debug-signed one,"
+              echo "> so users would have to uninstall — and uninstalling takes their"
+              echo "> records with it. Run **Create signing key** first, then rebuild."
+            fi
+            echo ""
+            echo "Download it from the **Artifacts** section of this run."
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Attach to release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           files: out/*.apk
+          generate_release_notes: true
