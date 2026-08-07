@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { FileText, Sprout, Users, BookOpen, Printer, ChevronRight, User } from 'lucide-react'
+import {
+  FileText, Sprout, Users, BookOpen, Printer, ChevronRight, User, LayoutDashboard, Share2,
+} from 'lucide-react'
 import { Page, Shell } from '@/components/Shell'
 import { Button, Card, DateInput, EmptyState, Field, ListRow, Select, SectionHeader } from '@/components/ui'
 import { useQuery } from '@/hooks/useQuery'
@@ -11,10 +13,12 @@ import {
 } from '@/data/reports'
 import { attendanceFor, labourBalances, paymentsFor, totalOutstandingWages } from '@/data/labour'
 import {
-  cropProfitDoc, dayBookDoc, incomeExpenseDoc, labourDuesDoc, labourStatementDoc,
+  comprehensiveDoc, cropProfitDoc, dayBookDoc, incomeExpenseDoc, labourDuesDoc,
+  labourStatementDoc,
 } from './documents'
 import type { DocContext } from './documents'
-import { printReport, reportFileName } from '@/lib/print'
+import { printReport, reportFileName, shareReport } from '@/lib/print'
+import { accountBalances, monthlyTotals } from '@/data/entries'
 import {
   financialYearLabel, financialYearOf, financialYearRange, monthEnd, monthStart, todayISO,
 } from '@/lib/date'
@@ -29,9 +33,22 @@ import {
  * the layout between screen and paper.
  */
 
-type ReportId = 'income-expense' | 'crop-profit' | 'labour-dues' | 'labour-statement' | 'day-book'
+type ReportId =
+  | 'comprehensive'
+  | 'income-expense'
+  | 'crop-profit'
+  | 'labour-dues'
+  | 'labour-statement'
+  | 'day-book'
 
 const REPORTS: { id: ReportId; icon: typeof FileText; kn: string; en: string; hint: string }[] = [
+  {
+    id: 'comprehensive',
+    icon: LayoutDashboard,
+    kn: 'ಸಂಪೂರ್ಣ ವರದಿ',
+    en: 'Complete farm report',
+    hint: 'Everything: profit, spending, trend, dues',
+  },
   {
     id: 'crop-profit',
     icon: Sprout,
@@ -78,8 +95,9 @@ export function ReportsScreen() {
   const [selected, setSelected] = useState<ReportId | null>(null)
   const [labourerId, setLabourerId] = useState<string | null>(null)
   const [html, setHtml] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
+  const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
 
   const { data: profile } = useQuery(getFarmProfile, [])
   const { data: labourers } = useQuery(() => labourBalances(true), [])
@@ -117,6 +135,30 @@ export function ReportsScreen() {
     if (!ctx) throw new Error('Farm profile is not loaded yet.')
 
     switch (id) {
+      case 'comprehensive': {
+        const [crops, income, expense, detail, dues, effort, balances, monthly, outstanding] =
+          await Promise.all([
+            cropProfitability(period),
+            incomeByHead(period),
+            expenseBySubHead(period),
+            expenseDetail(period),
+            labourDues(),
+            effortByCrop(period),
+            accountBalances(),
+            monthlyTotals(period.from, period.to),
+            totalOutstandingWages(),
+          ])
+        return comprehensiveDoc(ctx, {
+          crops, income, expense, detail, dues, effort,
+          balances: balances.map((b) => ({
+            name_en: b.name_en,
+            name_kn: b.name_kn,
+            balance_paise: b.balance_paise,
+          })),
+          monthly,
+          outstanding,
+        })
+      }
       case 'income-expense': {
         const [income, expense, detail, outstanding] = await Promise.all([
           incomeByHead(period),
@@ -156,27 +198,32 @@ export function ReportsScreen() {
 
   async function preview(id: ReportId) {
     setSelected(id)
-    setBusy(true)
+    setBusy('build')
     setError(null)
+    setNotice(null)
     try {
       setHtml(await build(id))
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
-      setBusy(false)
+      setBusy(null)
     }
   }
 
-  async function print() {
+  async function output(mode: 'print' | 'share') {
     if (!selected || !html) return
-    setBusy(true)
+    setBusy(mode)
     setError(null)
     try {
-      await printReport(html, title(selected), reportFileName(selected, from, to))
+      const name = reportFileName(selected, from, to)
+      const run = mode === 'print' ? printReport : shareReport
+      const result = await run(html, title(selected), name)
+      if (result.how === 'shared') setNotice('Saved. Choose where to send it.')
+      if (result.how === 'file') setNotice(`Saved as ${name}.`)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
-      setBusy(false)
+      setBusy(null)
     }
   }
 
@@ -257,38 +304,44 @@ export function ReportsScreen() {
           </div>
         ) : null}
 
-        {busy ? <EmptyState>{t('common.loading')}</EmptyState> : null}
+        {notice ? (
+          <div
+            className="card p-3 text-sm"
+            style={{ background: 'var(--color-income-soft)', color: 'var(--color-income)' }}
+          >
+            {notice}
+          </div>
+        ) : null}
+
+        {busy === 'build' ? <EmptyState>{t('common.loading')}</EmptyState> : null}
 
         {html ? (
-          <div>
-            <SectionHeader
-              action={
-                <button
-                  onClick={() => void print()}
-                  className="inline-flex items-center gap-1.5 text-sm font-semibold"
-                  style={{ color: 'var(--color-brand-600)' }}
-                >
-                  <Printer size={16} /> {t('report.download')}
-                </button>
-              }
-            >
-              {selected ? title(selected) : ''}
-            </SectionHeader>
+          <div className="space-y-3">
+            <SectionHeader>{selected ? title(selected) : ''}</SectionHeader>
 
-            {/* An iframe, so the document's own stylesheet is the only one
+            {/* An iframe, so the document's own stylesheet is the only thing
                 acting on it — exactly as when it reaches the print engine. */}
             <iframe
               title="preview"
               srcDoc={html}
               className="w-full card"
-              style={{ height: '70vh', background: '#fff' }}
+              style={{ height: '68vh', background: '#fff' }}
             />
 
-            <Button full onClick={() => void print()}>
-              <span className="inline-flex items-center gap-2 justify-center">
-                <Printer size={17} /> {t('report.download')}
-              </span>
-            </Button>
+            <div className="grid grid-cols-2 gap-2.5">
+              <Button full onClick={() => void output('print')} disabled={!!busy}>
+                <span className="inline-flex items-center gap-2 justify-center">
+                  <Printer size={17} />
+                  {busy === 'print' ? t('common.loading') : t('report.download')}
+                </span>
+              </Button>
+              <Button variant="soft" full onClick={() => void output('share')} disabled={!!busy}>
+                <span className="inline-flex items-center gap-2 justify-center">
+                  <Share2 size={17} />
+                  {busy === 'share' ? t('common.loading') : t('report.share')}
+                </span>
+              </Button>
+            </div>
           </div>
         ) : null}
       </Page>

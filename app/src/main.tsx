@@ -34,13 +34,20 @@ if (Capacitor.isNativePlatform()) {
  */
 if (import.meta.env.DEV) {
   void (async () => {
-    const [db, labour, entries, masterData] = await Promise.all([
-      import('@/db/db'),
-      import('@/data/labour'),
-      import('@/data/entries'),
-      import('@/data/masterData'),
-    ])
-    Object.assign(window, { __kk: { db, labour, entries, masterData } })
+    const [db, labour, entries, masterData, reports, documents, printDoc, print] =
+      await Promise.all([
+        import('@/db/db'),
+        import('@/data/labour'),
+        import('@/data/entries'),
+        import('@/data/masterData'),
+        import('@/data/reports'),
+        import('@/features/reports/documents'),
+        import('@/lib/printDoc'),
+        import('@/lib/print'),
+      ])
+    Object.assign(window, {
+      __kk: { db, labour, entries, masterData, reports, documents, printDoc, print },
+    })
   })()
 }
 
