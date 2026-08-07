@@ -1,4 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ic_launcher_background">#FFFFFF</color>
+    <!--
+      Kept in step with drawable/ic_launcher_background.xml. Nothing references
+      this any more, but leaving it white while the icon is green is the kind of
+      inconsistency that wastes an afternoon the next time someone touches the
+      splash screen.
+    -->
+    <color name="ic_launcher_background">#12502C</color>
 </resources>

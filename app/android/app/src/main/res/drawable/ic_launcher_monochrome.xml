@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Adaptive-icon foreground: the sprout rising from an open ledger.
+  Themed-icon layer for Android 13+.
 
-  The 64x64 source artwork is mapped into the 108x108 adaptive viewport as
-  old * 1.125 + 18, which lands it inside the central safe zone. Anything
-  outside that zone can be cropped by the launcher's mask, and on a round or
-  squircle mask the ledger's outer corners would be the first thing to go.
+  The system ignores the colours here and uses only the shape, tinting it to
+  match the launcher's wallpaper theme. So this is the same artwork drawn as
+  one solid silhouette: the two-tone leaves and the two ledger pages would be
+  indistinguishable once flattened, and the ledger's shading is dropped rather
+  than left as an invisible seam.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
@@ -13,30 +14,25 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Stem -->
     <path
-        android:strokeColor="#F0C078"
+        android:strokeColor="#000000"
         android:strokeWidth="3.6"
         android:strokeLineCap="round"
         android:pathData="M54,68.6 V45" />
 
-    <!-- Back leaf, reaching right -->
     <path
-        android:fillColor="#A7D9BC"
+        android:fillColor="#000000"
         android:pathData="M55.125,52.875c0,-6.75 5.175,-12.375 12.375,-12.375 0,6.75 -5.175,12.375 -12.375,12.375z" />
 
-    <!-- Front leaf, reaching left -->
     <path
-        android:fillColor="#6DBD92"
+        android:fillColor="#000000"
         android:pathData="M52.875,57.375c0,-7.2 -5.5125,-13.05 -13.05,-13.05 0,7.2 5.5125,13.05 13.05,13.05z" />
 
-    <!-- Open ledger, left page -->
     <path
-        android:fillColor="#FFFFFF"
+        android:fillColor="#000000"
         android:pathData="M54,67.5c-6.3,-4.5 -15.075,-5.175 -22.5,-2.925v14.625c7.425,-2.25 16.2,-1.575 22.5,2.925z" />
 
-    <!-- Open ledger, right page -->
     <path
-        android:fillColor="#D6E6DC"
+        android:fillColor="#000000"
         android:pathData="M54,67.5c6.3,-4.5 15.075,-5.175 22.5,-2.925v14.625c-7.425,-2.25 -16.2,-1.575 -22.5,2.925z" />
 </vector>

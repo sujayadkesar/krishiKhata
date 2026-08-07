@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Matches capacitor.config.ts SplashScreen.backgroundColor and the
+         theme-color meta tag in index.html. All three must agree, or the app
+         flashes a different colour between the launch screen and first paint. -->
+    <color name="splash_background">#12502C</color>
+</resources>

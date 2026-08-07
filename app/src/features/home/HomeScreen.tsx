@@ -3,7 +3,9 @@ import {
   Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
-import { TrendingUp, TrendingDown, Users, Plus, CalendarPlus, Wallet } from 'lucide-react'
+import {
+  TrendingUp, TrendingDown, Users, Plus, CalendarPlus, Wallet, CloudUpload,
+} from 'lucide-react'
 import { Page, Shell } from '@/components/Shell'
 import { Card, EmptyState, SectionHeader } from '@/components/ui'
 import { useQuery } from '@/hooks/useQuery'
@@ -11,6 +13,7 @@ import {
   accountBalances, expenseTotalsBySubHead, monthlyTotals, totalsByHead, totalsByKind,
 } from '@/data/entries'
 import { labourBalances, totalOutstandingWages } from '@/data/labour'
+import { backupIsDue, lastBackupAt } from '@/data/backup'
 import { useI18n } from '@/i18n'
 import { formatCompactINR, formatRupees } from '@/lib/money'
 import { addMonths, formatMonth, monthEnd, monthStart, todayISO } from '@/lib/date'
@@ -39,15 +42,18 @@ async function load() {
   const to = monthEnd(today)
   const trendFrom = monthStart(addMonths(today, -11))
 
-  const [kinds, byCrop, bySubHead, balances, trend, labour, outstanding] = await Promise.all([
-    totalsByKind(from, to),
-    totalsByHead('income', from, to),
-    expenseTotalsBySubHead(from, to),
-    accountBalances(),
-    monthlyTotals(trendFrom, to),
-    labourBalances(false),
-    totalOutstandingWages(),
-  ])
+  const [kinds, byCrop, bySubHead, balances, trend, labour, outstanding, backupDue, lastBackup] =
+    await Promise.all([
+      totalsByKind(from, to),
+      totalsByHead('income', from, to),
+      expenseTotalsBySubHead(from, to),
+      accountBalances(),
+      monthlyTotals(trendFrom, to),
+      labourBalances(false),
+      totalOutstandingWages(),
+      backupIsDue(),
+      lastBackupAt(),
+    ])
 
   const of = (k: string) => kinds.find((x) => x.kind === k)?.total ?? 0
   return {
@@ -59,6 +65,8 @@ async function load() {
     trend,
     labour,
     outstanding,
+    backupDue,
+    lastBackup,
   }
 }
 
@@ -161,6 +169,28 @@ export function HomeScreen() {
   return (
     <Shell>
       <Page>
+        {/* A reminder rather than a silent background backup, because there is
+            no silent one to run: with no server there is no refresh token, so
+            reaching Drive needs the farmer present. Saying so beats pretending. */}
+        {data?.backupDue ? (
+          <button
+            onClick={() => navigate('/settings/backup')}
+            className="card p-3 w-full text-left flex items-center gap-2.5"
+            style={{
+              background: 'var(--color-earth-100)',
+              borderColor: 'var(--color-earth-300)',
+              color: 'var(--color-earth-700)',
+            }}
+          >
+            <CloudUpload size={19} className="shrink-0" />
+            <span className="text-sm">
+              {data.lastBackup
+                ? 'A backup is due. Tap to save a copy of your records.'
+                : 'Your records have never been backed up. Tap to save a copy.'}
+            </span>
+          </button>
+        ) : null}
+
         <SectionHeader>
           {t('dash.thisMonth')} · {formatMonth(todayISO(), lang)}
         </SectionHeader>
