@@ -62,6 +62,35 @@ Android is the product. The web build is a development and preview surface only.
 
 12. **Booleans are `0 | 1`.** SQLite has no boolean type.
 
+13. **A plot is optional everywhere and guessed nowhere.** `plot_id` is nullable
+    on entries, work sessions and attendance. A farmer with one plot is never
+    made to pick it, and everything recorded before plots existed genuinely has
+    no plot — reports show those on a "Not recorded" line rather than folding
+    them into the first piece of land.
+
+14. **`sub_head_id` means two different things and must never cross the tab.**
+    On the income side it is a GRADE (First class, scoped to one crop); on the
+    expense side it is a KIND OF SPEND (Fertilizer, global). Switching the
+    entry kind, or changing the crop on a sale, clears it.
+
+15. **The shipped version lives in `app/version.json` and nowhere else.**
+    Android's `build.gradle` reads `versionCode` and `versionName` from it and
+    the in-app updater reads `version` from it. Bump BOTH numbers on every
+    release and tag it `vX.Y.Z` to match. Android refuses to install an APK
+    over one with an equal or higher `versionCode`, so a stale number breaks
+    updating with no visible error.
+
+16. **The app is light-only.** There is no dark variant and no
+    `prefers-color-scheme` query. It is read outdoors in daylight far more than
+    in bed, and a dark surface in direct sun is the one thing a phone screen
+    cannot win. `color-scheme: light` is declared on `html` and `:root` and in
+    a meta tag, which is also what stops the WebView darkening the page itself.
+
+17. **The mark is authored once, in `src/components/logoArt.ts`.** The app
+    header, the printed letterhead, the favicon and the Android adaptive icon
+    all derive from those paths. Change it there and run `npm run icons`; never
+    edit `public/logo.svg` or the vector drawables by hand.
+
 ## Deliberate divergences from `goshala-ledger`
 
 That project is next door and shares much of this reasoning, but two of its
@@ -92,6 +121,17 @@ which takes Kannada apart — the browser has a real shaping engine, so use it.
 If a rasteriser fallback is ever added, it must never set `letter-spacing` on
 farmer-entered text: html2canvas then positions text grapheme by grapheme.
 
+The PDF itself comes from `PdfPrintPlugin`, which lays the document out in an
+offscreen WebView and drives `PrintDocumentAdapter` straight to a file. Both
+`shareReport` and `printReport` go through it; sharing raw HTML is the
+last-resort fallback for devices that refuse a headless print, and the caller
+is told which happened so it can say so.
+
+**Charts in documents are inline SVG** (`features/reports/charts.ts`) — never a
+chart library, which needs JavaScript the print engine will not run, and never
+a rasterised image, which reintroduces the glyph problem. Type sizes inside a
+chart are in its own 1000-unit viewBox, roughly ×0.71 to reach page points.
+
 ## Verifying without reading code
 
 - Record an income, force-close the app, reopen — it is still there.
@@ -107,6 +147,13 @@ farmer-entered text: html2canvas then positions text grapheme by grapheme.
 - Crop-wise statement — Kannada renders as Kannada, text is selectable, no line
   cut through a table row.
 - Back up to Drive, wipe, reinstall, restore — everything returns.
+- Record work on two different plots — each plot's profit moves separately and
+  the plot totals add up to the farm total.
+- Try to save an entry with no crop chosen — the button says what is missing.
+- Open a saved entry, change its crop and its amount — reports follow.
+- Share any report — a **PDF** reaches the share sheet, not a web page.
+- Settings → App update on a phone one version behind — it downloads, asks for
+  the install permission once, installs over the app, and the ledger is intact.
 
 ## Commands
 
@@ -116,6 +163,9 @@ npm run check    Pure-logic assertions. THE GATE — keep it green.
 npm run build    tsc -b && vite build
 npm run sync     build + cap sync android
 npm run lint     oxlint
+npm run icons    Regenerate favicon + Android icons from logoArt.ts
+npm run sample   Render every report against made-up figures, to look at:
+                 npm run sample -- <output-directory>
 ```
 
 `npm run check` covers money, quantity, date and — most importantly — the FIFO

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  FileText, Sprout, Users, BookOpen, ChevronRight, User, LayoutDashboard, Share2,
+  FileText, Sprout, Users, BookOpen, ChevronRight, User, LayoutDashboard, Share2, MapPin,
 } from 'lucide-react'
 import { Page, Shell } from '@/components/Shell'
 import { Button, Card, DateInput, EmptyState, Field, ListRow, Select, SectionHeader } from '@/components/ui'
@@ -9,17 +9,17 @@ import { useI18n } from '@/i18n'
 import { getFarmProfile } from '@/data/masterData'
 import {
   cropProfitability, dayBook, effortByCrop, expenseBySubHead, expenseDetail,
-  incomeByHead, labourDues,
+  incomeByHead, labourDues, plotProfitability,
 } from '@/data/reports'
 import {
   attendanceFor, labourBalances, monthlyFor, paymentsFor, totalOutstandingWages, workByCropFor,
 } from '@/data/labour'
 import {
   comprehensiveDoc, cropProfitDoc, dayBookDoc, incomeExpenseDoc, labourDuesDoc,
-  labourStatementDoc,
+  labourStatementDoc, plotProfitDoc,
 } from './documents'
 import type { DocContext } from './documents'
-import { printReport, reportFileName, shareReport } from '@/lib/print'
+import { reportFileName, shareReport } from '@/lib/print'
 import { accountBalances, monthlyTotals } from '@/data/entries'
 import {
   financialYearLabel, financialYearOf, financialYearRange, monthEnd, monthStart, todayISO,
@@ -29,16 +29,23 @@ import {
  * Reports.
  *
  * Every report is generated as one HTML string that is BOTH previewed on
- * screen and handed to the print engine, so what the farmer approves is exactly
- * what comes out. The preview renders in an iframe with the document's own
- * stylesheet, which keeps the app's CSS from leaking in and quietly changing
- * the layout between screen and paper.
+ * screen and handed to the print engine, so what the farmer approves is
+ * exactly what comes out. The preview renders in an iframe with the document's
+ * own stylesheet, which keeps the app's CSS from leaking in and quietly
+ * changing the layout between screen and paper.
+ *
+ * The preview is a MODE, not a panel at the bottom of the list. It used to sit
+ * under the report menu at 68vh, so the farmer saw a letterbox of a document
+ * and had to scroll the page to reach the button. Now it takes the screen with
+ * its own header carrying Back and Share, which is what a preview is for:
+ * looking at the thing, then sending it.
  */
 
 type ReportId =
   | 'comprehensive'
   | 'income-expense'
   | 'crop-profit'
+  | 'plot-profit'
   | 'labour-dues'
   | 'labour-statement'
   | 'day-book'
@@ -49,7 +56,7 @@ const REPORTS: { id: ReportId; icon: typeof FileText; kn: string; en: string; hi
     icon: LayoutDashboard,
     kn: 'ಸಂಪೂರ್ಣ ವರದಿ',
     en: 'Complete farm report',
-    hint: 'Everything: profit, spending, trend, dues',
+    hint: 'Everything: charts, profit, spending, plots, dues',
   },
   {
     id: 'crop-profit',
@@ -57,6 +64,13 @@ const REPORTS: { id: ReportId; icon: typeof FileText; kn: string; en: string; hi
     kn: 'ಬೆಳೆವಾರು ಲಾಭ',
     en: 'Crop-wise profit',
     hint: 'What each crop earned, cost and made',
+  },
+  {
+    id: 'plot-profit',
+    icon: MapPin,
+    kn: 'ಜಮೀನುವಾರು ಲಾಭ',
+    en: 'Plot-wise profit',
+    hint: 'What each piece of land earned and cost',
   },
   {
     id: 'income-expense',
@@ -69,15 +83,15 @@ const REPORTS: { id: ReportId; icon: typeof FileText; kn: string; en: string; hi
     id: 'labour-dues',
     icon: Users,
     kn: 'ಪಾವತಿ ಬಾಕಿ',
-    en: 'Payments due',
+    en: 'Wages due',
     hint: 'Who is owed, and effort by crop',
   },
   {
     id: 'labour-statement',
     icon: User,
     kn: 'ಕೆಲಸ ಮತ್ತು ಪಾವತಿ ವಿವರ',
-    en: 'Work & Payment Statement',
-    hint: 'One person: days, work, payments, charts',
+    en: 'One worker: full statement',
+    hint: 'Days, work, payments and charts, ready to hand over',
   },
   {
     id: 'day-book',
@@ -126,7 +140,25 @@ export function ReportsScreen() {
   useEffect(() => {
     setHtml(null)
     setError(null)
+    setNotice(null)
   }, [from, to, selected, labourerId, lang])
+
+  /**
+   * Give the phone's back button something to pop.
+   *
+   * The preview is a mode rather than a route, so without this the hardware
+   * back button leaves Reports altogether and the farmer has to find the
+   * report again. Pushing one entry on the way in — and going BACK rather than
+   * clearing state on the way out — keeps the history balanced, so a second
+   * press does not land on a screen that looks like nothing happened.
+   */
+  useEffect(() => {
+    if (!html) return
+    window.history.pushState({ kkPreview: true }, '')
+    const onPop = () => setHtml(null)
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [html])
 
   const title = (id: ReportId) => {
     const r = REPORTS.find((x) => x.id === id)!
@@ -139,9 +171,10 @@ export function ReportsScreen() {
 
     switch (id) {
       case 'comprehensive': {
-        const [crops, income, expense, detail, dues, effort, balances, monthly, outstanding] =
+        const [crops, plots, income, expense, detail, dues, effort, balances, monthly, outstanding] =
           await Promise.all([
             cropProfitability(period),
+            plotProfitability(period),
             incomeByHead(period),
             expenseBySubHead(period),
             expenseDetail(period),
@@ -152,7 +185,7 @@ export function ReportsScreen() {
             totalOutstandingWages(),
           ])
         return comprehensiveDoc(ctx, {
-          crops, income, expense, detail, dues, effort,
+          crops, plots, income, expense, detail, dues, effort,
           balances: balances.map((b) => ({
             name_en: b.name_en,
             name_kn: b.name_kn,
@@ -177,6 +210,13 @@ export function ReportsScreen() {
           totalOutstandingWages(),
         ])
         return cropProfitDoc(ctx, rows, outstanding)
+      }
+      case 'plot-profit': {
+        const [rows, outstanding] = await Promise.all([
+          plotProfitability(period),
+          totalOutstandingWages(),
+        ])
+        return plotProfitDoc(ctx, rows, outstanding)
       }
       case 'labour-dues': {
         const [dues, effort] = await Promise.all([labourDues(), effortByCrop(period)])
@@ -206,6 +246,9 @@ export function ReportsScreen() {
 
   async function preview(id: ReportId) {
     setSelected(id)
+    // The one report that needs a subject chosen before it means anything.
+    if (id === 'labour-statement' && !labourerId) return
+
     setBusy('build')
     setError(null)
     setNotice(null)
@@ -218,16 +261,18 @@ export function ReportsScreen() {
     }
   }
 
-  async function output(mode: 'print' | 'share') {
+  async function share() {
     if (!selected || !html) return
-    setBusy(mode)
+    setBusy('share')
     setError(null)
     try {
       const name = reportFileName(selected, from, to)
-      const run = mode === 'print' ? printReport : shareReport
-      const result = await run(html, title(selected), name)
-      if (result.how === 'shared') setNotice('Saved. Choose where to send it.')
-      if (result.how === 'file') setNotice(`Saved as ${name}.`)
+      const result = await shareReport(html, title(selected), name)
+      setNotice(
+        result.format === 'pdf'
+          ? 'PDF ready. Choose where to send it.'
+          : 'Saved as a web page — this phone would not print a PDF. Open it and use Print → Save as PDF.',
+      )
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -244,6 +289,71 @@ export function ReportsScreen() {
     setFrom(monthStart(todayISO()))
     setTo(monthEnd(todayISO()))
   }
+
+  /* ---------------------------------------------------------------- *
+   * Preview mode — the document, full screen, with its own header
+   * ---------------------------------------------------------------- */
+
+  if (html && selected) {
+    return (
+      <div className="min-h-dvh flex flex-col" style={{ background: 'var(--surface-sunken)' }}>
+        <header
+          className="sticky top-0 z-20 flex items-center gap-2.5 px-4 py-2.5 border-b"
+          style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
+        >
+          <div className="flex-1 min-w-0">
+            <h1 className="text-base font-semibold truncate">{title(selected)}</h1>
+            <p className="text-xs truncate" style={{ color: 'var(--text-faint)' }}>
+              {from} — {to}
+            </p>
+          </div>
+          <Button variant="ghost" onClick={() => window.history.back()}>
+            {t('common.back')}
+          </Button>
+          <Button onClick={() => void share()} disabled={!!busy}>
+            <span className="inline-flex items-center gap-1.5 justify-center">
+              <Share2 size={17} />
+              {busy === 'share' ? t('common.loading') : 'Share'}
+            </span>
+          </Button>
+        </header>
+
+        {notice ? (
+          <div
+            className="px-4 py-2 text-sm"
+            style={{ background: 'var(--color-income-soft)', color: 'var(--color-income)' }}
+          >
+            {notice}
+          </div>
+        ) : null}
+        {error ? (
+          <div
+            className="px-4 py-2 text-sm"
+            style={{ background: 'var(--color-expense-soft)', color: 'var(--color-expense)' }}
+          >
+            {error}
+          </div>
+        ) : null}
+
+        {/*
+          An iframe, so the document's own stylesheet is the only thing acting
+          on it — exactly as when it reaches the print engine. It fills the
+          screen rather than sitting in a 68vh letterbox, and scrolls inside
+          itself, so the header stays put while a long report is read.
+        */}
+        <iframe
+          title="preview"
+          srcDoc={html}
+          className="flex-1 w-full border-0"
+          style={{ background: '#fff', minHeight: 0 }}
+        />
+      </div>
+    )
+  }
+
+  /* ---------------------------------------------------------------- *
+   * The menu
+   * ---------------------------------------------------------------- */
 
   return (
     <Shell title={t('report.title')}>
@@ -270,6 +380,28 @@ export function ReportsScreen() {
           </div>
         </div>
 
+        {/* The worker picker sits above the list once that report is chosen,
+            so the thing it is missing is the next thing on screen rather than
+            something below the menu it was tapped from. */}
+        {selected === 'labour-statement' ? (
+          <div className="card p-3">
+            <Field label={t('labour.labourer')}>
+              <Select
+                value={labourerId}
+                onChange={(v) => {
+                  setLabourerId(v)
+                  void preview('labour-statement')
+                }}
+                placeholder={t('common.select')}
+                options={(labourers ?? []).map((l) => ({
+                  value: l.labourer_id,
+                  label: l.code ? `${l.code} · ${nameOf(l)}` : nameOf(l),
+                }))}
+              />
+            </Field>
+          </div>
+        ) : null}
+
         <div>
           <SectionHeader>{t('report.title')}</SectionHeader>
           <Card>
@@ -286,23 +418,6 @@ export function ReportsScreen() {
           </Card>
         </div>
 
-        {selected === 'labour-statement' ? (
-          <Field label={t('labour.labourer')}>
-            <Select
-              value={labourerId}
-              onChange={(v) => {
-                setLabourerId(v)
-                void preview('labour-statement')
-              }}
-              placeholder={t('common.select')}
-              options={(labourers ?? []).map((l) => ({
-                value: l.labourer_id,
-                label: l.code ? `${l.code} · ${nameOf(l)}` : nameOf(l),
-              }))}
-            />
-          </Field>
-        ) : null}
-
         {error ? (
           <div
             className="card p-3 text-sm"
@@ -312,42 +427,7 @@ export function ReportsScreen() {
           </div>
         ) : null}
 
-        {notice ? (
-          <div
-            className="card p-3 text-sm"
-            style={{ background: 'var(--color-income-soft)', color: 'var(--color-income)' }}
-          >
-            {notice}
-          </div>
-        ) : null}
-
         {busy === 'build' ? <EmptyState>{t('common.loading')}</EmptyState> : null}
-
-        {html ? (
-          <div className="space-y-3">
-            <SectionHeader>{selected ? title(selected) : ''}</SectionHeader>
-
-            {/* An iframe, so the document's own stylesheet is the only thing
-                acting on it — exactly as when it reaches the print engine. */}
-            <iframe
-              title="preview"
-              srcDoc={html}
-              className="w-full card"
-              style={{ height: '68vh', background: '#fff' }}
-            />
-
-            {/* One action, not two. Nothing is written quietly into the
-                phone's storage — the report is handed to the share sheet, and
-                the farmer decides whether it goes to WhatsApp, Drive, or a
-                printer. */}
-            <Button full onClick={() => void output('share')} disabled={!!busy}>
-              <span className="inline-flex items-center gap-2 justify-center">
-                <Share2 size={18} />
-                {busy === 'share' ? t('common.loading') : t('report.share')}
-              </span>
-            </Button>
-          </div>
-        ) : null}
       </Page>
     </Shell>
   )

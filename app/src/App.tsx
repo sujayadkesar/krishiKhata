@@ -22,8 +22,10 @@ import { HeadsScreen } from '@/features/settings/HeadsScreen'
 import { SubHeadsScreen } from '@/features/settings/SubHeadsScreen'
 import { ActivitiesScreen } from '@/features/settings/ActivitiesScreen'
 import { LabourersScreen } from '@/features/settings/LabourersScreen'
+import { PlotsScreen } from '@/features/settings/PlotsScreen'
 import { FarmProfileScreen } from '@/features/settings/FarmProfileScreen'
 import { BackupScreen } from '@/features/settings/BackupScreen'
+import { UpdateScreen } from '@/features/settings/UpdateScreen'
 
 /**
  * Boot, then routes.
@@ -112,11 +114,13 @@ const ROUTES: RouteDef[] = [
   { path: '/settings', render: () => <SettingsScreen /> },
   { path: '/settings/profile', render: () => <FarmProfileScreen /> },
   { path: '/settings/accounts', render: () => <AccountsScreen /> },
+  { path: '/settings/plots', render: () => <PlotsScreen /> },
   { path: '/settings/heads', render: () => <HeadsScreen /> },
   { path: '/settings/sub-heads', render: () => <SubHeadsScreen /> },
   { path: '/settings/activities', render: () => <ActivitiesScreen /> },
   { path: '/settings/labourers', render: () => <LabourersScreen /> },
   { path: '/settings/backup', render: () => <BackupScreen /> },
+  { path: '/settings/update', render: () => <UpdateScreen /> },
 ]
 
 export default function App() {

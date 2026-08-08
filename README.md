@@ -27,18 +27,29 @@ it is what turns a year of records into an answer.
   being recorded and not.
 - Several people at once, when three did the same job on the same days.
 - Group leads. A maistry brings a crew that is different people every time, so
-  the app tracks the lead and a head-count. Press and hold a day to change the
-  count — twelve on Monday and eight on Wednesday is normal.
+  the app tracks the lead and a head-count, split by men and women because
+  their day rates differ. Twelve on Monday and eight on Wednesday is normal.
 - A running khata per person: days worked, wages earned, payments, balance.
 - Advances. Pay before any work and it sits as an advance, then attaches itself
   to the work when it happens.
 
-**Reports** — crop-wise profit, income and expense with full spend detail,
-labour dues, a per-person statement, and the day book. All on letterhead, all
-exportable as a PDF with real selectable text and correctly shaped Kannada.
+**Plots** — most farms here are two or three separate pieces of land: an
+inherited one, a bought one, a leased one. Name them once and every entry and
+every work day can carry one, so each plot shows its own profit. The question
+that answers is whether the leased land is worth renewing, which crop alone
+cannot tell you: the same banana grows on both.
+
+**Reports** — a complete farm report, crop-wise profit, plot-wise profit,
+income and expense with full spend detail, wages due, a per-worker statement,
+and the day book. All on the farm's own letterhead with charts, all exported as
+a real PDF with selectable text and correctly shaped Kannada.
 
 **Backup** — a single file you can keep or send on WhatsApp, and optionally
 automatic backup to your own Google Drive.
+
+**Updates** — the app checks GitHub for a new release, shows what changed, and
+downloads and installs it itself. Nothing arrives on WhatsApp, nothing is
+uninstalled, and your records are untouched.
 
 ---
 
@@ -81,15 +92,30 @@ product is the Android app.
 | `npm run build` | `tsc -b && vite build` |
 | `npm run sync` | Build, then copy into the Android project |
 | `npm run lint` | oxlint |
+| `npm run icons` | Regenerate the favicon and Android icons from `logoArt.ts` |
+| `npm run sample -- <dir>` | Render every report against made-up figures, to look at |
 
-### Building the APK
+### Releasing
 
-No Android SDK needed locally — push and run **Actions → Build APK**, or push a
-`v*` tag. Without signing secrets it produces a debug APK that installs fine for
-testing. For anything you intend to share, set `ANDROID_KEYSTORE_BASE64`,
-`ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` and `ANDROID_KEY_PASSWORD` as
-repository secrets first: a debug APK cannot be upgraded over later, so the
-farmer would have to uninstall — and uninstalling takes their records with it.
+The version lives in **`app/version.json`** and nowhere else — Android's build
+reads `versionCode` and `versionName` from it, and the in-app updater reads
+`version`. To ship:
+
+1. Bump **both** numbers in `app/version.json`. `versionCode` must increase;
+   Android refuses to install an APK over one with an equal or higher code, and
+   the update will fail with nothing on screen to explain why.
+2. Commit, then tag `vX.Y.Z` matching `version` and push the tag.
+3. **Actions → Build APK** runs on the tag and attaches the APK to a Release.
+
+Every phone offers it on next launch, and installs it from inside the app.
+
+No Android SDK is needed locally — you can also run the workflow by hand from
+the Actions tab. Without signing secrets it produces a debug APK that installs
+fine for testing. For anything you intend to share, set
+`ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` and
+`ANDROID_KEY_PASSWORD` as repository secrets first: a release APK cannot be
+installed over a debug-signed one, so the farmer would have to uninstall — and
+uninstalling takes their records with it.
 
 ---
 

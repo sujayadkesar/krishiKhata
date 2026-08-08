@@ -2,4 +2,9 @@
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
     <external-path name="my_images" path="." />
     <cache-path name="my_cache_images" path="." />
+    <!-- Reports are written here before being handed to the share sheet. -->
+    <external-files-path name="external_files" path="." />
+    <!-- The downloaded APK. Android's package installer reads it through the
+         FileProvider; handing it a file:// path throws since Android 7. -->
+    <external-files-path name="updates" path="updates/" />
 </paths>

@@ -1,11 +1,13 @@
 import {
-  Wallet, Sprout, Tags, Hammer, Users, Home, Languages, CloudUpload, ChevronRight,
+  Wallet, Sprout, Tags, Hammer, Users, Home, Languages, CloudUpload, ChevronRight, MapPin,
+  Download,
 } from 'lucide-react'
 import { Page, Shell } from '@/components/Shell'
 import { Card, ListRow, SectionHeader } from '@/components/ui'
 import { useI18n } from '@/i18n'
 import { LANGS } from '@/i18n/strings'
 import { navigate } from '@/router'
+import { APP_VERSION } from '@/lib/updates'
 import type { StringKey } from '@/i18n/strings'
 
 /**
@@ -34,6 +36,7 @@ const GROUPS: { title: string; rows: Row[] }[] = [
     title: 'Your farm',
     rows: [
       { path: '/settings/profile', label: 'set.farmProfile', icon: Home, hint: 'Name and village, printed on every statement' },
+      { path: '/settings/plots', label: 'plot.title', icon: MapPin, hint: 'Each piece of land, so every plot shows its own profit' },
       { path: '/settings/accounts', label: 'set.accounts', icon: Wallet, hint: 'Cash, bank and UPI, with opening balances' },
     ],
   },
@@ -126,8 +129,21 @@ export function SettingsScreen() {
           </Card>
         </div>
 
+        <div>
+          <SectionHeader>{t('update.title')}</SectionHeader>
+          <Card>
+            <ListRow
+              title={t('update.title')}
+              subtitle={`${t('update.current')} ${APP_VERSION}`}
+              onClick={() => navigate('/settings/update')}
+              leading={<Download size={20} style={{ color: 'var(--color-brand-600)' }} />}
+              right={<ChevronRight size={18} style={{ color: 'var(--text-faint)' }} />}
+            />
+          </Card>
+        </div>
+
         <p className="text-center text-xs pt-2" style={{ color: 'var(--text-faint)' }}>
-          ಕೃಷಿ ಖಾತೆ · Krishi Khata
+          ಕೃಷಿ ಖಾತೆ · Krishi Khata · {APP_VERSION}
         </p>
       </Page>
     </Shell>

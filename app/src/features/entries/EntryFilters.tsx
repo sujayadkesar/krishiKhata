@@ -3,7 +3,7 @@ import { SlidersHorizontal, X } from 'lucide-react'
 import { Button, DateInput, Field, MoneyInput, Select, Sheet } from '@/components/ui'
 import { useQuery } from '@/hooks/useQuery'
 import {
-  listAccounts, listActivities, listHeads, listSubHeads,
+  listAccounts, listActivities, listHeads, listPlots, listSubHeads,
 } from '@/data/masterData'
 import { useI18n } from '@/i18n'
 import { addMonths, financialYearOf, financialYearRange, monthEnd, monthStart, todayISO } from '@/lib/date'
@@ -67,6 +67,7 @@ export function EntryFilterSheet({
   const { data: subHeads } = useQuery(() => listSubHeads(true), [])
   const { data: activities } = useQuery(() => listActivities(true), [])
   const { data: accounts } = useQuery(() => listAccounts(true), [])
+  const { data: plots } = useQuery(() => listPlots(true), [])
 
   // Only offer work types that belong to the chosen kind of spend, otherwise
   // the list is forty entries long and useless.
@@ -172,6 +173,19 @@ export function EntryFilterSheet({
           ]}
         />
       </Field>
+
+      {(plots ?? []).length > 0 ? (
+        <Field label={t('plot.one')}>
+          <Select
+            value={filter.plotId ?? ''}
+            onChange={(v) => set({ plotId: v || undefined })}
+            options={[
+              { value: '', label: t('common.all') },
+              ...(plots ?? []).map((p) => ({ value: p.id, label: nameOf(p) })),
+            ]}
+          />
+        </Field>
+      ) : null}
 
       <Field label={t('entry.account')}>
         <Select

@@ -1,28 +1,31 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Trash2 } from 'lucide-react'
 import { Page, Shell } from '@/components/Shell'
-import { Button, Confirm, DateInput, Field, Input, MoneyInput, TextArea } from '@/components/ui'
+import { Button, Confirm, Field, MoneyInput, Segmented } from '@/components/ui'
 import { useQuery } from '@/hooks/useQuery'
 import { deleteEntry, getEntry, saveEntry } from '@/data/entries'
 import { useI18n } from '@/i18n'
 import { formatDate } from '@/lib/date'
 import { formatRupees } from '@/lib/money'
-import { formatQuantityLabel } from './format'
 import { back, navigate } from '@/router'
+import { EntryFields, MissingHint } from './EntryForm'
+import { blankDraft, useEntryForm } from './entryDraft'
+import type { EntryDraft } from './entryDraft'
 import type { EntryKind } from '@/db/types'
 
 /**
- * One entry, editable.
+ * One entry, fully editable.
  *
- * Entries are editable here rather than corrected by a reversal row. That
+ * Entries are edited here rather than corrected by a reversal row. That
  * differs from goshala-ledger deliberately: immutability there exists to make
  * multi-device sync safe, and this app has neither sync nor a second device,
  * so it would buy nothing and cost a farmer the ability to fix a typo.
  *
- * What is editable is the date, the amount and the words. Re-categorising to a
- * different crop or a different kind of spend is rare enough that deleting and
- * re-entering is clearer than a form that can silently change what a figure
- * means.
+ * EVERY field can be changed, including which crop and which kind of entry it
+ * is. The screen used to allow only the date, the amount and the words, on the
+ * reasoning that re-categorising was rare — it is not. Picking the wrong crop
+ * on a hurried entry is the commonest mistake there is, and forcing a delete
+ * and re-type for it is how entries end up missing altogether.
  */
 
 const COLOR: Record<EntryKind, string> = {
@@ -31,26 +34,49 @@ const COLOR: Record<EntryKind, string> = {
   transfer: 'var(--color-transfer)',
 }
 
+const SOFT: Record<EntryKind, string> = {
+  income: 'var(--color-income-soft)',
+  expense: 'var(--color-expense-soft)',
+  transfer: 'var(--color-transfer-soft)',
+}
+
 export function EntryDetailScreen({ id }: { id: string }) {
-  const { t, lang, nameOf } = useI18n()
+  const { t, lang } = useI18n()
   const { data: entry, loading } = useQuery(() => getEntry(id), [id])
 
-  const [date, setDate] = useState('')
-  const [amountPaise, setAmountPaise] = useState<number | null>(null)
-  const [party, setParty] = useState('')
-  const [note, setNote] = useState('')
+  const [draft, setDraft] = useState<EntryDraft | null>(null)
   const [confirming, setConfirming] = useState(false)
   const [saved, setSaved] = useState(false)
 
+  const set = useCallback((patch: Partial<EntryDraft>) => {
+    setDraft((d) => (d ? { ...d, ...patch } : d))
+  }, [])
+
   useEffect(() => {
     if (!entry) return
-    setDate(entry.date)
-    setAmountPaise(entry.amount_paise)
-    setParty(entry.party_name ?? '')
-    setNote(entry.note ?? '')
+    setDraft({
+      kind: entry.kind,
+      date: entry.date,
+      head_id: entry.head_id,
+      sub_head_id: entry.sub_head_id,
+      activity_id: entry.activity_id,
+      plot_id: entry.plot_id,
+      account_id: entry.account_id,
+      to_account_id: entry.to_account_id,
+      unit_id: entry.unit_id,
+      quantity_milli: entry.quantity_milli,
+      rate_paise: entry.rate_paise,
+      amount_paise: entry.amount_paise,
+      party_name: entry.party_name ?? '',
+      note: entry.note ?? '',
+    })
   }, [entry])
 
-  if (loading) {
+  // An existing amount is what actually changed hands, so it must never be
+  // silently recomputed from a rate the trader rounded away.
+  const form = useEntryForm(draft ?? blankDraft(), set, { startAutoTotal: false })
+
+  if (loading || (entry && !draft)) {
     return (
       <Shell title={t('common.loading')} onBack={back} right={<span />}>
         <Page>
@@ -60,7 +86,7 @@ export function EntryDetailScreen({ id }: { id: string }) {
     )
   }
 
-  if (!entry) {
+  if (!entry || !draft) {
     return (
       <Shell title={t('common.empty')} onBack={back} right={<span />}>
         <Page>
@@ -70,40 +96,27 @@ export function EntryDetailScreen({ id }: { id: string }) {
     )
   }
 
-  const name = (en: string | null, kn: string | null) =>
-    en ? nameOf({ name_en: en, name_kn: kn ?? en }) : null
-
-  const facts: [string, string | null][] = [
-    [t('entry.head'), name(entry.head_name_en, entry.head_name_kn)],
-    [t('entry.subHead'), name(entry.sub_head_name_en, entry.sub_head_name_kn)],
-    [t('entry.activity'), name(entry.activity_name_en, entry.activity_name_kn)],
-    [
-      entry.kind === 'transfer' ? t('entry.from') : t('entry.account'),
-      name(entry.account_name_en, entry.account_name_kn),
-    ],
-    [t('entry.to'), name(entry.to_account_name_en, entry.to_account_name_kn)],
-    [t('entry.quantity'), formatQuantityLabel(entry, lang) || null],
-  ]
-
   const isWagePayment = !!entry.labour_payment_id
+  const kind = draft.kind
 
   async function submit() {
-    if (!entry || !amountPaise) return
+    if (!entry || !draft || !form.valid) return
     await saveEntry({
       id: entry.id,
-      kind: entry.kind,
-      date,
-      head_id: entry.head_id,
-      sub_head_id: entry.sub_head_id,
-      activity_id: entry.activity_id,
-      account_id: entry.account_id,
-      to_account_id: entry.to_account_id,
-      quantity_milli: entry.quantity_milli,
-      unit_id: entry.unit_id,
-      rate_paise: entry.rate_paise,
-      amount_paise: amountPaise,
-      party_name: party.trim() || null,
-      note: note.trim() || null,
+      kind,
+      date: draft.date,
+      head_id: kind === 'transfer' ? null : draft.head_id,
+      sub_head_id: kind === 'transfer' ? null : draft.sub_head_id,
+      activity_id: kind === 'expense' ? draft.activity_id : null,
+      plot_id: kind === 'transfer' ? null : draft.plot_id,
+      account_id: draft.account_id,
+      to_account_id: kind === 'transfer' ? draft.to_account_id : null,
+      quantity_milli: kind === 'income' ? draft.quantity_milli : null,
+      unit_id: kind === 'income' ? draft.unit_id : null,
+      rate_paise: kind === 'income' ? draft.rate_paise : null,
+      amount_paise: draft.amount_paise!,
+      party_name: draft.party_name.trim() || null,
+      note: draft.note.trim() || null,
       photo_id: entry.photo_id,
       labour_payment_id: entry.labour_payment_id,
     })
@@ -112,28 +125,18 @@ export function EntryDetailScreen({ id }: { id: string }) {
   }
 
   return (
-    <Shell title={t(`kind.${entry.kind}` as 'kind.income')} onBack={back} right={<span />}>
+    <Shell title={t(`kind.${kind}` as 'kind.income')} onBack={back} right={<span />}>
       <Page>
-        <div className="card p-4 text-center">
-          <p className="text-3xl font-semibold tnum" style={{ color: COLOR[entry.kind] }}>
+        <div
+          className="card p-4 text-center"
+          style={{ borderColor: 'transparent', background: SOFT[kind] }}
+        >
+          <p className="text-3xl font-semibold tnum" style={{ color: COLOR[kind] }}>
             {formatRupees(entry.amount_paise)}
           </p>
           <p className="text-sm mt-1" style={{ color: 'var(--text-faint)' }}>
             {formatDate(entry.date, lang)}
           </p>
-        </div>
-
-        <div className="card divide-y" style={{ borderColor: 'var(--border)' }}>
-          {facts
-            .filter(([, v]) => v)
-            .map(([label, value]) => (
-              <div key={label} className="flex items-center justify-between gap-3 px-4 py-2.5">
-                <span className="text-sm" style={{ color: 'var(--text-faint)' }}>
-                  {label}
-                </span>
-                <span className="text-sm font-medium text-right">{value}</span>
-              </div>
-            ))}
         </div>
 
         {isWagePayment ? (
@@ -156,27 +159,34 @@ export function EntryDetailScreen({ id }: { id: string }) {
           </div>
         ) : (
           <>
-            <Field label={t('common.date')}>
-              <DateInput value={date} onChange={setDate} />
-            </Field>
+            {/* Changing the kind is allowed. It is rare, but a withdrawal
+                recorded as an expense is exactly the mistake that overstates
+                spending for a whole year, and it should be fixable in place. */}
+            <Segmented
+              value={kind}
+              onChange={(k) => set({ kind: k, sub_head_id: null, activity_id: null })}
+              options={(['income', 'expense', 'transfer'] as EntryKind[]).map((k) => ({
+                value: k,
+                label: t(`kind.${k}` as 'kind.income'),
+                color: COLOR[k],
+              }))}
+            />
 
             <Field label={t('common.amount')}>
-              <MoneyInput paise={amountPaise} onChange={setAmountPaise} />
+              <MoneyInput
+                paise={draft.amount_paise}
+                onChange={(p) => set({ amount_paise: p })}
+              />
             </Field>
 
-            {entry.kind !== 'transfer' ? (
-              <Field label={entry.kind === 'income' ? t('entry.buyer') : t('entry.shop')}>
-                <Input value={party} onChange={setParty} />
-              </Field>
-            ) : null}
+            <EntryFields draft={draft} set={set} form={form} />
 
-            <Field label={t('common.note')}>
-              <TextArea value={note} onChange={setNote} />
-            </Field>
-
-            <Button full onClick={submit} disabled={!amountPaise}>
-              {saved ? t('entry.saved') : t('common.save')}
-            </Button>
+            <div className="space-y-1.5">
+              <MissingHint missing={form.missing} />
+              <Button full onClick={submit} disabled={!form.valid}>
+                {saved ? t('entry.saved') : t('common.save')}
+              </Button>
+            </div>
           </>
         )}
 

@@ -4,10 +4,12 @@ import { notifyDataChanged } from '@/hooks/useQuery'
 import type {
   Account,
   Activity,
+  AreaUnit,
   Bool,
   Head,
   HeadUnit,
   Labourer,
+  Plot,
   SubHead,
   Unit,
 } from '@/db/types'
@@ -97,6 +99,9 @@ export const listActivities = (includeInactive = false) =>
   all<Activity>(
     `SELECT * FROM activities ${activeClause(includeInactive)} ORDER BY sort_order, name_en;`,
   )
+
+export const listPlots = (includeInactive = false) =>
+  all<Plot>(`SELECT * FROM plots ${activeClause(includeInactive)} ORDER BY sort_order, name_en;`)
 
 export const listLabourers = (includeInactive = false) =>
   all<Labourer>(
@@ -292,6 +297,51 @@ export async function saveActivity(input: ActivityInput): Promise<string> {
   return id
 }
 
+export interface PlotInput {
+  id?: string
+  name_en: string
+  name_kn: string
+  survey_no: string | null
+  /** Integer milli-units of `area_unit`. */
+  area_milli: number | null
+  area_unit: AreaUnit | null
+  village: string | null
+  note: string | null
+}
+
+export async function savePlot(input: PlotInput): Promise<string> {
+  const ts = nowISO()
+  if (input.id) {
+    await run(
+      `UPDATE plots SET name_en=?, name_kn=?, survey_no=?, area_milli=?, area_unit=?,
+              village=?, note=?, updated_at=?
+       WHERE id=?;`,
+      [
+        input.name_en, input.name_kn, input.survey_no, input.area_milli, input.area_unit,
+        input.village, input.note, ts, input.id,
+      ],
+    )
+    await logChange('plots', input.id, 'update', input.name_en)
+    notifyDataChanged()
+    return input.id
+  }
+
+  const id = newId()
+  await run(
+    `INSERT INTO plots
+       (id, name_en, name_kn, survey_no, area_milli, area_unit, village, note,
+        is_active, sort_order, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?);`,
+    [
+      id, input.name_en, input.name_kn, input.survey_no, input.area_milli, input.area_unit,
+      input.village, input.note, await nextOrder('plots'), ts, ts,
+    ],
+  )
+  await logChange('plots', id, 'create', input.name_en)
+  notifyDataChanged()
+  return id
+}
+
 export interface LabourerInput {
   id?: string
   name_en: string
@@ -385,6 +435,11 @@ const REFERENCES: Record<string, [table: string, column: string][]> = {
   labourers: [
     ['attendance', 'labourer_id'],
     ['labour_payments', 'labourer_id'],
+  ],
+  plots: [
+    ['entries', 'plot_id'],
+    ['attendance', 'plot_id'],
+    ['work_sessions', 'plot_id'],
   ],
   units: [
     ['entries', 'unit_id'],

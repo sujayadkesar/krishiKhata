@@ -11,7 +11,7 @@
  * about what the table looks like. Add a new migration instead.
  */
 
-export const SCHEMA_VERSION = 4
+export const SCHEMA_VERSION = 5
 
 const V1 = `
 CREATE TABLE IF NOT EXISTS settings (
@@ -290,5 +290,48 @@ UPDATE labourers
 CREATE INDEX IF NOT EXISTS idx_labourer_code ON labourers(code);
 `
 
+/**
+ * A farm is not one piece of land.
+ *
+ * Most growers here work two or three separate plots — an inherited one, a
+ * bought one, a leased one — and "did the Hosatota land pay for itself" is a
+ * question the app could not answer at all, because everything was aggregated
+ * to the farm. Crop alone does not substitute: the same banana grows on both
+ * plots, and it is the plots that differ in water, soil and rent.
+ *
+ * Nullable everywhere on purpose. A farmer with one plot should never be made
+ * to pick it, and every record made before this migration genuinely has no
+ * plot — filling one in would be inventing data. Reports show those as
+ * "Not recorded" rather than silently folding them into the first plot.
+ *
+ * Area is integer milli-units of `area_unit`, matching lib/quantity: 2.5 acre
+ * is 2500. Acres and guntas are both in daily use and neither converts cleanly
+ * for every district, so the unit is stored beside the number rather than
+ * normalised to one of them.
+ */
+const V5 = `
+CREATE TABLE IF NOT EXISTS plots (
+  id          TEXT PRIMARY KEY,
+  name_en     TEXT NOT NULL,
+  name_kn     TEXT NOT NULL,
+  survey_no   TEXT,
+  area_milli  INTEGER,
+  area_unit   TEXT,
+  village     TEXT,
+  note        TEXT,
+  is_active   INTEGER NOT NULL DEFAULT 1,
+  sort_order  INTEGER NOT NULL DEFAULT 0,
+  created_at  TEXT NOT NULL,
+  updated_at  TEXT NOT NULL
+);
+
+ALTER TABLE entries       ADD COLUMN plot_id TEXT REFERENCES plots(id);
+ALTER TABLE work_sessions ADD COLUMN plot_id TEXT REFERENCES plots(id);
+ALTER TABLE attendance    ADD COLUMN plot_id TEXT REFERENCES plots(id);
+
+CREATE INDEX IF NOT EXISTS idx_entries_plot ON entries(plot_id);
+CREATE INDEX IF NOT EXISTS idx_att_plot     ON attendance(plot_id);
+`
+
 /** Index in this array + 1 is the version it produces. Append only. */
-export const MIGRATIONS: string[] = [V1, V2, V3, V4]
+export const MIGRATIONS: string[] = [V1, V2, V3, V4, V5]

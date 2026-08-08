@@ -35,7 +35,7 @@ const SWATCH: Record<string, string> = {
   amber: '#f59e0b', rose: '#f43f5e', orange: '#f97316', yellow: '#eab308',
   lime: '#84cc16', emerald: '#10b981', sky: '#0ea5e9', violet: '#8b5cf6', slate: '#64748b',
 }
-const FALLBACK = ['#1b7a43', '#d98324', '#2563eb', '#c0392b', '#8b5cf6']
+const FALLBACK = ['#04796b', '#e35b0d', '#2563eb', '#c026d3', '#65a30d']
 
 const moneyTip = (v: unknown): string => {
   const n = Array.isArray(v) ? Number(v[0]) : Number(v)

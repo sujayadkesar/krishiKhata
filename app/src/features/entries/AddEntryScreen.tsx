@@ -1,20 +1,14 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Check } from 'lucide-react'
 import { Page, Shell } from '@/components/Shell'
-import {
-  Button, ChipSingle, DateInput, Field, Input, MoneyInput, QuantityInput, Segmented,
-  Select, TextArea,
-} from '@/components/ui'
-import { useQuery } from '@/hooks/useQuery'
-import {
-  getHeadUnits, listAccounts, listActivities, listGrades, listHeads, listSubHeads,
-} from '@/data/masterData'
+import { MoneyInput, Segmented } from '@/components/ui'
 import { saveEntry } from '@/data/entries'
 import { useI18n } from '@/i18n'
-import { addDays, todayISO } from '@/lib/date'
-import { lineTotalPaise } from '@/lib/quantity'
 import { formatRupees } from '@/lib/money'
 import { navigate } from '@/router'
+import { EntryFields, MissingHint } from './EntryForm'
+import { blankDraft, useEntryForm } from './entryDraft'
+import type { EntryDraft } from './entryDraft'
 import type { EntryKind } from '@/db/types'
 
 /**
@@ -24,6 +18,9 @@ import type { EntryKind } from '@/db/types'
  * the farmer often does not decide which one they are recording until they
  * have thought about it — money moving from the bank to the pocket feels like
  * an expense until you remember it is not.
+ *
+ * The fields themselves live in EntryForm, shared with the edit screen, so a
+ * field can never exist on one and not the other.
  */
 
 const KIND_COLOR: Record<EntryKind, string> = {
@@ -39,130 +36,53 @@ const KIND_SOFT: Record<EntryKind, string> = {
 }
 
 export function AddEntryScreen() {
-  const { t, nameOf, lang } = useI18n()
+  const { t } = useI18n()
 
-  const [kind, setKind] = useState<EntryKind>('income')
-  const [date, setDate] = useState(todayISO())
-  const [headId, setHeadId] = useState<string | null>(null)
-  const [subHeadId, setSubHeadId] = useState<string | null>(null)
-  const [activityId, setActivityId] = useState<string | null>(null)
-  const [accountId, setAccountId] = useState<string | null>(null)
-  const [toAccountId, setToAccountId] = useState<string | null>(null)
-  const [unitId, setUnitId] = useState<string | null>(null)
-  const [quantityMilli, setQuantityMilli] = useState<number | null>(null)
-  const [ratePaise, setRatePaise] = useState<number | null>(null)
-  const [amountPaise, setAmountPaise] = useState<number | null>(null)
-  const [party, setParty] = useState('')
-  const [note, setNote] = useState('')
+  const [draft, setDraft] = useState<EntryDraft>(() => blankDraft('income'))
   const [saved, setSaved] = useState(false)
 
-  /**
-   * Once the farmer types a total by hand it stops being recomputed. The
-   * trader rounds ₹1,247.50 to ₹1,250 and the app must not argue with the
-   * money that actually changed hands.
-   */
-  const [totalTouched, setTotalTouched] = useState(false)
+  const set = useCallback((patch: Partial<EntryDraft>) => {
+    setDraft((d) => ({ ...d, ...patch }))
+  }, [])
 
-  const { data: heads } = useQuery(() => listHeads(false), [])
-  const { data: subHeads } = useQuery(() => listSubHeads(false), [])
-  const { data: activities } = useQuery(() => listActivities(false), [])
-  const { data: accounts } = useQuery(() => listAccounts(false), [])
-  const { data: headUnits } = useQuery(
-    () => (headId ? getHeadUnits(headId) : Promise.resolve([])),
-    [headId],
-  )
-  // Grades belong to their crop: Banana has first class and second class,
-  // and they mean nothing under Pepper.
-  const { data: grades } = useQuery(
-    () => (headId ? listGrades(headId) : Promise.resolve([])),
-    [headId],
-  )
+  const form = useEntryForm(draft, set, { startAutoTotal: true })
+  const { kind } = draft
 
   // Default to the first account so the commonest case is zero taps.
   useEffect(() => {
-    if (!accountId && accounts?.length) setAccountId(accounts[0].id)
-  }, [accounts, accountId])
-
-  // When the crop changes, offer its default unit.
-  useEffect(() => {
-    if (!headUnits?.length) return
-    setUnitId((current) =>
-      current && headUnits.some((u) => u.unit_id === current) ? current : headUnits[0].unit_id,
-    )
-  }, [headUnits])
-
-  // Choosing the work pre-selects the kind of spend it usually belongs to.
-  useEffect(() => {
-    if (!activityId) return
-    const act = activities?.find((a) => a.id === activityId)
-    if (act?.sub_head_id) setSubHeadId(act.sub_head_id)
-  }, [activityId, activities])
-
-  const computedTotal = useMemo(
-    () =>
-      quantityMilli != null && ratePaise != null ? lineTotalPaise(quantityMilli, ratePaise) : null,
-    [quantityMilli, ratePaise],
-  )
-
-  useEffect(() => {
-    if (kind !== 'income' || totalTouched) return
-    if (computedTotal != null) setAmountPaise(computedTotal)
-  }, [computedTotal, kind, totalTouched])
-
-  const visibleHeads = (heads ?? []).filter(
-    (h) => h.used_for === 'both' || h.used_for === (kind === 'income' ? 'income' : 'expense'),
-  )
-
-  const activityOptions = (activities ?? []).filter(
-    (a) => !subHeadId || !a.sub_head_id || a.sub_head_id === subHeadId,
-  )
-
-  const sameAccount = kind === 'transfer' && !!accountId && accountId === toAccountId
-  const valid =
-    !!amountPaise &&
-    amountPaise > 0 &&
-    !!accountId &&
-    (kind !== 'transfer' || (!!toAccountId && !sameAccount))
-
-  function reset() {
-    setHeadId(null)
-    setSubHeadId(null)
-    setActivityId(null)
-    setUnitId(null)
-    setQuantityMilli(null)
-    setRatePaise(null)
-    setAmountPaise(null)
-    setParty('')
-    setNote('')
-    setTotalTouched(false)
-  }
+    if (!draft.account_id && form.accounts.length) set({ account_id: form.accounts[0].id })
+  }, [form.accounts, draft.account_id, set])
 
   async function submit() {
-    if (!valid) return
+    if (!form.valid) return
     await saveEntry({
       kind,
-      date,
-      head_id: kind === 'transfer' ? null : headId,
-      sub_head_id: kind === 'expense' ? subHeadId : null,
-      activity_id: kind === 'expense' ? activityId : null,
-      account_id: accountId,
-      to_account_id: kind === 'transfer' ? toAccountId : null,
-      quantity_milli: kind === 'income' ? quantityMilli : null,
-      unit_id: kind === 'income' ? unitId : null,
-      rate_paise: kind === 'income' ? ratePaise : null,
-      amount_paise: amountPaise!,
-      party_name: party.trim() || null,
-      note: note.trim() || null,
+      date: draft.date,
+      head_id: kind === 'transfer' ? null : draft.head_id,
+      // Income keeps the grade here too — it is the same column, and a grade
+      // is exactly the sub-head of a sale.
+      sub_head_id: kind === 'transfer' ? null : draft.sub_head_id,
+      activity_id: kind === 'expense' ? draft.activity_id : null,
+      // A transfer moves money between accounts; it happens on no land.
+      plot_id: kind === 'transfer' ? null : draft.plot_id,
+      account_id: draft.account_id,
+      to_account_id: kind === 'transfer' ? draft.to_account_id : null,
+      quantity_milli: kind === 'income' ? draft.quantity_milli : null,
+      unit_id: kind === 'income' ? draft.unit_id : null,
+      rate_paise: kind === 'income' ? draft.rate_paise : null,
+      amount_paise: draft.amount_paise!,
+      party_name: draft.party_name.trim() || null,
+      note: draft.note.trim() || null,
     })
-    reset()
+
+    // Keep the account and the date: the next entry is usually the same day
+    // out of the same pocket, and re-picking both every time is what makes a
+    // farmer stop recording the small ones.
+    setDraft({ ...blankDraft(kind), date: draft.date, account_id: draft.account_id })
+    form.setAutoTotal(true)
     setSaved(true)
     setTimeout(() => setSaved(false), 1800)
   }
-
-  const accountOptions = (accounts ?? []).map((a) => ({ value: a.id, label: nameOf(a) }))
-  const unit = headUnits?.find((u) => u.unit_id === unitId)
-  // Unit codes stay single-language — "ಕೆ.ಜಿ · kg" inside a field suffix is noise.
-  const unitShort = unit ? (lang === 'en' ? unit.short_en : unit.short_kn) : ''
 
   return (
     <Shell title={t('nav.add')}>
@@ -170,8 +90,11 @@ export function AddEntryScreen() {
         <Segmented
           value={kind}
           onChange={(k) => {
-            setKind(k)
-            setTotalTouched(false)
+            // sub_head_id means a GRADE on the income side and a KIND OF SPEND
+            // on the expense side. Carrying one across the switch would file a
+            // banana sale under Fertilizer.
+            set({ kind: k, sub_head_id: null, activity_id: null })
+            form.setAutoTotal(true)
           }}
           options={(['income', 'expense', 'transfer'] as EntryKind[]).map((k) => ({
             value: k,
@@ -195,186 +118,61 @@ export function AddEntryScreen() {
           </p>
           <div className="[&_input]:text-center [&_input]:text-3xl [&_input]:font-bold [&_input]:h-16 [&_input]:bg-transparent [&_input]:border-0 [&_input]:shadow-none [&_span]:hidden">
             <MoneyInput
-              paise={amountPaise}
+              paise={draft.amount_paise}
               onChange={(p) => {
-                setAmountPaise(p)
-                if (kind === 'income') setTotalTouched(true)
+                set({ amount_paise: p })
+                // Once the farmer types a total by hand it stops being
+                // recomputed. The trader rounds ₹1,247.50 to ₹1,250 and the
+                // app must not argue with the money that changed hands.
+                if (kind === 'income') form.setAutoTotal(false)
               }}
             />
           </div>
-          {kind === 'income' && computedTotal != null && !totalTouched ? (
+          {kind === 'income' && form.computedTotal != null && form.autoTotal ? (
             <p className="text-xs" style={{ color: KIND_COLOR[kind] }}>
               {t('entry.totalHint')}
             </p>
           ) : null}
         </div>
 
-        <Field label={t('common.date')}>
-          <div className="flex gap-2">
-            <div className="flex-1">
-              <DateInput value={date} onChange={setDate} />
-            </div>
-            <Button variant={date === todayISO() ? 'soft' : 'ghost'} onClick={() => setDate(todayISO())}>
-              {t('common.today')}
-            </Button>
-            <Button
-              variant={date === addDays(todayISO(), -1) ? 'soft' : 'ghost'}
-              onClick={() => setDate(addDays(todayISO(), -1))}
-            >
-              {t('common.yesterday')}
-            </Button>
-          </div>
-        </Field>
-
-        {kind !== 'transfer' ? (
-          <Field label={t('entry.head')}>
-            <ChipSingle
-              options={visibleHeads.map((h) => ({ value: h.id, label: nameOf(h) }))}
-              value={headId}
-              onChange={setHeadId}
-              onAdd={() => navigate('/settings/heads')}
-            />
-          </Field>
-        ) : null}
-
-        {/* ---------------------------------------------------- income -- */}
-        {kind === 'income' ? (
-          <>
-            {/* Grades: first class and second class go out on the same day at
-                different prices, so each is its own entry. */}
-            {headId ? (
-              <Field label={t('entry.grade')}>
-                <ChipSingle
-                  options={(grades ?? []).map((g) => ({ value: g.id, label: nameOf(g) }))}
-                  value={subHeadId}
-                  onChange={setSubHeadId}
-                  onAdd={() => navigate('/settings/sub-heads')}
-                  allowClear
-                />
-              </Field>
-            ) : null}
-
-            {headUnits && headUnits.length > 1 ? (
-              <Field label={t('entry.unit')}>
-                <ChipSingle
-                  options={headUnits.map((u) => ({
-                    value: u.unit_id,
-                    label: `${nameOf(u)} (${lang === 'en' ? u.short_en : u.short_kn})`,
-                  }))}
-                  value={unitId}
-                  onChange={setUnitId}
-                />
-              </Field>
-            ) : null}
-
-            <div className="grid grid-cols-2 gap-3">
-              <Field label={t('entry.quantity')}>
-                <QuantityInput
-                  milli={quantityMilli}
-                  onChange={setQuantityMilli}
-                  suffix={unitShort}
-                />
-              </Field>
-              <Field label={`${t('entry.rate')} / ${unitShort || '—'}`}>
-                <MoneyInput paise={ratePaise} onChange={setRatePaise} />
-              </Field>
-            </div>
-          </>
-        ) : null}
-
-        {/* --------------------------------------------------- expense -- */}
-        {kind === 'expense' ? (
-          <>
-            <Field label={t('entry.subHead')}>
-              <ChipSingle
-                options={(subHeads ?? []).map((s) => ({ value: s.id, label: nameOf(s) }))}
-                value={subHeadId}
-                onChange={(v) => {
-                  setSubHeadId(v)
-                  setActivityId(null)
-                }}
-              />
-            </Field>
-
-            <Field
-              label={t('entry.activity')}
-              hint="The more exact this is, the more useful the crop report becomes."
-            >
-              <Select
-                value={activityId}
-                onChange={setActivityId}
-                placeholder={t('common.select')}
-                options={activityOptions.map((a) => ({ value: a.id, label: nameOf(a) }))}
-              />
-            </Field>
-          </>
-        ) : null}
-
-        {/* -------------------------------------------------- transfer -- */}
-        {kind === 'transfer' ? (
-          <div className="grid grid-cols-2 gap-3">
-            <Field label={t('entry.from')}>
-              <Select value={accountId} onChange={setAccountId} options={accountOptions} />
-            </Field>
-            <Field label={t('entry.to')} error={sameAccount ? t('entry.sameAccount') : null}>
-              <Select
-                value={toAccountId}
-                onChange={setToAccountId}
-                placeholder={t('common.select')}
-                options={accountOptions}
-              />
-            </Field>
-          </div>
-        ) : (
-          <Field label={kind === 'income' ? t('entry.accountIn') : t('entry.accountOut')}>
-            <Select value={accountId} onChange={setAccountId} options={accountOptions} />
-          </Field>
-        )}
+        <EntryFields draft={draft} set={set} form={form} />
 
         {/* Quantity × rate fills the amount above until the farmer types one
-            themselves — the trader rounds, and the money that changed hands
-            wins over the arithmetic. This offers the computed figure back. */}
-        {kind === 'income' && totalTouched && computedTotal != null && computedTotal !== amountPaise ? (
+            themselves. This offers the computed figure back. */}
+        {kind === 'income' &&
+        !form.autoTotal &&
+        form.computedTotal != null &&
+        form.computedTotal !== draft.amount_paise ? (
           <button
             onClick={() => {
-              setAmountPaise(computedTotal)
-              setTotalTouched(false)
+              set({ amount_paise: form.computedTotal })
+              form.setAutoTotal(true)
             }}
             className="press w-full card p-3 text-sm text-left"
             style={{ color: 'var(--text-soft)' }}
           >
-            {t('entry.totalHint')} = <strong>{formatRupees(computedTotal)}</strong>
+            {t('entry.totalHint')} = <strong>{formatRupees(form.computedTotal)}</strong>
             <span style={{ color: 'var(--color-brand-600)' }}> · {t('entry.useThis')}</span>
           </button>
         ) : null}
 
-        {kind !== 'transfer' ? (
-          <Field label={kind === 'income' ? t('entry.buyer') : t('entry.shop')}>
-            <Input
-              value={party}
-              onChange={setParty}
-              placeholder={kind === 'income' ? 'ವ್ಯಾಪಾರಿ' : 'ಅಂಗಡಿ'}
-            />
-          </Field>
-        ) : null}
-
-        <Field label={t('common.note')}>
-          <TextArea value={note} onChange={setNote} />
-        </Field>
-
-        <div className="sticky bottom-2 pt-1">
+        <div className="sticky bottom-2 pt-1 space-y-1.5">
+          {/* A greyed-out button with no explanation is the commonest way an
+              app loses an entry: the farmer taps it twice, decides it is
+              broken, and puts the phone away. Say what is still needed. */}
+          {!saved ? <MissingHint missing={form.missing} /> : null}
           <button
             onClick={submit}
-            disabled={!valid}
+            disabled={!form.valid}
             className="w-full rounded-xl py-4 font-semibold text-white text-lg flex items-center justify-center gap-2"
-            style={{ background: KIND_COLOR[kind], opacity: valid ? 1 : 0.45 }}
+            style={{ background: KIND_COLOR[kind], opacity: form.valid ? 1 : 0.45 }}
           >
             {saved ? (
               <>
                 <Check size={20} /> {t('entry.saved')}
               </>
             ) : (
-              `${t('common.save')} ${amountPaise ? formatRupees(amountPaise) : ''}`
+              `${t('common.save')} ${draft.amount_paise ? formatRupees(draft.amount_paise) : ''}`
             )}
           </button>
         </div>

@@ -38,4 +38,14 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!--
+      Lets the app hand a downloaded APK to Android's package installer, so an
+      update installs from inside the app instead of arriving on WhatsApp.
+
+      It grants nothing on its own: the user still has to allow this app under
+      "Install unknown apps", and still has to confirm the install on the
+      system's own screen. Without it, that screen never appears at all.
+    -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 </manifest>

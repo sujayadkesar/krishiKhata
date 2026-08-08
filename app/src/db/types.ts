@@ -58,6 +58,26 @@ export interface Unit extends MasterRow {
   allows_fraction: Bool
 }
 
+/** How a plot's area is measured. Both are in daily use around here. */
+export type AreaUnit = 'acre' | 'gunta' | 'hectare'
+
+/**
+ * A piece of land.
+ *
+ * Most farms here are two or three separate plots, and the question "did the
+ * leased land pay for itself" cannot be answered by crop alone — the same
+ * banana grows on both, and it is the land that differs in water, soil and
+ * rent. Every transaction may name one, and none has to.
+ */
+export interface Plot extends MasterRow {
+  survey_no: string | null
+  /** Integer milli-units of `area_unit`: 2.5 acre is 2500. */
+  area_milli: number | null
+  area_unit: AreaUnit | null
+  village: string | null
+  note: string | null
+}
+
 export type HeadUse = 'income' | 'expense' | 'both'
 
 /** A crop or income source: Banana, Pepper, Arecanut, Honey, General. */
@@ -154,6 +174,9 @@ export interface Entry extends BaseRow {
   head_id: string | null
   sub_head_id: string | null
   activity_id: string | null
+  /** Which piece of land. Null on transfers, and on anything recorded before
+   *  plots existed — reported as "Not recorded" rather than guessed at. */
+  plot_id: string | null
 
   /** income: money in. expense: money out. transfer: the FROM side. */
   account_id: string | null
@@ -197,6 +220,7 @@ export interface WorkSession extends BaseRow {
   head_id: string | null
   activity_id: string | null
   sub_head_id: string | null
+  plot_id: string | null
   note: string | null
   is_deleted: Bool
 }
@@ -250,9 +274,10 @@ export interface Attendance extends BaseRow {
   /** day_fraction / 1000 x rate_paise x group_size. See lib/labour.ts. */
   amount_paise: number
 
-  /** Denormalised from the session so crop costing is one indexed read. */
+  /** Denormalised from the session so crop and plot costing are indexed reads. */
   head_id: string | null
   activity_id: string | null
+  plot_id: string | null
 
   note: string | null
   is_deleted: Bool

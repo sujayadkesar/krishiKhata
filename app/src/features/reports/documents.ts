@@ -1,11 +1,13 @@
 import { escapeHtml } from '@/lib/printDoc'
-import { formatINR, formatPaise } from '@/lib/money'
+import { formatCompactINR, formatINR, formatPaise } from '@/lib/money'
 import { formatQuantity } from '@/lib/quantity'
 import { formatDate } from '@/lib/date'
+import { logoSvg } from '@/components/logoArt'
+import { donut, groupedBars, rankedBars } from './charts'
 import type { Lang } from '@/i18n/strings'
 import type { FarmProfile } from '@/data/masterData'
 import type {
-  CropRow, DayBookRow, DetailLine, DuesRow, EffortRow, Period, StatementLine,
+  CropRow, DayBookRow, DetailLine, DuesRow, EffortRow, Period, PlotRow, StatementLine,
 } from '@/data/reports'
 import type { AttendanceRow, PaymentRow } from '@/data/labour'
 
@@ -16,18 +18,31 @@ import type { AttendanceRow, PaymentRow } from '@/data/labour'
  * engine, so what the farmer approves is exactly what comes out. Building the
  * preview from React and the PDF from something else is how a report ends up
  * looking right on screen and wrong on paper.
+ *
+ * The shape is a statement, not a dashboard: the farm's own letterhead, a
+ * centred title, figures in ruled tables, and a signature block at the end.
+ * These get handed to a bank, a landlord, or the worker named on them, and a
+ * document that looks like a screenshot does not survive that.
+ *
+ * Charts are real SVG (see charts.ts) — never rasterised, because a rasteriser
+ * takes Kannada apart.
  */
 
-const LOGO = `<svg class="lh-logo" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-<rect width="64" height="64" rx="15" fill="#12502c"/>
-<path d="M32 45V24" stroke="#f0c078" stroke-width="3.2" stroke-linecap="round" fill="none"/>
-<path d="M33 31c0-6 4.6-11 11-11 0 6-4.6 11-11 11Z" fill="#a7d9bc"/>
-<path d="M31 35c0-6.4-4.9-11.6-11.6-11.6 0 6.4 4.9 11.6 11.6 11.6Z" fill="#6dbd92"/>
-<path d="M32 44c-5.6-4-13.4-4.6-20-2.6v13c6.6-2 14.4-1.4 20 2.6Z" fill="#ffffff"/>
-<path d="M32 44c5.6-4 13.4-4.6 20-2.6v13c-6.6-2-14.4-1.4-20 2.6Z" fill="#d6e6dc"/></svg>`
+const LOGO = logoSvg({ size: 46, className: 'lh-logo' })
 
 const rupees = (p: number) => escapeHtml(formatINR(p, { decimals: false }))
 const plain = (p: number) => escapeHtml(formatPaise(p, { decimals: false }))
+const compact = (p: number) => formatCompactINR(p).replace('₹', '')
+
+const INK = {
+  income: '#04796b',
+  expense: '#c62828',
+  brand: '#12502c',
+  neutral: '#8b7f71',
+}
+
+/** A categorical ramp for crops and plots, matching the app's charts. */
+const RAMP = ['#04796b', '#e35b0d', '#2563eb', '#c026d3', '#65a30d', '#0891b2', '#b45309', '#7c3aed']
 
 export interface DocContext {
   profile: FarmProfile
@@ -37,11 +52,29 @@ export interface DocContext {
   name: (row: { name_en: string | null; name_kn: string | null } | null | undefined) => string
 }
 
-function letterhead(ctx: DocContext, title: string): string {
+/**
+ * A label in the document's language.
+ *
+ * In 'both' mode every heading carries both, because a statement is exactly
+ * the thing a farmer hands to someone who reads the other language.
+ */
+const L = (lang: Lang, kn: string, en: string) =>
+  lang === 'en' ? en : lang === 'both' ? `${kn} · ${en}` : kn
+
+/* ------------------------------------------------------------------ *
+ * The furniture every document shares
+ * ------------------------------------------------------------------ */
+
+/**
+ * The letterhead.
+ *
+ * The farm's own name leads. Krishi Khata made the document, but it is the
+ * farmer's statement, not the app's advertisement — so the app's name sits
+ * small on the right, where a printer's imprint would go.
+ */
+function letterhead(ctx: DocContext, title: string, subject?: string): string {
   const { profile, period, lang } = ctx
 
-  // The farm's own name leads. Krishi Khata made the document, but it is the
-  // farmer's statement, not the app's advertisement.
   const farm = profile.farm_name || L(lang, 'ತೋಟದ ಹೆಸರು', 'Farm name')
   const contact = [profile.village, profile.phone].filter(Boolean).map(escapeHtml).join(' · ')
 
@@ -49,27 +82,41 @@ function letterhead(ctx: DocContext, title: string): string {
   <div class="lh">
     ${LOGO}
     <div class="lh-main">
-      <div class="lh-app">${escapeHtml(farm)}</div>
-      ${profile.owner_name ? `<div class="lh-farm">${escapeHtml(profile.owner_name)}</div>` : ''}
+      <div class="lh-farm">${escapeHtml(farm)}</div>
+      ${profile.owner_name ? `<div class="lh-owner">${escapeHtml(profile.owner_name)}</div>` : ''}
       ${contact ? `<div class="lh-sub">${contact}</div>` : ''}
     </div>
     <div class="lh-right">ಕೃಷಿ ಖಾತೆ<br>Krishi Khata</div>
   </div>
-  <div class="title-band">
+  <hr class="rule">
+  <hr class="rule-thin">
+  <div class="title-block">
     <h1 class="title">${escapeHtml(title)}</h1>
-    <span class="period">${escapeHtml(formatDate(period.from, lang))} — ${escapeHtml(
+    ${subject ? `<div class="subject">${subject}</div>` : ''}
+    <div class="period">${escapeHtml(formatDate(period.from, lang))} — ${escapeHtml(
       formatDate(period.to, lang),
-    )}</span>
+    )}</div>
   </div>`
 }
 
-type CardTone = 'income' | 'expense' | 'neutral' | ''
+type CardTone = 'income' | 'expense' | 'neutral' | 'brand' | ''
 
-/** The row of summary figures that opens most documents. */
+/**
+ * The grid of summary figures that opens every document.
+ *
+ * Padded to a multiple of four so the last row never sits half-empty with the
+ * tiles stretched across it — a fixed four-across grid is what keeps two
+ * farmers comparing the same report looking at the same document.
+ */
 function cards(items: [label: string, value: string, tone?: CardTone, sub?: string][]): string {
-  return `<div class="totals">${items
-    .map(
-      ([label, value, tone, sub]) => `
+  const padded = [...items]
+  while (padded.length % 4 !== 0) padded.push(['', '', ''])
+
+  return `<div class="totals">${padded
+    .map(([label, value, tone, sub]) =>
+      label === ''
+        ? '<div style="border:0;background:none"></div>'
+        : `
       <div class="${tone ? `is-${tone}` : ''}">
         <div class="k">${escapeHtml(label)}</div>
         <div class="v">${value}</div>
@@ -86,16 +133,48 @@ function cards(items: [label: string, value: string, tone?: CardTone, sub?: stri
  * to survive whatever print engine the phone has, and a coloured box always
  * survives.
  */
-function bar(value: number, max: number, tone: 'income' | 'expense' = 'income'): string {
+function bar(value: number, max: number, tone: 'income' | 'expense' | 'brand' = 'income'): string {
   const pct = max > 0 ? Math.round((Math.abs(value) / max) * 100) : 0
-  return `<div class="bar ${tone === 'expense' ? 'is-expense' : ''}"><span style="width:${pct}%"></span></div>`
+  return `<div class="bar is-${tone}"><span style="width:${pct}%"></span></div>`
 }
 
-function footer(lang: Lang): string {
+function section(lang: Lang, kn: string, en: string): string {
+  return `<h2 class="section">${escapeHtml(L(lang, kn, en))}</h2>`
+}
+
+function chart(svg: string): string {
+  return svg ? `<div class="chart-block">${svg}</div>` : ''
+}
+
+/**
+ * The close of the document.
+ *
+ * A signature line, because these are handed over: to a bank asking for proof
+ * of income, to a landlord, or to the worker whose wages are on it. The line
+ * about how it was made sits opposite, so nobody has to wonder whether an
+ * unsigned copy is valid.
+ */
+function signOff(ctx: DocContext, signatory: string): string {
+  const { lang, profile } = ctx
+  const made = L(
+    lang,
+    'ಇದು ಕಂಪ್ಯೂಟರ್‌ನಿಂದ ತಯಾರಾದ ವರದಿ.',
+    'Computer generated from the farm’s own records.',
+  )
   const generated = L(lang, 'ತಯಾರಿಸಿದ ದಿನಾಂಕ', 'Generated')
   const today = formatDate(new Date().toISOString().slice(0, 10), lang)
-  return `<div class="foot"><span>${escapeHtml(generated)}: ${escapeHtml(today)}</span>
-          <span>ಕೃಷಿ ಖಾತೆ · Krishi Khata</span></div>`
+
+  return `
+  <div class="sign">
+    <div class="made">${escapeHtml(made)}</div>
+    <div class="line">${escapeHtml(signatory)}${
+      profile.owner_name ? `<br>${escapeHtml(profile.owner_name)}` : ''
+    }</div>
+  </div>
+  <div class="foot">
+    <span>${escapeHtml(generated)}: ${escapeHtml(today)}</span>
+    <span>ಕೃಷಿ ಖಾತೆ · Krishi Khata</span>
+  </div>`
 }
 
 /**
@@ -116,7 +195,7 @@ function outstandingNote(outstanding: number, lang: Lang): string {
 
 function table(
   headers: string[],
-  rows: string[][],
+  rows: (string[] | { cells: string[]; group?: boolean })[],
   opts: { numeric?: number[]; foot?: string[] } = {},
 ): string {
   const numeric = new Set(opts.numeric ?? [])
@@ -124,12 +203,13 @@ function table(
     .map((h, i) => `<th class="${numeric.has(i) ? 'num' : ''}">${escapeHtml(h)}</th>`)
     .join('')
   const body = rows
-    .map(
-      (r) =>
-        `<tr>${r
-          .map((c, i) => `<td class="${numeric.has(i) ? 'num' : ''}">${c}</td>`)
-          .join('')}</tr>`,
-    )
+    .map((r) => {
+      const cells = Array.isArray(r) ? r : r.cells
+      const isGroup = !Array.isArray(r) && r.group
+      return `<tr${isGroup ? ' class="group"' : ''}>${cells
+        .map((c, i) => `<td class="${numeric.has(i) ? 'num' : ''}">${c}</td>`)
+        .join('')}</tr>`
+    })
     .join('')
   const tfoot = opts.foot
     ? `<tfoot><tr>${opts.foot
@@ -139,14 +219,16 @@ function table(
   return `<table><thead><tr>${th}</tr></thead><tbody>${body}</tbody>${tfoot}</table>`
 }
 
-/**
- * A label in the document's language.
- *
- * In 'both' mode every heading carries both, because a statement is exactly
- * the thing a farmer hands to someone who reads the other language.
- */
-const L = (lang: Lang, kn: string, en: string) =>
-  lang === 'en' ? en : lang === 'both' ? `${kn} · ${en}` : kn
+/** "2026-08" -> "ಆಗಸ್ಟ್ 2026" */
+function monthLabel(ym: string, lang: Lang): string {
+  const [y, m] = ym.split('-').map(Number)
+  return formatDate(`${y}-${String(m).padStart(2, '0')}-01`, lang).slice(3)
+}
+
+/** Short month for a chart axis, where there is no room for the year. */
+function shortMonth(ym: string, lang: Lang): string {
+  return monthLabel(ym, lang).split(' ')[0]
+}
 
 /* ------------------------------------------------------------------ *
  * Income & Expense statement
@@ -172,7 +254,32 @@ export function incomeExpenseDoc(
       `<span class="${net < 0 ? 'neg' : 'pos'}">${rupees(net)}</span>`,
       net < 0 ? 'expense' : 'income',
     ],
+    [L(lang, 'ದಾಖಲೆಗಳು', 'Line items'), String(income.length + expense.length), 'neutral'],
   ])
+
+  const incomeChart = donut({
+    slices: income
+      .filter((r) => r.total > 0)
+      .map((r, i) => ({
+        label: ctx.name(r) || L(lang, 'ಇತರೆ', 'Unallocated'),
+        value: r.total,
+        color: RAMP[i % RAMP.length],
+      })),
+    centreValue: compact(incomeTotal),
+    centreLabel: L(lang, 'ಒಟ್ಟು ಆದಾಯ', 'Total income'),
+  })
+
+  const spendChart = rankedBars({
+    rows: expense
+      .filter((r) => r.total > 0)
+      .slice(0, 10)
+      .map((r) => ({
+        label: ctx.name(r) || L(lang, 'ಇತರೆ', 'Unallocated'),
+        value: r.total,
+        note: formatPaise(r.total, { decimals: false }),
+      })),
+    color: INK.expense,
+  })
 
   const incomeTable = table(
     [L(lang, 'ಬೆಳೆ', 'Crop / Head'), L(lang, 'ಮೊತ್ತ', 'Amount')],
@@ -206,13 +313,15 @@ export function incomeExpenseDoc(
     ${letterhead(ctx, L(lang, 'ಆದಾಯ ಮತ್ತು ಖರ್ಚಿನ ವಿವರ', 'Income & Expense Statement'))}
     ${totals}
     ${outstandingNote(outstanding, lang)}
-    <h2 class="section">${escapeHtml(L(lang, 'ಆದಾಯ', 'Income'))}</h2>
+    ${section(lang, 'ಆದಾಯ', 'Income')}
+    ${chart(incomeChart)}
     ${incomeTable}
-    <h2 class="section">${escapeHtml(L(lang, 'ಖರ್ಚು', 'Expense'))}</h2>
+    ${section(lang, 'ಖರ್ಚು', 'Expense')}
+    ${chart(spendChart)}
     ${expenseTable}
-    <h2 class="section">${escapeHtml(L(lang, 'ಖರ್ಚಿನ ವಿವರ', 'Expense detail'))}</h2>
+    ${section(lang, 'ಖರ್ಚಿನ ವಿವರ', 'Expense detail')}
     ${detailTable}
-    ${footer(lang)}`
+    ${signOff(ctx, L(lang, 'ಸಹಿ', 'Signature'))}`
 }
 
 /* ------------------------------------------------------------------ *
@@ -229,6 +338,23 @@ export function cropProfitDoc(ctx: DocContext, rows: CropRow[], outstanding: num
     labour: rows.reduce((s, r) => s + r.labour_cost_paise, 0),
     profit: rows.reduce((s, r) => s + r.profit_paise, 0),
   }
+
+  const comparison = groupedBars({
+    categories: rows.slice(0, 8).map((r) => ctx.name(r)),
+    series: [
+      {
+        label: L(lang, 'ಆದಾಯ', 'Income'),
+        color: INK.income,
+        values: rows.slice(0, 8).map((r) => r.income_paise),
+      },
+      {
+        label: L(lang, 'ಖರ್ಚು', 'Cost'),
+        color: INK.expense,
+        values: rows.slice(0, 8).map((r) => r.total_cost_paise),
+      },
+    ],
+    axisFormat: compact,
+  })
 
   const body = table(
     [
@@ -269,7 +395,7 @@ export function cropProfitDoc(ctx: DocContext, rows: CropRow[], outstanding: num
   // offered next season is worth taking.
   const perUnitRows = rows.filter((r) => r.cost_per_unit_paise != null)
   const perUnit = perUnitRows.length
-    ? `<h2 class="section">${escapeHtml(L(lang, 'ಪ್ರತಿ ಅಳತೆಗೆ', 'Per unit'))}</h2>` +
+    ? section(lang, 'ಪ್ರತಿ ಅಳತೆಗೆ', 'Per unit') +
       table(
         [
           L(lang, 'ಬೆಳೆ', 'Crop'),
@@ -292,10 +418,119 @@ export function cropProfitDoc(ctx: DocContext, rows: CropRow[], outstanding: num
 
   return `
     ${letterhead(ctx, L(lang, 'ಬೆಳೆವಾರು ಲಾಭ-ನಷ್ಟ', 'Crop-wise Profitability'))}
+    ${cards([
+      [L(lang, 'ಆದಾಯ', 'Income'), `<span class="pos">${rupees(totals.income)}</span>`, 'income'],
+      [
+        L(lang, 'ಒಟ್ಟು ಖರ್ಚು', 'Total cost'),
+        `<span class="neg">${rupees(totals.direct + totals.labour)}</span>`,
+        'expense',
+      ],
+      [
+        L(lang, 'ಲಾಭ', 'Profit'),
+        `<span class="${totals.profit < 0 ? 'neg' : 'pos'}">${rupees(totals.profit)}</span>`,
+        totals.profit < 0 ? 'expense' : 'income',
+      ],
+      [L(lang, 'ಬೆಳೆಗಳು', 'Crops'), String(rows.length), 'neutral'],
+    ])}
     ${outstandingNote(outstanding, lang)}
+    ${section(lang, 'ಆದಾಯ ಮತ್ತು ಖರ್ಚು', 'Income against cost')}
+    ${chart(comparison)}
     ${body}
     ${perUnit}
-    ${footer(lang)}`
+    ${signOff(ctx, L(lang, 'ಸಹಿ', 'Signature'))}`
+}
+
+/* ------------------------------------------------------------------ *
+ * Plot-wise
+ * ------------------------------------------------------------------ */
+
+function plotTable(ctx: DocContext, rows: PlotRow[]): string {
+  const { lang } = ctx
+  if (!rows.length) return ''
+
+  const areaOf = (r: PlotRow) =>
+    r.area_milli != null
+      ? escapeHtml(`${formatQuantity(r.area_milli)} ${r.area_unit ?? 'acre'}`)
+      : '<span class="muted">—</span>'
+
+  return table(
+    [
+      L(lang, 'ಜಮೀನು', 'Plot'),
+      L(lang, 'ವಿಸ್ತೀರ್ಣ', 'Area'),
+      L(lang, 'ಆಳು-ದಿನ', 'Person-days'),
+      L(lang, 'ಆದಾಯ', 'Income'),
+      L(lang, 'ಒಟ್ಟು ಖರ್ಚು', 'Total cost'),
+      L(lang, 'ಲಾಭ', 'Profit'),
+    ],
+    rows.map((r) => [
+      escapeHtml(ctx.name(r)) +
+        (r.survey_no ? ` <span class="muted">${escapeHtml(r.survey_no)}</span>` : ''),
+      areaOf(r),
+      String(Math.round(r.person_days * 10) / 10),
+      plain(r.income_paise),
+      plain(r.total_cost_paise),
+      `<span class="${r.profit_paise < 0 ? 'neg' : 'pos'}">${plain(r.profit_paise)}</span>`,
+    ]),
+    {
+      numeric: [1, 2, 3, 4, 5],
+      foot: [
+        L(lang, 'ಒಟ್ಟು', 'Total'),
+        '',
+        String(Math.round(rows.reduce((s, r) => s + r.person_days, 0) * 10) / 10),
+        plain(rows.reduce((s, r) => s + r.income_paise, 0)),
+        plain(rows.reduce((s, r) => s + r.total_cost_paise, 0)),
+        plain(rows.reduce((s, r) => s + r.profit_paise, 0)),
+      ],
+    },
+  )
+}
+
+export function plotProfitDoc(ctx: DocContext, rows: PlotRow[], outstanding: number): string {
+  const { lang } = ctx
+
+  const comparison = groupedBars({
+    categories: rows.map((r) => ctx.name(r)),
+    series: [
+      {
+        label: L(lang, 'ಆದಾಯ', 'Income'),
+        color: INK.income,
+        values: rows.map((r) => r.income_paise),
+      },
+      {
+        label: L(lang, 'ಖರ್ಚು', 'Cost'),
+        color: INK.expense,
+        values: rows.map((r) => r.total_cost_paise),
+      },
+    ],
+    axisFormat: compact,
+  })
+
+  const income = rows.reduce((s, r) => s + r.income_paise, 0)
+  const cost = rows.reduce((s, r) => s + r.total_cost_paise, 0)
+
+  return `
+    ${letterhead(ctx, L(lang, 'ಜಮೀನುವಾರು ಲಾಭ-ನಷ್ಟ', 'Plot-wise Profitability'))}
+    ${cards([
+      [L(lang, 'ಜಮೀನುಗಳು', 'Plots'), String(rows.filter((r) => r.plot_id).length), 'brand'],
+      [L(lang, 'ಆದಾಯ', 'Income'), `<span class="pos">${rupees(income)}</span>`, 'income'],
+      [L(lang, 'ಖರ್ಚು', 'Cost'), `<span class="neg">${rupees(cost)}</span>`, 'expense'],
+      [
+        L(lang, 'ಲಾಭ', 'Profit'),
+        `<span class="${income - cost < 0 ? 'neg' : 'pos'}">${rupees(income - cost)}</span>`,
+        income - cost < 0 ? 'expense' : 'income',
+      ],
+    ])}
+    ${outstandingNote(outstanding, lang)}
+    ${chart(comparison)}
+    ${plotTable(ctx, rows)}
+    <div class="note">${escapeHtml(
+      L(
+        lang,
+        'ಜಮೀನು ದಾಖಲಿಸದ ವ್ಯವಹಾರಗಳು “ದಾಖಲಾಗಿಲ್ಲ” ಸಾಲಿನಲ್ಲಿ ಬರುತ್ತವೆ.',
+        'Entries recorded without a plot appear on the “Not recorded” line rather than being counted against any one piece of land.',
+      ),
+    )}</div>
+    ${signOff(ctx, L(lang, 'ಸಹಿ', 'Signature'))}`
 }
 
 /* ------------------------------------------------------------------ *
@@ -306,6 +541,17 @@ export function labourDuesDoc(ctx: DocContext, rows: DuesRow[], effort: EffortRo
   const { lang } = ctx
   const owed = rows.reduce((s, r) => s + Math.max(0, r.balance_paise), 0)
   const advance = rows.reduce((s, r) => s + Math.max(0, -r.balance_paise), 0)
+
+  const owedChart = rankedBars({
+    rows: rows
+      .filter((r) => r.balance_paise > 0)
+      .map((r) => ({
+        label: ctx.name(r),
+        value: r.balance_paise,
+        note: formatPaise(r.balance_paise, { decimals: false }),
+      })),
+    color: INK.expense,
+  })
 
   const dues = table(
     [
@@ -339,7 +585,7 @@ export function labourDuesDoc(ctx: DocContext, rows: DuesRow[], effort: EffortRo
   )
 
   const effortTable = effort.length
-    ? `<h2 class="section">${escapeHtml(L(lang, 'ಬೆಳೆವಾರು ಶ್ರಮ', 'Effort by crop'))}</h2>` +
+    ? section(lang, 'ಬೆಳೆವಾರು ಶ್ರಮ', 'Effort by crop') +
       table(
         [
           L(lang, 'ಬೆಳೆ', 'Crop'),
@@ -358,26 +604,42 @@ export function labourDuesDoc(ctx: DocContext, rows: DuesRow[], effort: EffortRo
     : ''
 
   return `
-    ${letterhead(ctx, L(lang, 'ಕೂಲಿ ಬಾಕಿ ವಿವರ', 'Labour Dues Summary'))}
+    ${letterhead(ctx, L(lang, 'ಕೂಲಿ ಬಾಕಿ ವಿವರ', 'Wages Due'))}
     ${cards([
       [L(lang, 'ಕೊಡಬೇಕಾದದ್ದು', 'You owe'), `<span class="neg">${rupees(owed)}</span>`, 'expense'],
       [L(lang, 'ಮುಂಗಡ', 'Advance held'), rupees(advance), 'neutral'],
+      [L(lang, 'ಒಟ್ಟು ಜನ', 'People'), String(rows.length), 'brand'],
       [
-        L(lang, 'ಒಟ್ಟು ಆಳುಗಳು', 'People'),
-        String(rows.length),
+        L(lang, 'ಬಾಕಿ ಇರುವವರು', 'Awaiting payment'),
+        String(rows.filter((r) => r.balance_paise > 0).length),
         'neutral',
       ],
     ])}
+    ${owedChart ? section(lang, 'ಯಾರಿಗೆ ಎಷ್ಟು', 'Who is owed') + chart(owedChart) : ''}
     ${dues}
     ${effortTable}
-    ${footer(lang)}`
+    ${signOff(ctx, L(lang, 'ಸಹಿ', 'Signature'))}`
 }
 
 export interface WorkerCharts {
-  byCrop: { name_en: string | null; name_kn: string | null; person_days: number; earned_paise: number }[]
+  byCrop: {
+    name_en: string | null
+    name_kn: string | null
+    person_days: number
+    earned_paise: number
+  }[]
   monthly: { month: string; earned: number; paid: number; days: number }[]
 }
 
+/**
+ * One person's complete record: what they worked, what they earned, what they
+ * were paid, and what is still owed.
+ *
+ * This is the document that gets handed to the worker, so it ends with a
+ * receipt line for them to sign rather than only the farmer's signature. It is
+ * also the reason the app calls them workers and not labourers — the word on
+ * the page is the word said to their face.
+ */
 export function labourStatementDoc(
   ctx: DocContext,
   labourer: { name_en: string; name_kn: string; phone: string | null; code?: string | null },
@@ -392,6 +654,65 @@ export function labourStatementDoc(
     (s, p) => s + (p.direction === 'in' ? -p.amount_paise : p.amount_paise),
     0,
   )
+
+  const days = work.reduce((s, w) => s + w.day_fraction / 1000, 0)
+  const personDays = work.reduce(
+    (s, w) => s + (w.day_fraction / 1000) * Math.max(1, w.group_size),
+    0,
+  )
+
+  const subject = [
+    `<span class="strong">${escapeHtml(ctx.name(labourer))}</span>`,
+    labourer.code ? escapeHtml(labourer.code) : '',
+    labourer.phone ? escapeHtml(labourer.phone) : '',
+  ]
+    .filter(Boolean)
+    .join(' <span class="muted">·</span> ')
+
+  const monthChart = charts?.monthly.length
+    ? groupedBars({
+        categories: charts.monthly.map((m) => shortMonth(m.month, lang)),
+        series: [
+          {
+            label: L(lang, 'ಗಳಿಕೆ', 'Earned'),
+            color: INK.income,
+            values: charts.monthly.map((m) => m.earned),
+          },
+          {
+            label: L(lang, 'ಪಾವತಿ', 'Paid'),
+            color: INK.expense,
+            values: charts.monthly.map((m) => m.paid),
+          },
+        ],
+        axisFormat: compact,
+      })
+    : ''
+
+  const cropChart = charts?.byCrop.length
+    ? donut({
+        slices: charts.byCrop
+          .filter((c) => c.earned_paise > 0)
+          .map((c, i) => ({
+            label: ctx.name({ name_en: c.name_en, name_kn: c.name_kn }) || '—',
+            value: c.earned_paise,
+            color: RAMP[i % RAMP.length],
+          })),
+        centreValue: compact(earned),
+        centreLabel: L(lang, 'ಒಟ್ಟು ಗಳಿಕೆ', 'Total earned'),
+      })
+    : ''
+
+  const cropTable = charts?.byCrop.length
+    ? table(
+        [L(lang, 'ಬೆಳೆ', 'Crop'), L(lang, 'ಆಳು-ದಿನ', 'Person-days'), L(lang, 'ಗಳಿಕೆ', 'Earned')],
+        charts.byCrop.map((c) => [
+          escapeHtml(ctx.name({ name_en: c.name_en, name_kn: c.name_kn }) || '—'),
+          String(c.person_days),
+          plain(c.earned_paise),
+        ]),
+        { numeric: [1, 2] },
+      )
+    : ''
 
   const workTable = table(
     [
@@ -417,11 +738,7 @@ export function labourStatementDoc(
   // Money out and money back are shown in one column with a sign, the way a
   // khata book does it — two columns invites reading the wrong one.
   const payTable = table(
-    [
-      L(lang, 'ದಿನಾಂಕ', 'Date'),
-      L(lang, 'ವಿವರ', 'Detail'),
-      L(lang, 'ಮೊತ್ತ', 'Amount'),
-    ],
+    [L(lang, 'ದಿನಾಂಕ', 'Date'), L(lang, 'ವಿವರ', 'Detail'), L(lang, 'ಮೊತ್ತ', 'Amount')],
     payments.map((p) => {
       const isReturn = p.direction === 'in'
       const label = isReturn
@@ -433,10 +750,7 @@ export function labourStatementDoc(
         escapeHtml(formatDate(p.date, lang)),
         `<span class="strong">${escapeHtml(label)}</span>` +
           escapeHtml(
-            [
-              ctx.name({ name_en: p.account_name_en, name_kn: p.account_name_kn }),
-              p.note ?? '',
-            ]
+            [ctx.name({ name_en: p.account_name_en, name_kn: p.account_name_kn }), p.note ?? '']
               .filter(Boolean)
               .join(' · ')
               .replace(/^(.)/, ' · $1'),
@@ -447,69 +761,16 @@ export function labourStatementDoc(
     { numeric: [2], foot: [L(lang, 'ನಿವ್ವಳ', 'Net paid'), '', plain(paid)] },
   )
 
-  const days = work.reduce((s, w) => s + w.day_fraction / 1000, 0)
-  const personDays = work.reduce((s, w) => s + (w.day_fraction / 1000) * Math.max(1, w.group_size), 0)
-
-  // Charts, drawn as bars in tables. A statement handed to somebody should
-  // show them the shape of their own year, not just columns of figures.
-  const cropPeak = Math.max(1, ...(charts?.byCrop ?? []).map((c) => c.earned_paise))
-  const cropChart = charts?.byCrop.length
-    ? `<h2 class="section">${escapeHtml(L(lang, 'ಯಾವ ಬೆಳೆಗೆ ಕೆಲಸ', 'Work by crop'))}</h2>` +
-      table(
-        [
-          L(lang, 'ಬೆಳೆ', 'Crop'),
-          L(lang, 'ಆಳು-ದಿನ', 'Days'),
-          L(lang, 'ಗಳಿಕೆ', 'Earned'),
-          '',
-        ],
-        charts.byCrop.map((c) => [
-          escapeHtml(ctx.name({ name_en: c.name_en, name_kn: c.name_kn }) || '—'),
-          String(c.person_days),
-          plain(c.earned_paise),
-          bar(c.earned_paise, cropPeak),
-        ]),
-        { numeric: [1, 2] },
-      )
-    : ''
-
-  const monthPeak = Math.max(
-    1,
-    ...(charts?.monthly ?? []).map((m) => Math.max(m.earned, m.paid)),
-  )
-  const monthChart = charts?.monthly.length
-    ? `<h2 class="section">${escapeHtml(L(lang, 'ತಿಂಗಳವಾರು', 'Month by month'))}</h2>` +
-      table(
-        [
-          L(lang, 'ತಿಂಗಳು', 'Month'),
-          L(lang, 'ದಿನ', 'Days'),
-          L(lang, 'ಗಳಿಕೆ', 'Earned'),
-          '',
-          L(lang, 'ಪಾವತಿ', 'Paid'),
-          '',
-        ],
-        charts.monthly.map((m) => [
-          escapeHtml(monthLabel(m.month, lang)),
-          String(m.days),
-          plain(m.earned),
-          bar(m.earned, monthPeak),
-          plain(m.paid),
-          bar(m.paid, monthPeak, 'expense'),
-        ]),
-        { numeric: [1, 2, 4] },
-      )
-    : ''
-
   return `
-    ${letterhead(ctx, L(lang, 'ಕೆಲಸ ಮತ್ತು ಪಾವತಿ ವಿವರ', 'Work & Payment Statement'))}
-    <div class="block" style="font-size:12pt;font-weight:600;margin-bottom:10px">
-      ${escapeHtml(ctx.name(labourer))}
-      ${labourer.code ? `<span class="muted"> · ${escapeHtml(labourer.code)}</span>` : ''}
-      ${labourer.phone ? `<span class="muted"> · ${escapeHtml(labourer.phone)}</span>` : ''}
-    </div>
+    ${letterhead(ctx, L(lang, 'ಕೆಲಸ ಮತ್ತು ಪಾವತಿ ವಿವರ', 'Work & Payment Statement'), subject)}
     ${cards([
-      [L(lang, 'ಕೆಲಸದ ದಿನ', 'Days'), String(days), 'neutral',
-        personDays !== days ? `${personDays} ${L(lang, 'ಆಳು-ದಿನ', 'person-days')}` : undefined],
-      [L(lang, 'ಗಳಿಸಿದ್ದು', 'Earned'), rupees(earned), 'income'],
+      [
+        L(lang, 'ಕೆಲಸದ ದಿನ', 'Days'),
+        String(days),
+        'brand',
+        personDays !== days ? `${personDays} ${L(lang, 'ಆಳು-ದಿನ', 'person-days')}` : undefined,
+      ],
+      [L(lang, 'ಗಳಿಸಿದ್ದು', 'Earned'), `<span class="pos">${rupees(earned)}</span>`, 'income'],
       [L(lang, 'ಕೊಟ್ಟಿದ್ದು', 'Paid'), rupees(paid), 'expense'],
       [
         balance < 0 ? L(lang, 'ಮುಂಗಡ', 'Advance held') : L(lang, 'ಬಾಕಿ', 'Balance due'),
@@ -517,13 +778,15 @@ export function labourStatementDoc(
         balance > 0 ? 'expense' : 'neutral',
       ],
     ])}
-    ${cropChart}
-    ${monthChart}
-    <h2 class="section">${escapeHtml(L(lang, 'ಕೆಲಸದ ದಿನಗಳು', 'Days worked'))}</h2>
+
+    ${monthChart ? section(lang, 'ತಿಂಗಳವಾರು', 'Month by month') + chart(monthChart) : ''}
+    ${cropChart ? section(lang, 'ಯಾವ ಬೆಳೆಗೆ ಕೆಲಸ', 'Work by crop') + chart(cropChart) + cropTable : ''}
+
+    ${section(lang, 'ಕೆಲಸದ ದಿನಗಳು', 'Days worked')}
     ${workTable}
-    <h2 class="section">${escapeHtml(L(lang, 'ಪಾವತಿ ಮತ್ತು ವಾಪಸಾತಿ', 'Payments and returns'))}</h2>
+    ${section(lang, 'ಪಾವತಿ ಮತ್ತು ವಾಪಸಾತಿ', 'Payments and returns')}
     ${payTable}
-    ${footer(lang)}`
+    ${signOff(ctx, L(lang, 'ಸ್ವೀಕರಿಸಿದವರ ಸಹಿ', 'Received by'))}`
 }
 
 /* ------------------------------------------------------------------ *
@@ -532,6 +795,7 @@ export function labourStatementDoc(
 
 export interface ComprehensiveData {
   crops: CropRow[]
+  plots: PlotRow[]
   income: StatementLine[]
   expense: StatementLine[]
   detail: DetailLine[]
@@ -543,13 +807,12 @@ export interface ComprehensiveData {
 }
 
 /**
- * The full picture: balances, crop profitability, where money went, who is
- * owed, and the month-by-month trend.
+ * The full picture: balances, crop and plot profitability, where money went,
+ * who is owed, and the month-by-month trend.
  *
- * The trend is drawn as paired bars built from divs. A chart library would
- * render nothing here — the document is handed to a print engine as static
- * HTML, with no JavaScript and no canvas — and rasterising a chart to an image
- * would put unshaped Kannada back into the labels.
+ * Long on purpose — this is the one a farmer prints once a year and files.
+ * Every section that can stand alone is also its own shorter report, for the
+ * times somebody needs only that page.
  */
 export function comprehensiveDoc(ctx: DocContext, d: ComprehensiveData): string {
   const { lang } = ctx
@@ -559,18 +822,33 @@ export function comprehensiveDoc(ctx: DocContext, d: ComprehensiveData): string 
   const net = incomeTotal - expenseTotal
   const cash = d.balances.reduce((s, b) => s + b.balance_paise, 0)
   const owed = d.dues.reduce((s, r) => s + Math.max(0, r.balance_paise), 0)
+  const personDays = d.effort.reduce((s, e) => s + e.person_days, 0)
 
-  const peak = Math.max(1, ...d.monthly.map((m) => Math.max(m.income, m.expense)))
+  const trendChart = d.monthly.length
+    ? groupedBars({
+        categories: d.monthly.map((m) => shortMonth(m.month, lang)),
+        series: [
+          {
+            label: L(lang, 'ಆದಾಯ', 'Income'),
+            color: INK.income,
+            values: d.monthly.map((m) => m.income),
+          },
+          {
+            label: L(lang, 'ಖರ್ಚು', 'Expense'),
+            color: INK.expense,
+            values: d.monthly.map((m) => m.expense),
+          },
+        ],
+        axisFormat: compact,
+      })
+    : ''
 
-  const trend = d.monthly.length
-    ? `<h2 class="section">${escapeHtml(L(lang, 'ತಿಂಗಳವಾರು ಬೆಳವಣಿಗೆ', 'Month by month'))}</h2>` +
-      table(
+  const trendTable = d.monthly.length
+    ? table(
         [
           L(lang, 'ತಿಂಗಳು', 'Month'),
           L(lang, 'ಆದಾಯ', 'Income'),
-          '',
           L(lang, 'ಖರ್ಚು', 'Expense'),
-          '',
           L(lang, 'ಉಳಿತಾಯ', 'Net'),
         ],
         d.monthly.map((m) => {
@@ -578,25 +856,33 @@ export function comprehensiveDoc(ctx: DocContext, d: ComprehensiveData): string 
           return [
             escapeHtml(monthLabel(m.month, lang)),
             plain(m.income),
-            bar(m.income, peak, 'income'),
             plain(m.expense),
-            bar(m.expense, peak, 'expense'),
             `<span class="${n < 0 ? 'neg' : 'pos'}">${plain(n)}</span>`,
           ]
         }),
         {
-          numeric: [1, 3, 5],
+          numeric: [1, 2, 3],
           foot: [
             L(lang, 'ಒಟ್ಟು', 'Total'),
             plain(d.monthly.reduce((s, m) => s + m.income, 0)),
-            '',
             plain(d.monthly.reduce((s, m) => s + m.expense, 0)),
-            '',
             plain(d.monthly.reduce((s, m) => s + m.income - m.expense, 0)),
           ],
         },
       )
     : ''
+
+  const cropDonut = donut({
+    slices: d.crops
+      .filter((c) => c.income_paise > 0)
+      .map((c, i) => ({
+        label: ctx.name(c),
+        value: c.income_paise,
+        color: RAMP[i % RAMP.length],
+      })),
+    centreValue: compact(incomeTotal),
+    centreLabel: L(lang, 'ಒಟ್ಟು ಆದಾಯ', 'Total income'),
+  })
 
   const cropPeak = Math.max(1, ...d.crops.map((c) => c.income_paise))
   const cropTable = d.crops.length
@@ -615,20 +901,40 @@ export function comprehensiveDoc(ctx: DocContext, d: ComprehensiveData): string 
           plain(c.total_cost_paise),
           `<span class="${c.profit_paise < 0 ? 'neg' : 'pos'}">${plain(c.profit_paise)}</span>`,
         ]),
-        { numeric: [1, 3, 4] },
+        {
+          numeric: [1, 3, 4],
+          foot: [
+            L(lang, 'ಒಟ್ಟು', 'Total'),
+            plain(d.crops.reduce((s, c) => s + c.income_paise, 0)),
+            '',
+            plain(d.crops.reduce((s, c) => s + c.total_cost_paise, 0)),
+            plain(d.crops.reduce((s, c) => s + c.profit_paise, 0)),
+          ],
+        },
       )
     : ''
 
-  const spendPeak = Math.max(1, ...d.expense.map((e) => e.total))
+  const spendChart = rankedBars({
+    rows: d.expense
+      .filter((e) => e.total > 0)
+      .slice(0, 10)
+      .map((e) => ({
+        label: ctx.name(e) || L(lang, 'ಇತರೆ', 'Unallocated'),
+        value: e.total,
+        note: formatPaise(e.total, { decimals: false }),
+      })),
+    color: INK.expense,
+  })
+
   const spendTable = d.expense.length
     ? table(
-        [L(lang, 'ಖರ್ಚಿನ ವಿಧ', 'Spend type'), L(lang, 'ಮೊತ್ತ', 'Amount'), ''],
+        [L(lang, 'ಖರ್ಚಿನ ವಿಧ', 'Spend type'), L(lang, 'ಪಾಲು', 'Share'), L(lang, 'ಮೊತ್ತ', 'Amount')],
         d.expense.map((e) => [
           escapeHtml(ctx.name(e) || '—'),
+          expenseTotal > 0 ? `${Math.round((e.total / expenseTotal) * 100)}%` : '—',
           plain(e.total),
-          bar(e.total, spendPeak, 'expense'),
         ]),
-        { numeric: [1], foot: [L(lang, 'ಒಟ್ಟು', 'Total'), plain(expenseTotal), ''] },
+        { numeric: [1, 2], foot: [L(lang, 'ಒಟ್ಟು', 'Total'), '100%', plain(expenseTotal)] },
       )
     : ''
 
@@ -640,8 +946,9 @@ export function comprehensiveDoc(ctx: DocContext, d: ComprehensiveData): string 
       )
     : ''
 
-  const duesTable = d.dues.filter((r) => r.balance_paise !== 0).length
-    ? `<h2 class="section">${escapeHtml(L(lang, 'ಕೂಲಿ ಬಾಕಿ', 'Labour dues'))}</h2>` +
+  const activeDues = d.dues.filter((r) => r.balance_paise !== 0)
+  const duesTable = activeDues.length
+    ? section(lang, 'ಕೂಲಿ ಬಾಕಿ', 'Wages due') +
       table(
         [
           L(lang, 'ಹೆಸರು', 'Name'),
@@ -650,17 +957,22 @@ export function comprehensiveDoc(ctx: DocContext, d: ComprehensiveData): string 
           L(lang, 'ಕೊಟ್ಟಿದ್ದು', 'Paid'),
           L(lang, 'ಬಾಕಿ', 'Balance'),
         ],
-        d.dues
-          .filter((r) => r.balance_paise !== 0)
-          .map((r) => [
-            escapeHtml(ctx.name(r)),
-            String(r.days),
-            plain(r.earned_paise),
-            plain(r.paid_paise),
-            `<span class="${r.balance_paise > 0 ? 'neg' : 'muted'}">${plain(r.balance_paise)}</span>`,
-          ]),
+        activeDues.map((r) => [
+          escapeHtml(ctx.name(r)),
+          String(r.days),
+          plain(r.earned_paise),
+          plain(r.paid_paise),
+          `<span class="${r.balance_paise > 0 ? 'neg' : 'muted'}">${plain(r.balance_paise)}</span>`,
+        ]),
         { numeric: [1, 2, 3, 4] },
       )
+    : ''
+
+  // Only worth a section once there is more than one piece of land; otherwise
+  // it repeats the farm totals under a different heading.
+  const namedPlots = d.plots.filter((p) => p.plot_id)
+  const plotSection = namedPlots.length
+    ? section(lang, 'ಜಮೀನುವಾರು', 'Plot by plot') + plotTable(ctx, d.plots)
     : ''
 
   return `
@@ -673,25 +985,40 @@ export function comprehensiveDoc(ctx: DocContext, d: ComprehensiveData): string 
         `<span class="${net < 0 ? 'neg' : 'pos'}">${rupees(net)}</span>`,
         net < 0 ? 'expense' : 'income',
       ],
-      [L(lang, 'ಕೈಶಿಲ್ಕು', 'In hand'), rupees(cash), 'neutral'],
-      [L(lang, 'ಕೂಲಿ ಬಾಕಿ', 'Wages due'), `<span class="${owed ? 'neg' : ''}">${rupees(owed)}</span>`, 'neutral'],
+      [L(lang, 'ಕೈಶಿಲ್ಕು', 'Cash & bank'), rupees(cash), 'brand'],
+      [
+        L(lang, 'ಕೂಲಿ ಬಾಕಿ', 'Wages due'),
+        `<span class="${owed ? 'neg' : ''}">${rupees(owed)}</span>`,
+        'neutral',
+      ],
+      [L(lang, 'ಬೆಳೆಗಳು', 'Crops'), String(d.crops.length), 'neutral'],
+      [L(lang, 'ಜಮೀನುಗಳು', 'Plots'), String(namedPlots.length || 1), 'neutral'],
+      [
+        L(lang, 'ಆಳು-ದಿನ', 'Person-days'),
+        String(Math.round(personDays * 10) / 10),
+        'neutral',
+      ],
     ])}
     ${outstandingNote(d.outstanding, lang)}
 
-    <h2 class="section">${escapeHtml(L(lang, 'ಬೆಳೆವಾರು ಲಾಭ', 'Crop-wise profit'))}</h2>
+    ${trendChart ? section(lang, 'ತಿಂಗಳವಾರು', 'Month by month') + chart(trendChart) + trendTable : ''}
+
+    ${section(lang, 'ಬೆಳೆವಾರು ಲಾಭ', 'Crop by crop')}
+    ${chart(cropDonut)}
     ${cropTable}
 
-    <h2 class="section">${escapeHtml(L(lang, 'ಖರ್ಚು ಎಲ್ಲಿ ಹೋಯಿತು', 'Where the money went'))}</h2>
+    ${plotSection}
+
+    ${section(lang, 'ಖರ್ಚು ಎಲ್ಲಿ ಹೋಯಿತು', 'Where the money went')}
+    ${chart(spendChart)}
     ${spendTable}
 
-    ${trend}
-
-    <h2 class="section">${escapeHtml(L(lang, 'ಖಾತೆ ಶಿಲ್ಕು', 'Account balances'))}</h2>
+    ${section(lang, 'ಖಾತೆ ಶಿಲ್ಕು', 'Account balances')}
     ${balanceTable}
 
     ${duesTable}
 
-    <h2 class="section">${escapeHtml(L(lang, 'ಖರ್ಚಿನ ವಿವರ', 'Expense detail'))}</h2>
+    ${section(lang, 'ಖರ್ಚಿನ ವಿವರ', 'Expense detail')}
     ${table(
       [
         L(lang, 'ಬೆಳೆ', 'Crop'),
@@ -708,13 +1035,7 @@ export function comprehensiveDoc(ctx: DocContext, d: ComprehensiveData): string 
       { numeric: [3] },
     )}
 
-    ${footer(lang)}`
-}
-
-/** "2026-08" -> "ಆಗಸ್ಟ್ 2026" */
-function monthLabel(ym: string, lang: Lang): string {
-  const [y, m] = ym.split('-').map(Number)
-  return formatDate(`${y}-${String(m).padStart(2, '0')}-01`, lang).slice(3)
+    ${signOff(ctx, L(lang, 'ಸಹಿ', 'Signature'))}`
 }
 
 /* ------------------------------------------------------------------ *
@@ -729,16 +1050,39 @@ export function dayBookDoc(ctx: DocContext, rows: DayBookRow[]): string {
     transfer: L(lang, 'ವರ್ಗಾವಣೆ', 'Transfer'),
   }
 
+  const totals = {
+    income: rows.filter((r) => r.kind === 'income').reduce((s, r) => s + r.amount_paise, 0),
+    expense: rows.filter((r) => r.kind === 'expense').reduce((s, r) => s + r.amount_paise, 0),
+  }
+
+  // Only worth a column once plots are actually in use.
+  const hasPlots = rows.some((r) => r.plot_en)
+
+  const headers = [
+    L(lang, 'ದಿನಾಂಕ', 'Date'),
+    L(lang, 'ವಿಧ', 'Type'),
+    L(lang, 'ವಿವರ', 'Detail'),
+    ...(hasPlots ? [L(lang, 'ಜಮೀನು', 'Plot')] : []),
+    L(lang, 'ಖಾತೆ', 'Account'),
+    L(lang, 'ಮೊತ್ತ', 'Amount'),
+  ]
+
   return `
     ${letterhead(ctx, L(lang, 'ದಿನಚರಿ', 'Day Book'))}
-    ${table(
+    ${cards([
+      [L(lang, 'ದಾಖಲೆಗಳು', 'Entries'), String(rows.length), 'brand'],
+      [L(lang, 'ಆದಾಯ', 'Income'), `<span class="pos">${rupees(totals.income)}</span>`, 'income'],
+      [L(lang, 'ಖರ್ಚು', 'Expense'), `<span class="neg">${rupees(totals.expense)}</span>`, 'expense'],
       [
-        L(lang, 'ದಿನಾಂಕ', 'Date'),
-        L(lang, 'ವಿಧ', 'Type'),
-        L(lang, 'ವಿವರ', 'Detail'),
-        L(lang, 'ಖಾತೆ', 'Account'),
-        L(lang, 'ಮೊತ್ತ', 'Amount'),
+        L(lang, 'ಉಳಿತಾಯ', 'Net'),
+        `<span class="${totals.income - totals.expense < 0 ? 'neg' : 'pos'}">${rupees(
+          totals.income - totals.expense,
+        )}</span>`,
+        totals.income - totals.expense < 0 ? 'expense' : 'income',
       ],
+    ])}
+    ${table(
+      headers,
       rows.map((r) => [
         escapeHtml(formatDate(r.date, lang)),
         escapeHtml(kindLabel[r.kind] ?? r.kind),
@@ -753,12 +1097,15 @@ export function dayBookDoc(ctx: DocContext, rows: DayBookRow[]): string {
             .filter(Boolean)
             .join(' · ') || '—',
         ),
+        ...(hasPlots
+          ? [escapeHtml(ctx.name({ name_en: r.plot_en, name_kn: r.plot_kn }) || '—')]
+          : []),
         escapeHtml(ctx.name({ name_en: r.account_en, name_kn: r.account_kn }) || '—'),
         `<span class="${r.kind === 'expense' ? 'neg' : r.kind === 'income' ? 'pos' : ''}">${plain(
           r.amount_paise,
         )}</span>`,
       ]),
-      { numeric: [4] },
+      { numeric: [headers.length - 1] },
     )}
-    ${footer(lang)}`
+    ${signOff(ctx, L(lang, 'ಸಹಿ', 'Signature'))}`
 }

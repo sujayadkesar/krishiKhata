@@ -1,5 +1,17 @@
 apply plugin: 'com.android.application'
 
+// ONE source of truth for the version: app/version.json.
+//
+// versionCode used to be hardcoded to 1 while the JavaScript carried its own
+// APP_VERSION string, so every build shipped as "version 1" — and Android
+// refuses to install an APK over one with the same or a higher versionCode.
+// The in-app updater could therefore download a new build and fail to install
+// it, with no way to tell why. Reading both from the same file is what makes
+// the update path work at all.
+//
+// Bump versionCode on EVERY release. It is the only number Android compares.
+def appVersion = new groovy.json.JsonSlurper().parseText(rootProject.file("../version.json").text)
+
 // Release signing, read from a properties file that is never committed.
 // Absent (a fresh clone, or a CI run without the secrets), the release build
 // simply falls back to debug signing — which installs and runs, but cannot be
@@ -19,8 +31,8 @@ android {
         applicationId "in.krishikhata.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode appVersion.versionCode
+        versionName appVersion.version
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

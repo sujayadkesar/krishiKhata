@@ -13,63 +13,92 @@
 /**
  * Krishi Khata design tokens.
  *
- * Three things shape this palette, and all three come from where the app is
+ * Four things shape this palette, and all four come from where the app is
  * used rather than from taste:
  *
  *   Sunlight. A phone held in an open field is fighting the sun, so text sits
  *   at high contrast and nothing meaningful is carried by a pale grey.
  *
+ *   Warmth. The page is a warm cream rather than a cool grey. Cheap phone
+ *   screens push blue, and a blue-grey page under an Indian midday sun reads
+ *   as washed-out and dirty; cream holds its colour and makes a white card
+ *   look deliberately white.
+ *
  *   Money direction. Income, expense and transfer each keep ONE colour
  *   everywhere — tile, chart, list row, statement — so the colour itself
- *   carries meaning for someone skimming quickly.
+ *   carries meaning for someone skimming quickly. The action colour is
+ *   deliberately NOT one of them: an orange button can never be mistaken for
+ *   a figure.
  *
  *   Kannada. Kannada glyphs carry more detail per character than Latin, so the
  *   base size is a step larger than a typical app and line height is looser.
  */
 
 @theme {
-  /* Brand — a deep leaf green that survives being washed out by sunlight. */
-  --color-brand-50: #eef7f1;
-  --color-brand-100: #d3ecdd;
-  --color-brand-200: #a7d9bc;
-  --color-brand-300: #6dbd92;
-  --color-brand-400: #3d9e6d;
-  --color-brand-500: #1b7a43;
-  --color-brand-600: #166437;
-  --color-brand-700: #12502c;
-  --color-brand-800: #0e3f23;
-  --color-brand-900: #0a2e19;
+  /*
+   * Brand — a warm terracotta orange, the colour of the action.
+   *
+   * Green was the obvious choice for a farm app and was the wrong one: it is
+   * also the colour of income, so a green Save button and a green figure sat
+   * in the same screen meaning two different things. Orange carries "do this"
+   * and nothing else.
+   */
+  --color-brand-50: #fef4ec;
+  --color-brand-100: #fce3d0;
+  --color-brand-200: #f9c6a2;
+  --color-brand-300: #f4a26c;
+  --color-brand-400: #ee7f3c;
+  --color-brand-500: #e35b0d;
+  --color-brand-600: #c94a06;
+  --color-brand-700: #a23a0a;
+  --color-brand-800: #7a2d0b;
+  --color-brand-900: #572008;
 
-  /* Turmeric — the one accent, used sparingly for emphasis and warnings. */
-  --color-earth-100: #fdf1dd;
-  --color-earth-300: #f0c078;
-  --color-earth-500: #d98324;
-  --color-earth-700: #9a5a12;
+  /* Leaf — kept for the mark, the splash and anything that means "growing". */
+  --color-leaf-100: #d7ede0;
+  --color-leaf-300: #7cc39b;
+  --color-leaf-500: #1b7a43;
+  --color-leaf-700: #12502c;
+
+  /* Turmeric — used sparingly for warnings and things that need doing. */
+  --color-earth-100: #fdf3e0;
+  --color-earth-300: #f2cc86;
+  --color-earth-500: #d38b16;
+  --color-earth-700: #8a5605;
 
   /* Money direction. Never reuse these for decoration. */
-  --color-income: #0f7b3e;
-  --color-income-soft: #e6f4ec;
-  --color-expense: #c0392b;
-  --color-expense-soft: #fbeae8;
-  --color-transfer: #2563eb;
-  --color-transfer-soft: #e7edfd;
+  --color-income: #04796b;
+  --color-income-soft: #e0f2ef;
+  --color-expense: #c62828;
+  --color-expense-soft: #fdeceb;
+  --color-transfer: #1d4ed8;
+  --color-transfer-soft: #e8edfd;
 
   --font-sans:
     'Noto Sans Kannada', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
     'Helvetica Neue', Arial, sans-serif;
 }
 
+/*
+ * ONE THEME, ALWAYS LIGHT.
+ *
+ * There is no dark variant and no media query, on purpose. This app is read
+ * outdoors in daylight far more than it is read in bed, and a dark surface in
+ * direct sun is the one combination a phone screen cannot win — the reflection
+ * off the glass beats the panel. `color-scheme: light` on both html and :root
+ * is also what stops the Android WebView applying its own algorithmic
+ * darkening when the phone is set to dark mode, which used to invert the
+ * charts and leave figures unreadable.
+ */
 :root {
   --surface: #ffffff;
-  /* A hint of green in the page behind the cards. Pure grey next to a green
-     brand reads as dirty; this makes white cards look deliberately white. */
-  --surface-sunken: #f2f5f3;
+  --surface-sunken: #fdf7ef;
   --surface-raised: #ffffff;
-  --border: #e2e8e4;
-  --border-strong: #cbd6cf;
-  --text: #0d1711;
-  --text-soft: #46564c;
-  --text-faint: #74857a;
+  --border: #efe4d5;
+  --border-strong: #ddccb6;
+  --text: #1a1411;
+  --text-soft: #5b5146;
+  --text-faint: #8b7f71;
 
   /*
    * Two elevations, no more.
@@ -78,9 +107,9 @@
    * bottom bar — is allowed to lift. A screen where everything has a shadow
    * has no hierarchy at all.
    */
-  --shadow-rest: 0 1px 2px rgba(13, 23, 17, 0.04), 0 1px 3px rgba(13, 23, 17, 0.06);
-  --shadow-lift: 0 -2px 12px rgba(13, 23, 17, 0.08);
-  --shadow-pop: 0 8px 28px rgba(13, 23, 17, 0.16);
+  --shadow-rest: 0 1px 2px rgba(58, 38, 20, 0.04), 0 1px 3px rgba(58, 38, 20, 0.06);
+  --shadow-lift: 0 -2px 12px rgba(58, 38, 20, 0.08);
+  --shadow-pop: 0 8px 28px rgba(58, 38, 20, 0.18);
 
   --radius-sm: 10px;
   --radius: 14px;
@@ -89,31 +118,15 @@
   color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --surface: #131a16;
-    --surface-sunken: #0b100d;
-    --surface-raised: #1a221d;
-    --border: #2b352f;
-    --border-strong: #3a463e;
-    --text: #eef3ef;
-    --text-soft: #b4c2ba;
-    --text-faint: #8d9c93;
-
-    /* Shadows do not read on a dark background; borders carry elevation. */
-    --shadow-rest: none;
-    --shadow-lift: 0 -2px 12px rgba(0, 0, 0, 0.5);
-    --shadow-pop: 0 8px 28px rgba(0, 0, 0, 0.6);
-
-    color-scheme: dark;
-  }
-}
-
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;
     /* The WebView must not bounce — it makes a fixed bottom nav look loose. */
     overscroll-behavior-y: none;
+    /* Declared on html as well as :root: the WebView reads it from the
+       document element when deciding whether to darken the page itself. */
+    color-scheme: light;
+    background: #fdf7ef;
   }
 
   body {

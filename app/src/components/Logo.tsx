@@ -1,13 +1,17 @@
+import {
+  LOGO_COLORS, LOGO_PATHS, LOGO_TILE_RADIUS, LOGO_VIEWBOX,
+  RULE_STROKE, RUPEE_SCALE, RUPEE_STROKE, RUPEE_TRANSLATE, STEM_STROKE,
+} from './logoArt'
+
 /**
- * The Krishi Khata mark: a sprout growing out of an open ledger.
+ * The Krishi Khata mark: a sprout rising out of an open ledger, with a rupee
+ * where the two meet.
  *
- * Drawn with few, large shapes on purpose. It has to survive being a 48 px
- * launcher icon and a one-colour letterhead print, and detail that reads on a
- * design canvas turns to mud at both of those sizes.
+ * The paths come from `logoArt.ts` so that this, the printed letterhead, the
+ * favicon and the Android launcher icon are all literally the same artwork.
+ * See that file for why.
  *
- * `tone="mono"` is the statement version — one ink, no background — because a
- * dark green tile printed at the top of every page wastes toner and looks
- * cheap on the cheap paper these get printed on.
+ * `tone="mono"` is the statement version — one ink, no background tile.
  */
 
 interface LogoProps {
@@ -19,25 +23,14 @@ interface LogoProps {
   title?: string
 }
 
-export function Logo({
-  size = 40,
-  tone = 'colour',
-  bare = false,
-  className,
-  title,
-}: LogoProps) {
+export function Logo({ size = 40, tone = 'colour', bare = false, className, title }: LogoProps) {
   const mono = tone === 'mono'
-
-  const ink = mono ? 'currentColor' : undefined
-  const page = mono ? 'none' : '#ffffff'
-  const pageShade = mono ? 'none' : '#d6e6dc'
-  const leafFront = mono ? 'currentColor' : '#6dbd92'
-  const leafBack = mono ? 'currentColor' : '#a7d9bc'
-  const stem = mono ? 'currentColor' : '#f0c078'
+  const c = LOGO_COLORS
+  const ink = mono ? 'currentColor' : null
 
   return (
     <svg
-      viewBox="0 0 64 64"
+      viewBox={LOGO_VIEWBOX}
       width={size}
       height={size}
       className={className}
@@ -47,44 +40,79 @@ export function Logo({
     >
       {title ? <title>{title}</title> : null}
 
-      {!bare && !mono ? <rect width="64" height="64" rx="15" fill="#12502c" /> : null}
+      {!bare && !mono ? (
+        <rect width="64" height="64" rx={LOGO_TILE_RADIUS} fill={c.tile} />
+      ) : null}
 
-      {/* Stem first, so the leaves and the page overlap it cleanly. */}
-      <path
-        d="M32 45V24"
-        stroke={stem}
-        strokeWidth="3.2"
-        strokeLinecap="round"
-        fill="none"
-      />
+      {mono ? (
+        <>
+          {/* Flattened to one ink: the leaves lead, the ledger is outlined,
+              and the page shading is dropped rather than left as a grey that
+              a cheap printer turns into a smudge. */}
+          <path d={LOGO_PATHS.leafBack} fill="currentColor" opacity={0.55} />
+          <path d={LOGO_PATHS.leafFront} fill="currentColor" />
+          <path
+            d={LOGO_PATHS.stem}
+            stroke="currentColor"
+            strokeWidth={STEM_STROKE}
+            strokeLinecap="round"
+            fill="none"
+          />
+          <path
+            d={LOGO_PATHS.coverLeft}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2.2}
+            strokeLinejoin="round"
+          />
+          <path
+            d={LOGO_PATHS.coverRight}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2.2}
+            strokeLinejoin="round"
+          />
+          <path d={LOGO_PATHS.coin} fill="#fff" stroke="currentColor" strokeWidth={1.6} />
+        </>
+      ) : (
+        <>
+          {/* Ledger first, so the sprout and the coin sit on top of it. */}
+          <path d={LOGO_PATHS.coverLeft} fill={c.cover} />
+          <path d={LOGO_PATHS.coverRight} fill={c.coverShade} />
+          <path d={LOGO_PATHS.pageLeft} fill={c.page} />
+          <path d={LOGO_PATHS.pageRight} fill={c.pageShade} />
+          <path
+            d={LOGO_PATHS.rules}
+            stroke={c.rule}
+            strokeWidth={RULE_STROKE}
+            strokeLinecap="round"
+            fill="none"
+          />
+          <path
+            d={LOGO_PATHS.stem}
+            stroke={c.stem}
+            strokeWidth={STEM_STROKE}
+            strokeLinecap="round"
+            fill="none"
+          />
+          <path d={LOGO_PATHS.leafBack} fill={c.leafBack} />
+          <path d={LOGO_PATHS.leafFront} fill={c.leafFront} />
+          <path d={LOGO_PATHS.coin} fill={c.coin} />
+        </>
+      )}
 
-      {/* Back leaf, reaching right. */}
-      <path
-        d="M33 31c0-6 4.6-11 11-11 0 6-4.6 11-11 11Z"
-        fill={leafBack}
-        opacity={mono ? 0.55 : 1}
-      />
-      {/* Front leaf, reaching left and slightly lower. */}
-      <path
-        d="M31 35c0-6.4-4.9-11.6-11.6-11.6 0 6.4 4.9 11.6 11.6 11.6Z"
-        fill={leafFront}
-      />
-
-      {/* The open ledger the sprout comes out of. */}
-      <path
-        d="M32 44c-5.6-4-13.4-4.6-20-2.6v13c6.6-2 14.4-1.4 20 2.6Z"
-        fill={page}
-        stroke={ink}
-        strokeWidth={mono ? 2.4 : 0}
-        strokeLinejoin="round"
-      />
-      <path
-        d="M32 44c5.6-4 13.4-4.6 20-2.6v13c-6.6-2-14.4-1.4-20 2.6Z"
-        fill={pageShade}
-        stroke={ink}
-        strokeWidth={mono ? 2.4 : 0}
-        strokeLinejoin="round"
-      />
+      <g
+        transform={`translate(${RUPEE_TRANSLATE.x} ${RUPEE_TRANSLATE.y}) scale(${RUPEE_SCALE})`}
+      >
+        <path
+          d={LOGO_PATHS.rupee}
+          fill="none"
+          stroke={ink ?? c.ink}
+          strokeWidth={RUPEE_STROKE}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </g>
     </svg>
   )
 }

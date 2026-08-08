@@ -1,7 +1,7 @@
 import { all } from '@/db/db'
-import { labourCostByHead } from './labour'
+import { labourCostByHead, labourCostByPlot } from './labour'
 import { impliedRatePaise } from '@/lib/quantity'
-import type { ISODate } from '@/db/types'
+import type { AreaUnit, ISODate } from '@/db/types'
 
 /**
  * Report aggregation.
@@ -212,6 +212,144 @@ export async function cropProfitability(period: Period): Promise<CropRow[]> {
 }
 
 /* ------------------------------------------------------------------ *
+ * Plot-wise profitability
+ * ------------------------------------------------------------------ */
+
+export interface PlotRow {
+  plot_id: string | null
+  name_en: string
+  name_kn: string
+  survey_no: string | null
+  area_milli: number | null
+  area_unit: AreaUnit | null
+  income_paise: number
+  direct_cost_paise: number
+  labour_cost_paise: number
+  total_cost_paise: number
+  profit_paise: number
+  /** Person-days of work recorded on this land in the period. */
+  person_days: number
+}
+
+/**
+ * What each piece of land brought in and cost.
+ *
+ * Built the same way as `cropProfitability`, and for the same reason: direct
+ * expenses come off the entry, but wages have to be reached through payment
+ * allocations, because on a cash basis a lump-sum payment covers work spread
+ * across several plots and only the allocations know the split.
+ *
+ * Records made before plots existed carry no plot and land on a "Not recorded"
+ * row rather than being folded into the first plot, which would quietly make
+ * one piece of land look like it had absorbed the whole farm's history.
+ */
+export async function plotProfitability(period: Period): Promise<PlotRow[]> {
+  const { from, to } = period
+
+  const income = await all<{ plot_id: string | null; total: number }>(
+    `SELECT e.plot_id, SUM(e.amount_paise) AS total
+       FROM entries e
+      WHERE e.is_deleted = 0 AND e.kind = 'income' AND e.date >= ? AND e.date <= ?
+      GROUP BY e.plot_id;`,
+    [from, to],
+  )
+
+  const direct = await all<{ plot_id: string | null; total: number }>(
+    `SELECT e.plot_id, SUM(e.amount_paise) AS total
+       FROM entries e
+      WHERE e.is_deleted = 0 AND e.kind = 'expense'
+        AND e.labour_payment_id IS NULL
+        AND e.date >= ? AND e.date <= ?
+      GROUP BY e.plot_id;`,
+    [from, to],
+  )
+
+  const effort = await all<{ plot_id: string | null; person_days: number }>(
+    `SELECT a.plot_id, SUM(a.day_fraction * a.group_size) / 1000.0 AS person_days
+       FROM attendance a
+      WHERE a.is_deleted = 0 AND a.date >= ? AND a.date <= ?
+      GROUP BY a.plot_id;`,
+    [from, to],
+  )
+
+  const labour = await labourCostByPlot(from, to)
+
+  const named = await all<{
+    id: string
+    name_en: string
+    name_kn: string
+    survey_no: string | null
+    area_milli: number | null
+    area_unit: AreaUnit | null
+  }>('SELECT id, name_en, name_kn, survey_no, area_milli, area_unit FROM plots;')
+  const meta = new Map(named.map((p) => [p.id, p]))
+
+  const rows = new Map<string | null, PlotRow>()
+  const get = (id: string | null): PlotRow => {
+    const existing = rows.get(id)
+    if (existing) return existing
+    const m = id ? meta.get(id) : undefined
+    const row: PlotRow = {
+      plot_id: id,
+      name_en: m?.name_en ?? 'Not recorded',
+      name_kn: m?.name_kn ?? 'ದಾಖಲಾಗಿಲ್ಲ',
+      survey_no: m?.survey_no ?? null,
+      area_milli: m?.area_milli ?? null,
+      area_unit: m?.area_unit ?? null,
+      income_paise: 0,
+      direct_cost_paise: 0,
+      labour_cost_paise: 0,
+      total_cost_paise: 0,
+      profit_paise: 0,
+      person_days: 0,
+    }
+    rows.set(id, row)
+    return row
+  }
+
+  for (const i of income) get(i.plot_id).income_paise += i.total
+  for (const d of direct) get(d.plot_id).direct_cost_paise += d.total
+  for (const l of labour) get(l.plot_id).labour_cost_paise += l.total
+  for (const e of effort) get(e.plot_id).person_days += e.person_days
+
+  const out = [...rows.values()]
+  for (const r of out) {
+    r.total_cost_paise = r.direct_cost_paise + r.labour_cost_paise
+    r.profit_paise = r.income_paise - r.total_cost_paise
+  }
+
+  return out.sort((a, b) => b.profit_paise - a.profit_paise)
+}
+
+/** Crop against plot — which land actually grows which crop profitably. */
+export interface PlotCropRow {
+  plot_id: string | null
+  plot_en: string | null
+  plot_kn: string | null
+  head_en: string | null
+  head_kn: string | null
+  income_paise: number
+  expense_paise: number
+}
+
+export const plotByCrop = ({ from, to }: Period) =>
+  all<PlotCropRow>(
+    `SELECT e.plot_id, pl.name_en AS plot_en, pl.name_kn AS plot_kn,
+            h.name_en AS head_en, h.name_kn AS head_kn,
+            SUM(CASE WHEN e.kind = 'income'  THEN e.amount_paise ELSE 0 END) AS income_paise,
+            SUM(CASE WHEN e.kind = 'expense' THEN e.amount_paise ELSE 0 END) AS expense_paise
+       FROM entries e
+       LEFT JOIN plots pl ON pl.id = e.plot_id
+       LEFT JOIN heads h  ON h.id  = e.head_id
+      WHERE e.is_deleted = 0 AND e.kind IN ('income','expense')
+        AND e.date >= ? AND e.date <= ?
+      GROUP BY e.plot_id, e.head_id
+      HAVING income_paise > 0 OR expense_paise > 0
+      ORDER BY pl.sort_order, income_paise DESC;`,
+    [from, to],
+  )
+
+/* ------------------------------------------------------------------ *
  * Labour reporting
  * ------------------------------------------------------------------ */
 
@@ -289,6 +427,8 @@ export interface DayBookRow {
   activity_kn: string | null
   account_en: string | null
   account_kn: string | null
+  plot_en: string | null
+  plot_kn: string | null
   party_name: string | null
   note: string | null
   amount_paise: number
@@ -301,12 +441,14 @@ export const dayBook = ({ from, to }: Period) =>
             s.name_en AS sub_en, s.name_kn AS sub_kn,
             ac.name_en AS activity_en, ac.name_kn AS activity_kn,
             a.name_en AS account_en, a.name_kn AS account_kn,
+            pl.name_en AS plot_en, pl.name_kn AS plot_kn,
             e.party_name, e.note, e.amount_paise
        FROM entries e
        LEFT JOIN heads h       ON h.id  = e.head_id
        LEFT JOIN sub_heads s   ON s.id  = e.sub_head_id
        LEFT JOIN activities ac ON ac.id = e.activity_id
        LEFT JOIN accounts a    ON a.id  = e.account_id
+       LEFT JOIN plots pl      ON pl.id = e.plot_id
       WHERE e.is_deleted = 0 AND e.date >= ? AND e.date <= ?
       ORDER BY e.date, e.created_at;`,
     [from, to],

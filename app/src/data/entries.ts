@@ -21,6 +21,7 @@ export interface EntryInput {
   head_id?: string | null
   sub_head_id?: string | null
   activity_id?: string | null
+  plot_id?: string | null
   account_id?: string | null
   to_account_id?: string | null
   quantity_milli?: number | null
@@ -43,6 +44,7 @@ export async function saveEntry(input: EntryInput): Promise<string> {
     input.head_id ?? null,
     input.sub_head_id ?? null,
     input.activity_id ?? null,
+    input.plot_id ?? null,
     input.account_id ?? null,
     input.to_account_id ?? null,
     input.quantity_milli ?? null,
@@ -58,19 +60,19 @@ export async function saveEntry(input: EntryInput): Promise<string> {
   if (input.id) {
     await run(
       `UPDATE entries SET kind=?, date=?, head_id=?, sub_head_id=?, activity_id=?,
-              account_id=?, to_account_id=?, quantity_milli=?, unit_id=?, rate_paise=?,
-              amount_paise=?, party_name=?, note=?, photo_id=?, labour_payment_id=?,
-              updated_at=?
+              plot_id=?, account_id=?, to_account_id=?, quantity_milli=?, unit_id=?,
+              rate_paise=?, amount_paise=?, party_name=?, note=?, photo_id=?,
+              labour_payment_id=?, updated_at=?
          WHERE id=?;`,
       [...values, ts, id],
     )
   } else {
     await run(
       `INSERT INTO entries
-         (kind, date, head_id, sub_head_id, activity_id, account_id, to_account_id,
+         (kind, date, head_id, sub_head_id, activity_id, plot_id, account_id, to_account_id,
           quantity_milli, unit_id, rate_paise, amount_paise, party_name, note,
           photo_id, labour_payment_id, is_deleted, created_at, updated_at, id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?);`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?);`,
       [...values, ts, ts, id],
     )
   }
@@ -122,6 +124,8 @@ export interface EntryRow extends Entry {
   to_account_name_kn: string | null
   unit_short_en: string | null
   unit_short_kn: string | null
+  plot_name_en: string | null
+  plot_name_kn: string | null
 }
 
 const ENTRY_SELECT = `
@@ -131,7 +135,8 @@ const ENTRY_SELECT = `
          ac.name_en AS activity_name_en, ac.name_kn AS activity_name_kn,
          a.name_en  AS account_name_en, a.name_kn AS account_name_kn,
          a2.name_en AS to_account_name_en, a2.name_kn AS to_account_name_kn,
-         u.short_en AS unit_short_en, u.short_kn AS unit_short_kn
+         u.short_en AS unit_short_en, u.short_kn AS unit_short_kn,
+         pl.name_en AS plot_name_en, pl.name_kn AS plot_name_kn
     FROM entries e
     LEFT JOIN heads      h  ON h.id  = e.head_id
     LEFT JOIN sub_heads  s  ON s.id  = e.sub_head_id
@@ -139,6 +144,7 @@ const ENTRY_SELECT = `
     LEFT JOIN accounts   a  ON a.id  = e.account_id
     LEFT JOIN accounts   a2 ON a2.id = e.to_account_id
     LEFT JOIN units      u  ON u.id  = e.unit_id
+    LEFT JOIN plots      pl ON pl.id = e.plot_id
 `
 
 export type EntrySort = 'date-desc' | 'date-asc' | 'amount-desc' | 'amount-asc'
@@ -150,6 +156,7 @@ export interface EntryFilter {
   activityId?: string
   accountId?: string
   unitId?: string
+  plotId?: string
   from?: ISODate
   to?: ISODate
   minPaise?: number
@@ -191,6 +198,10 @@ export async function listEntries(filter: EntryFilter = {}): Promise<EntryRow[]>
   if (filter.unitId) {
     where.push('e.unit_id = ?')
     params.push(filter.unitId)
+  }
+  if (filter.plotId) {
+    where.push('e.plot_id = ?')
+    params.push(filter.plotId)
   }
   if (filter.accountId) {
     where.push('(e.account_id = ? OR e.to_account_id = ?)')
@@ -234,7 +245,7 @@ export async function listEntries(filter: EntryFilter = {}): Promise<EntryRow[]>
  */
 export function activeFilterCount(f: EntryFilter): number {
   return [
-    f.headId, f.subHeadId, f.activityId, f.accountId, f.unitId,
+    f.headId, f.subHeadId, f.activityId, f.accountId, f.unitId, f.plotId,
     f.from, f.to, f.minPaise, f.maxPaise,
   ].filter((v) => v != null && v !== '').length
 }

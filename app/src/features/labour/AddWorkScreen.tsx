@@ -4,7 +4,9 @@ import { Page, Shell } from '@/components/Shell'
 import { Button, Field, Input, MoneyInput, Select, TextArea } from '@/components/ui'
 import { MonthCalendar, type DaySelection } from '@/components/MonthCalendar'
 import { useQuery } from '@/hooks/useQuery'
-import { listActivities, listHeads, listLabourers, listSubHeads } from '@/data/masterData'
+import {
+  listActivities, listHeads, listLabourers, listPlots, listSubHeads,
+} from '@/data/masterData'
 import { attendanceInMonth, saveWorkSession } from '@/data/labour'
 import { useI18n } from '@/i18n'
 import { formatRupees } from '@/lib/money'
@@ -34,6 +36,7 @@ export function AddWorkScreen() {
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [headId, setHeadId] = useState<string | null>(null)
   const [activityId, setActivityId] = useState<string | null>(null)
+  const [plotId, setPlotId] = useState<string | null>(null)
   const [note, setNote] = useState('')
   const [selection, setSelection] = useState<Map<ISODate, DaySelection>>(new Map())
   const [saved, setSaved] = useState(false)
@@ -55,6 +58,7 @@ export function AddWorkScreen() {
   const { data: heads } = useQuery(() => listHeads(false), [])
   const { data: activities } = useQuery(() => listActivities(false), [])
   const { data: subHeads } = useQuery(() => listSubHeads(false), [])
+  const { data: plots } = useQuery(() => listPlots(false), [])
 
   const selected = useMemo(
     () => (labourers ?? []).filter((l) => selectedIds.includes(l.id)),
@@ -181,6 +185,7 @@ export function AddWorkScreen() {
         head_id: headId,
         activity_id: activityId,
         sub_head_id: labourSubHead,
+        plot_id: plotId,
         note: note.trim() || null,
         days,
       })
@@ -261,6 +266,20 @@ export function AddWorkScreen() {
             />
           </Field>
         </div>
+
+        {/* Which land the crew was on. Every day in this session carries it,
+            which is right: a crew moves to another plot on another day, and
+            that is another session. */}
+        {(plots ?? []).length > 1 ? (
+          <Field label={t('plot.one')}>
+            <Select
+              value={plotId}
+              onChange={setPlotId}
+              placeholder={t('common.select')}
+              options={(plots ?? []).map((p) => ({ value: p.id, label: nameOf(p) }))}
+            />
+          </Field>
+        ) : null}
 
         {/* Crew composition, on the screen rather than behind a long-press. */}
         {lead ? (

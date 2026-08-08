@@ -1,12 +1,15 @@
 {
   "name": "krishi-khata",
   "private": true,
-  "version": "0.2.0",
+  "_comment": "The SHIPPED version lives in version.json, which Android's build and the in-app updater both read. This one only labels the npm package.",
+  "version": "0.3.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "check": "vite-node scripts/checks.mjs",
+    "icons": "vite-node scripts/icons.mjs",
+    "sample": "vite-node scripts/sample-report.mjs",
     "lint": "oxlint",
     "preview": "vite preview",
     "sync": "npm run build && cap sync android",

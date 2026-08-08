@@ -1,9 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
-  <title>Krishi Khata</title>
-  <rect width="64" height="64" rx="15" fill="#12502c"/>
-  <path d="M32 45V24" stroke="#f0c078" stroke-width="3.2" stroke-linecap="round" fill="none"/>
-  <path d="M33 31c0-6 4.6-11 11-11 0 6-4.6 11-11 11Z" fill="#a7d9bc"/>
-  <path d="M31 35c0-6.4-4.9-11.6-11.6-11.6 0 6.4 4.9 11.6 11.6 11.6Z" fill="#6dbd92"/>
-  <path d="M32 44c-5.6-4-13.4-4.6-20-2.6v13c6.6-2 14.4-1.4 20 2.6Z" fill="#ffffff"/>
-  <path d="M32 44c5.6-4 13.4-4.6 20-2.6v13c-6.6-2-14.4-1.4-20 2.6Z" fill="#d6e6dc"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64"><rect width="64" height="64" rx="15" fill="#12502c"/><path d="M32 40.5C25 35 17 33.5 9 35.5V50.5C17 48.5 25 50 32 55.5Z" fill="#8b4a24"/>
+<path d="M32 40.5C39 35 47 33.5 55 35.5V50.5C47 48.5 39 50 32 55.5Z" fill="#753c1c"/>
+<path d="M32 42C26 37.5 19.5 36.5 13 38V48.5C19.5 47 26 48 32 52.5Z" fill="#ffffff"/>
+<path d="M32 42C38 37.5 44.5 36.5 51 38V48.5C44.5 47 38 48 32 52.5Z" fill="#e9f0eb"/>
+<path d="M17.5 42.4L27.5 44.5M17.5 45.9L27.5 48M46.5 42.4L36.5 44.5M46.5 45.9L36.5 48" stroke="#a9cfb8" stroke-width="1.05" stroke-linecap="round" fill="none"/>
+<path d="M32 42V23" stroke="#4a9d66" stroke-width="3.1" stroke-linecap="round" fill="none"/>
+<path d="M31.5 30C30.5 21.5 24.5 15 16.5 13C16.5 22 22.5 29 31.5 30Z" fill="#3d9b58"/>
+<path d="M32.5 27.5C33.5 19 39.5 12.5 47.5 10.5C47.5 19.5 41.5 26.5 32.5 27.5Z" fill="#6fbf3f"/>
+<path d="M37.7 44.4A5.7 5.7 0 0 1 26.3 44.4A5.7 5.7 0 0 1 37.7 44.4Z" fill="#3f8f5c"/><g transform="translate(26.6 39) scale(0.45)"><path d="M6 3h12M6 8h12M6 13l8.5 8M6 13h3M9 13c6.667 0 6.667-10 0-10" fill="none" stroke="#fffaf2" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></g></svg>

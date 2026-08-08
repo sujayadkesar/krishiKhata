@@ -2,9 +2,30 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { Capacitor } from '@capacitor/core'
 import { SplashScreen } from '@capacitor/splash-screen'
+import { StatusBar, Style } from '@capacitor/status-bar'
 import { I18nProvider } from '@/i18n/Provider'
 import App from './App'
 import './index.css'
+
+/**
+ * The status bar, pinned to the app's own light theme.
+ *
+ * capacitor.config.ts declares the same thing, but the config is only read at
+ * launch — a phone that switches to dark mode while the app is open reapplies
+ * the system bar and draws white icons on the app's cream header, where they
+ * disappear. Setting it here as well makes the app's theme win.
+ */
+if (Capacitor.isNativePlatform()) {
+  void (async () => {
+    try {
+      await StatusBar.setStyle({ style: Style.Light })
+      await StatusBar.setBackgroundColor({ color: '#fdf7ef' })
+      await StatusBar.setOverlaysWebView({ overlay: false })
+    } catch {
+      // Not every device exposes all three; a default bar is not worth an error.
+    }
+  })()
+}
 
 /**
  * Last-resort splash dismissal.

@@ -12,6 +12,7 @@ public class MainActivity extends BridgeActivity {
         // the JavaScript side calling a plugin the bridge has never heard of,
         // which fails only when somebody exports a report.
         registerPlugin(PdfPrintPlugin.class);
+        registerPlugin(AppUpdatePlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

@@ -4,8 +4,8 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
 import {
-  Users, Plus, CalendarPlus, Wallet, CloudUpload, Download,
-  IndianRupee, ReceiptText, ChartColumn,
+  Plus, CalendarPlus, Wallet, CloudUpload, Download, MapPin,
+  IndianRupee, ChartColumn,
 } from 'lucide-react'
 import { Page, Shell } from '@/components/Shell'
 import { Card, EmptyState, QuickLink, SectionHeader, StatTile } from '@/components/ui'
@@ -21,7 +21,7 @@ import { formatCompactINR, formatRupees } from '@/lib/money'
 import { impliedRatePaise } from '@/lib/quantity'
 import { addMonths, formatMonth, monthEnd, monthStart, todayISO } from '@/lib/date'
 import { navigate } from '@/router'
-import { checkForUpdate, openDownload } from '@/lib/updates'
+import { checkForUpdate } from '@/lib/updates'
 import type { UpdateInfo } from '@/lib/updates'
 import type { Lang } from '@/i18n/strings'
 
@@ -39,7 +39,14 @@ const SWATCH: Record<string, string> = {
   lime: '#84cc16', emerald: '#10b981', sky: '#0ea5e9', violet: '#8b5cf6', slate: '#64748b',
 }
 
-const FALLBACK = ['#1b7a43', '#d98324', '#2563eb', '#c0392b', '#8b5cf6', '#0ea5e9']
+/**
+ * Colours for crops the farmer has not picked one for.
+ *
+ * Chosen to sit on the app's cream page and to stay apart from each other at
+ * the size a pie slice actually gets on a phone. Deliberately not the money
+ * colours: a crop slice in expense-red would read as a loss.
+ */
+const FALLBACK = ['#04796b', '#e35b0d', '#2563eb', '#c026d3', '#65a30d', '#0891b2']
 
 async function load() {
   const today = todayISO()
@@ -196,9 +203,12 @@ export function HomeScreen() {
   return (
     <Shell>
       <Page>
+        {/* Straight to the update screen, not to a browser download. The APK
+            is fetched and installed inside the app; a file landing in Downloads
+            is the thing this replaced. */}
         {update ? (
           <button
-            onClick={() => openDownload(update.url)}
+            onClick={() => navigate('/settings/update')}
             className="card p-3.5 w-full text-left flex items-center gap-3"
             style={{
               background: 'var(--color-brand-50)',
@@ -240,9 +250,9 @@ export function HomeScreen() {
           </button>
         ) : null}
 
-        {/* Two large actions, first thing. Recording is what the app is for,
-            and it happens standing up with one hand; everything else is
-            reference and can wait below. */}
+        {/* Two large actions, first thing: put something in, or look something
+            up. Recording happens standing up with one hand, so it gets the
+            filled button; everything else is reference. */}
         <div className="grid grid-cols-2 gap-3">
           <button
             onClick={() => navigate('/add')}
@@ -253,12 +263,12 @@ export function HomeScreen() {
             <span className="text-lg font-bold">{t('nav.add')}</span>
           </button>
           <button
-            onClick={() => navigate('/labour/work')}
+            onClick={() => navigate('/reports')}
             className="card flex flex-col items-center justify-center gap-2.5 rounded-2xl px-4 py-8 active:scale-[.98] transition"
-            style={{ color: 'var(--color-brand-700)' }}
+            style={{ color: 'var(--text)' }}
           >
-            <CalendarPlus size={36} strokeWidth={1.8} />
-            <span className="text-lg font-bold">{t('labour.workShort')}</span>
+            <ChartColumn size={36} strokeWidth={1.8} />
+            <span className="text-lg font-bold">{t('nav.reports')}</span>
           </button>
         </div>
 
@@ -313,6 +323,41 @@ export function HomeScreen() {
             ))}
           </Card>
         </div>
+
+        {/*
+          The quick row, directly under the balances where the thumb already is.
+          It sat at the very bottom of the page, and three of its four tiles
+          went where the bottom bar already goes — so it cost a scroll to offer
+          nothing. Every destination here is one the bottom bar CANNOT reach:
+          recording a work day, paying wages, the plot list, and the backup.
+        */}
+        <section>
+          <SectionHeader>{t('dash.goTo')}</SectionHeader>
+          <div className="grid grid-cols-4 gap-2.5">
+            <QuickLink
+              icon={(p) => <CalendarPlus {...p} />}
+              label={t('labour.workShort')}
+              onClick={() => navigate('/labour/work')}
+              tone="var(--color-brand-600)"
+            />
+            <QuickLink
+              icon={(p) => <IndianRupee {...p} />}
+              label={t('labour.pay')}
+              onClick={() => navigate('/labour/pay')}
+              tone="var(--color-expense)"
+            />
+            <QuickLink
+              icon={(p) => <MapPin {...p} />}
+              label={t('plot.title')}
+              onClick={() => navigate('/settings/plots')}
+            />
+            <QuickLink
+              icon={(p) => <CloudUpload {...p} />}
+              label={t('set.backup')}
+              onClick={() => navigate('/settings/backup')}
+            />
+          </div>
+        </section>
 
         <div>
           <SectionHeader>{t('dash.byCrop')}</SectionHeader>
@@ -436,32 +481,6 @@ export function HomeScreen() {
           </section>
         ) : null}
 
-        <section>
-          <SectionHeader>{t('dash.goTo')}</SectionHeader>
-          <div className="grid grid-cols-4 gap-2.5">
-            <QuickLink
-              icon={(p) => <IndianRupee {...p} />}
-              label={t('labour.pay')}
-              onClick={() => navigate('/labour/pay')}
-              tone="var(--color-expense)"
-            />
-            <QuickLink
-              icon={(p) => <Users {...p} />}
-              label={t('nav.labour')}
-              onClick={() => navigate('/labour')}
-            />
-            <QuickLink
-              icon={(p) => <ReceiptText {...p} />}
-              label={t('nav.entries')}
-              onClick={() => navigate('/entries')}
-            />
-            <QuickLink
-              icon={(p) => <ChartColumn {...p} />}
-              label={t('nav.reports')}
-              onClick={() => navigate('/reports')}
-            />
-          </div>
-        </section>
       </Page>
     </Shell>
   )

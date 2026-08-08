@@ -114,6 +114,11 @@ public class PdfPrintPlugin extends Plugin {
                 JSObject result = new JSObject();
                 result.put("how", "file");
                 result.put("uri", contentUri(outFile));
+                // The absolute path as well as the content URI. Capacitor's
+                // Share plugin builds its own FileProvider URI and only does
+                // so for a file: URL, so handing it the content one it cannot
+                // resolve is what left the share sheet offering plain text.
+                result.put("path", outFile.getAbsolutePath());
                 call.resolve(result);
             });
         } catch (Throwable t) {

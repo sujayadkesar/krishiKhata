@@ -48,6 +48,8 @@ export interface WorkSessionInput {
   head_id: string | null
   activity_id: string | null
   sub_head_id: string | null
+  /** Which piece of land the crew was on. Null when the farm is one plot. */
+  plot_id: string | null
   note: string | null
   days: WorkDay[]
 }
@@ -65,9 +67,13 @@ export async function saveWorkSession(input: WorkSessionInput): Promise<string> 
 
   await tx(async (exec) => {
     await exec(
-      `INSERT INTO work_sessions (id, head_id, activity_id, sub_head_id, note, is_deleted, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, 0, ?, ?);`,
-      [sessionId, input.head_id, input.activity_id, input.sub_head_id, input.note, ts, ts],
+      `INSERT INTO work_sessions
+         (id, head_id, activity_id, sub_head_id, plot_id, note, is_deleted, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?);`,
+      [
+        sessionId, input.head_id, input.activity_id, input.sub_head_id, input.plot_id,
+        input.note, ts, ts,
+      ],
     )
 
     for (const d of input.days) {
@@ -93,13 +99,13 @@ export async function saveWorkSession(input: WorkSessionInput): Promise<string> 
            (id, work_session_id, labourer_id, date, is_group, group_size,
             male_count, female_count, male_rate_paise, female_rate_paise,
             member_names, day_fraction, rate_paise, amount_paise, head_id,
-            activity_id, note, is_deleted, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 0, ?, ?);`,
+            activity_id, plot_id, note, is_deleted, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 0, ?, ?);`,
         [
           newId(), sessionId, d.labourer_id, d.date, d.is_group, Math.max(1, size),
           d.male_count, d.female_count, d.male_rate_paise, d.female_rate_paise,
           d.member_names ?? null, d.day_fraction, d.daily_rate_paise, amount,
-          input.head_id, input.activity_id, ts, ts,
+          input.head_id, input.activity_id, input.plot_id, ts, ts,
         ],
       )
     }
@@ -702,6 +708,34 @@ export function labourCostByHead(from: ISODate, to: ISODate): Promise<LabourCost
        LEFT JOIN heads h      ON h.id = a.head_id
       WHERE p.date >= ? AND p.date <= ?
       GROUP BY a.head_id
+      ORDER BY total DESC;`,
+    [from, to],
+  )
+}
+
+export interface LabourCostByPlot {
+  plot_id: string | null
+  name_en: string | null
+  name_kn: string | null
+  total: number
+}
+
+/**
+ * The same cash-basis attribution as `labourCostByHead`, but per plot.
+ *
+ * Deliberately a second query rather than a grouping argument: the crop and
+ * the plot are different questions, both are asked, and a single function
+ * taking a column name is how an injectable column ends up in a WHERE clause.
+ */
+export function labourCostByPlot(from: ISODate, to: ISODate): Promise<LabourCostByPlot[]> {
+  return all<LabourCostByPlot>(
+    `SELECT a.plot_id, pl.name_en, pl.name_kn, SUM(pa.amount_paise) AS total
+       FROM payment_allocations pa
+       JOIN labour_payments p ON p.id = pa.payment_id AND p.is_deleted = 0
+       JOIN attendance a      ON a.id = pa.attendance_id AND a.is_deleted = 0
+       LEFT JOIN plots pl     ON pl.id = a.plot_id
+      WHERE p.date >= ? AND p.date <= ?
+      GROUP BY a.plot_id
       ORDER BY total DESC;`,
     [from, to],
   )

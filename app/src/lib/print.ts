@@ -4,36 +4,37 @@ import { Share } from '@capacitor/share'
 import { buildPrintDocument } from './printDoc'
 
 /**
- * Getting a report out of the app.
+ * Getting a report out of the app, as an actual PDF.
  *
  * `window.print()` does nothing inside an Android WebView, and `window.open()`
- * is worse — it returns null or throws, so the "fallback" that opened a new
- * window silently did nothing at all on a phone. That is why no PDF ever
- * appeared.
+ * is worse — it returns null or throws, so a "fallback" that opened a new
+ * window silently did nothing on a phone.
  *
- * There are now three routes, tried in order, and the caller is told which one
- * ran so it can say something useful:
+ * The route that works is Android's own print framework: the document is laid
+ * out by Chromium in an offscreen WebView and written straight to a PDF file.
+ * That matters more here than anywhere else, because a JS PDF library embeds
+ * the Kannada font but places glyphs left to right, which takes ಬಾಳೆಕಾಯಿ
+ * apart. The browser has a real shaping engine; this borrows it.
  *
- *   1. The native print bridge. Chromium's own print layout, so pagination is
- *      decided by the engine that laid the document out, the text stays
- *      selectable, and Kannada is shaped exactly as on screen.
- *   2. Write the document to a file and hand it to the Android share sheet.
- *      The farmer can send it on WhatsApp, or open it and print from there.
- *   3. On the web only, a print window.
- *
- * Every failure is reported rather than swallowed. A report that cannot be
- * produced must say so; silence is what made this look broken.
+ * The PDF bridge existed already and only the print path used it. `share`
+ * wrote the raw HTML to a file and offered THAT — which is why every report
+ * the farmer sent arrived as a web page instead of a PDF. Sharing now takes
+ * the same PDF route, and falls back to HTML only when the bridge genuinely
+ * fails.
  */
 
 export interface PdfPrintResult {
   /** Absolute file URI, present only when a file was written. */
   uri?: string
   how: 'file' | 'dialog' | 'shared'
+  /** What actually came out. 'html' means the PDF route was unavailable. */
+  format: 'pdf' | 'html'
 }
 
 interface PdfPrintPlugin {
   printToFile(options: { html: string; fileName: string; jobName: string }): Promise<{
     uri?: string
+    path?: string
     how: 'file' | 'dialog'
   }>
 }
@@ -54,14 +55,18 @@ export function reportFileName(title: string, from: string, to: string, ext = 'p
 }
 
 /**
- * Save the document as an HTML file and offer it to the share sheet.
+ * Last resort: save the document as HTML and offer that instead.
  *
- * HTML rather than PDF because the app cannot render a PDF itself without
- * reintroducing the glyph-ordering problem that ruins Kannada. Every Android
- * phone opens HTML in a browser, where "Print → Save as PDF" is two taps and
- * uses a real shaping engine.
+ * Only reached when the print bridge fails outright — some OEM builds refuse a
+ * headless print. Every Android phone opens HTML in a browser, where
+ * "Print → Save as PDF" is two taps and uses the same shaping engine, so this
+ * is worse but never useless.
  */
-async function shareAsFile(html: string, fileName: string, title: string): Promise<PdfPrintResult> {
+async function shareAsHtml(
+  html: string,
+  fileName: string,
+  title: string,
+): Promise<PdfPrintResult> {
   const name = fileName.replace(/\.pdf$/, '.html')
 
   const written = await Filesystem.writeFile({
@@ -72,17 +77,27 @@ async function shareAsFile(html: string, fileName: string, title: string): Promi
     recursive: true,
   })
 
-  await Share.share({
-    title,
-    text: title,
-    url: written.uri,
-    dialogTitle: title,
-  })
-
-  return { how: 'shared', uri: written.uri }
+  await Share.share({ title, text: title, url: written.uri, dialogTitle: title })
+  return { how: 'shared', uri: written.uri, format: 'html' }
 }
 
-export async function printReport(
+/** Render to PDF through the native bridge. Throws if it cannot. */
+async function writePdf(
+  html: string,
+  fileName: string,
+  title: string,
+): Promise<{ path?: string; uri?: string; how: 'file' | 'dialog' }> {
+  return PdfPrint.printToFile({ html, fileName, jobName: title })
+}
+
+/**
+ * Produce the report and hand it to the share sheet.
+ *
+ * Nothing is written quietly into the phone's storage for the farmer to go
+ * looking for: the file goes to the share sheet and they decide whether it
+ * lands in WhatsApp, Drive, or a printer.
+ */
+export async function shareReport(
   bodyHtml: string,
   title: string,
   fileName: string,
@@ -93,14 +108,24 @@ export async function printReport(
     const failures: string[] = []
 
     try {
-      const result = await PdfPrint.printToFile({ html, fileName, jobName: title })
-      return result
+      const result = await writePdf(html, fileName, title)
+
+      // 'dialog' means the system print sheet is already up because a headless
+      // print was refused. The farmer finishes there; there is nothing to share.
+      if (result.how === 'dialog') return { how: 'dialog', format: 'pdf' }
+
+      const fileUrl = result.path ? `file://${result.path}` : result.uri
+      if (fileUrl) {
+        await Share.share({ title, text: title, url: fileUrl, dialogTitle: title })
+        return { how: 'shared', uri: result.uri ?? fileUrl, format: 'pdf' }
+      }
+      failures.push('print bridge returned no file')
     } catch (err) {
-      failures.push(`print bridge: ${err instanceof Error ? err.message : String(err)}`)
+      failures.push(`pdf: ${err instanceof Error ? err.message : String(err)}`)
     }
 
     try {
-      return await shareAsFile(html, fileName, title)
+      return await shareAsHtml(html, fileName, title)
     } catch (err) {
       failures.push(`share: ${err instanceof Error ? err.message : String(err)}`)
     }
@@ -108,8 +133,43 @@ export async function printReport(
     throw new Error(`Could not produce the report. ${failures.join('; ')}`)
   }
 
-  // Web. Popups are commonly blocked, so say so plainly instead of appearing
-  // to do nothing.
+  // Web is a development surface. The browser's own print dialog has "Save as
+  // PDF" as its first destination and uses the same shaping engine the phone
+  // does, so it produces the identical document.
+  return printInBrowser(html)
+}
+
+/**
+ * Print. On Android this is the same PDF, handed to the print sheet; on the
+ * web it is the browser's print dialog.
+ */
+export async function printReport(
+  bodyHtml: string,
+  title: string,
+  fileName: string,
+): Promise<PdfPrintResult> {
+  const html = await buildPrintDocument(bodyHtml, title)
+
+  if (isNativeApp()) {
+    const failures: string[] = []
+    try {
+      const result = await writePdf(html, fileName, title)
+      return { ...result, format: 'pdf' }
+    } catch (err) {
+      failures.push(`print bridge: ${err instanceof Error ? err.message : String(err)}`)
+    }
+    try {
+      return await shareAsHtml(html, fileName, title)
+    } catch (err) {
+      failures.push(`share: ${err instanceof Error ? err.message : String(err)}`)
+    }
+    throw new Error(`Could not produce the report. ${failures.join('; ')}`)
+  }
+
+  return printInBrowser(html)
+}
+
+async function printInBrowser(html: string): Promise<PdfPrintResult> {
   const win = window.open('', '_blank')
   if (!win) {
     throw new Error(
@@ -139,28 +199,5 @@ export async function printReport(
 
   win.focus()
   win.print()
-  return { how: 'dialog' }
-}
-
-/**
- * Save without printing — for handing a statement to somebody on WhatsApp.
- * On the web this downloads; on Android it opens the share sheet.
- */
-export async function shareReport(
-  bodyHtml: string,
-  title: string,
-  fileName: string,
-): Promise<PdfPrintResult> {
-  const html = await buildPrintDocument(bodyHtml, title)
-
-  if (isNativeApp()) return shareAsFile(html, fileName, title)
-
-  const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = fileName.replace(/\.pdf$/, '.html')
-  a.click()
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
-  return { how: 'shared' }
+  return { how: 'dialog', format: 'pdf' }
 }
