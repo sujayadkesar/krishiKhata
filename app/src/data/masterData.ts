@@ -79,8 +79,26 @@ export const listHeads = (includeInactive = false) =>
   all<Head>(`SELECT * FROM heads ${activeClause(includeInactive)} ORDER BY sort_order, name_en;`)
 
 /**
+ * Heads for one side of the book.
+ *
+ * Settings keeps two lists because the two are genuinely different questions:
+ * "what do you sell" and "what do you spend on". A crop answers both and is
+ * still ONE row — Banana carries `used_for = 'both'` and appears in each list.
+ * Splitting it into two rows would read more simply in Settings and would
+ * quietly destroy crop profitability, because income and cost would then sit
+ * on two head ids that nothing joins back together.
+ */
+export const listHeadsFor = (side: 'income' | 'expense', includeInactive = false) =>
+  all<Head>(
+    `SELECT * FROM heads
+      WHERE used_for IN (?, 'both') ${includeInactive ? '' : 'AND is_active = 1'}
+      ORDER BY sort_order, name_en;`,
+    [side],
+  )
+
+/**
  * Expense sub-heads: the global ones plus any scoped to a crop.
- * Grades (income-only) are excluded — see `listGrades`.
+ * Grades (income-only) are excluded — see `listSubHeadsFor`.
  */
 export const listSubHeads = (includeInactive = false) =>
   all<SubHead>(
@@ -93,6 +111,39 @@ export const listSubHeads = (includeInactive = false) =>
 export const listAllSubHeads = (includeInactive = false) =>
   all<SubHead>(
     `SELECT * FROM sub_heads ${activeClause(includeInactive)} ORDER BY used_for, sort_order, name_en;`,
+  )
+
+/**
+ * The sub-heads that apply to one head, on one side of the book.
+ *
+ * This is what stops the entry screen offering every sub-head in the database
+ * for every crop. On the income side it returns the crop's own varieties and
+ * grades; on the expense side, the global kinds of spend plus anything scoped
+ * to this crop. Both levels of the tree come back in one read — the caller
+ * splits them by `parent_id`, which is cheaper than a query per level and
+ * keeps the ordering consistent.
+ */
+export const listSubHeadsFor = (
+  headId: string,
+  usedFor: 'income' | 'expense',
+  includeInactive = false,
+) =>
+  all<SubHead>(
+    `SELECT * FROM sub_heads
+      WHERE used_for IN (?, 'both')
+        AND (head_id IS NULL OR head_id = ?)
+        ${includeInactive ? '' : 'AND is_active = 1'}
+      ORDER BY sort_order, name_en;`,
+    [usedFor, headId],
+  )
+
+/** Everything filed under one head, both directions — for the Settings tree. */
+export const listSubHeadsOfHead = (headId: string, includeInactive = false) =>
+  all<SubHead>(
+    `SELECT * FROM sub_heads
+      WHERE head_id = ? ${includeInactive ? '' : 'AND is_active = 1'}
+      ORDER BY used_for, sort_order, name_en;`,
+    [headId],
   )
 
 export const listActivities = (includeInactive = false) =>
@@ -219,18 +270,25 @@ export interface SubHeadInput {
   /** Scopes a grade to one crop. Null keeps it global. */
   head_id?: string | null
   used_for?: 'income' | 'expense' | 'both'
+  /** The variety this grade sits under. Null for a top-level row. */
+  parent_id?: string | null
 }
 
 export async function saveSubHead(input: SubHeadInput): Promise<string> {
   const ts = nowISO()
   const headId = input.head_id ?? null
   const usedFor = input.used_for ?? 'expense'
+  const parentId = input.parent_id ?? null
 
   if (input.id) {
     await run(
-      `UPDATE sub_heads SET name_en=?, name_kn=?, is_labour=?, head_id=?, used_for=?, updated_at=?
+      `UPDATE sub_heads SET name_en=?, name_kn=?, is_labour=?, head_id=?, used_for=?,
+              parent_id=?, updated_at=?
        WHERE id=?;`,
-      [input.name_en, input.name_kn, input.is_labour, headId, usedFor, ts, input.id],
+      [
+        input.name_en, input.name_kn, input.is_labour, headId, usedFor, parentId, ts,
+        input.id,
+      ],
     )
     await logChange('sub_heads', input.id, 'update', input.name_en)
     notifyDataChanged()
@@ -240,10 +298,11 @@ export async function saveSubHead(input: SubHeadInput): Promise<string> {
   const id = newId()
   await run(
     `INSERT INTO sub_heads
-       (id, name_en, name_kn, is_labour, head_id, used_for, is_active, sort_order, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?);`,
+       (id, name_en, name_kn, is_labour, head_id, used_for, parent_id,
+        is_active, sort_order, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?);`,
     [
-      id, input.name_en, input.name_kn, input.is_labour, headId, usedFor,
+      id, input.name_en, input.name_kn, input.is_labour, headId, usedFor, parentId,
       await nextOrder('sub_heads'), ts, ts,
     ],
   )
@@ -251,21 +310,6 @@ export async function saveSubHead(input: SubHeadInput): Promise<string> {
   notifyDataChanged()
   return id
 }
-
-/**
- * The grades a crop is sold in — "First class", "Second class".
- *
- * Returns only sub-heads scoped to this head, because a grade belongs to its
- * crop; a global expense sub-head like Fertilizer has no business appearing
- * when recording a sale.
- */
-export const listGrades = (headId: string) =>
-  all<SubHead>(
-    `SELECT * FROM sub_heads
-      WHERE is_active = 1 AND head_id = ? AND used_for IN ('income', 'both')
-      ORDER BY sort_order, name_en;`,
-    [headId],
-  )
 
 export interface ActivityInput {
   id?: string
@@ -426,6 +470,9 @@ const REFERENCES: Record<string, [table: string, column: string][]> = {
     ['entries', 'sub_head_id'],
     ['activities', 'sub_head_id'],
     ['work_sessions', 'sub_head_id'],
+    // A variety with grades under it must be retired, not deleted, or the
+    // grades are orphaned and every sale filed under them loses its variety.
+    ['sub_heads', 'parent_id'],
   ],
   activities: [
     ['entries', 'activity_id'],

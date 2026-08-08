@@ -11,7 +11,7 @@
  * about what the table looks like. Add a new migration instead.
  */
 
-export const SCHEMA_VERSION = 5
+export const SCHEMA_VERSION = 6
 
 const V1 = `
 CREATE TABLE IF NOT EXISTS settings (
@@ -333,5 +333,30 @@ CREATE INDEX IF NOT EXISTS idx_entries_plot ON entries(plot_id);
 CREATE INDEX IF NOT EXISTS idx_att_plot     ON attendance(plot_id);
 `
 
+/**
+ * A crop is sold by variety, and each variety by grade.
+ *
+ * Banana is not one thing. G9, Mitka and Karibale fetch different prices on
+ * the same day, and within each of them first class and second class fetch
+ * different prices again. One flat list of sub-heads under Banana cannot say
+ * that: "First class" alone is ambiguous once there are three varieties, and
+ * "G9 First class" as a flat name multiplies out by hand and stops being
+ * groupable — you can no longer ask what G9 made across both grades.
+ *
+ * So sub-heads become a tree, one level deep in practice: variety, then grade.
+ * The entry stores the MOST SPECIFIC node chosen, and reports walk up
+ * `parent_id` to roll grades into their variety. A variety with no grades
+ * under it is a leaf itself, because most crops are sold one way and being
+ * forced to invent a grade would stop the sale being recorded at all.
+ *
+ * The same column serves the expense side, where it is rarely needed but
+ * costs nothing — one tree, one set of queries, one place to be wrong.
+ */
+const V6 = `
+ALTER TABLE sub_heads ADD COLUMN parent_id TEXT REFERENCES sub_heads(id);
+
+CREATE INDEX IF NOT EXISTS idx_subhead_parent ON sub_heads(parent_id);
+`
+
 /** Index in this array + 1 is the version it produces. Append only. */
-export const MIGRATIONS: string[] = [V1, V2, V3, V4, V5]
+export const MIGRATIONS: string[] = [V1, V2, V3, V4, V5, V6]

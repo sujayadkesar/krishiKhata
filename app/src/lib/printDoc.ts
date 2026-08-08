@@ -95,6 +95,33 @@ const STYLES = `
 
   .doc { max-width: 188mm; margin: 0 auto; }
 
+  /*
+   * ON SCREEN, THE SAME DOCUMENT IS A SHEET OF PAPER.
+   *
+   * The preview and the PDF are one string, so the farmer approves exactly
+   * what gets sent. That only works if the preview is the page rather than the
+   * markup: @page margins do not exist on screen, so without this the document
+   * rendered edge to edge with no letterhead spacing and every table full
+   * width — which is what made the preview look broken while the PDF was fine.
+   *
+   * Sized in millimetres, not pixels, so it is genuinely A4. The screen shows
+   * it small; ReportsScreen scales the whole page down to the phone's width
+   * rather than reflowing it, because a preview that reflows is not a preview.
+   */
+  @media screen {
+    html { background: #ded5c8; }
+    body { padding: 0; }
+    .doc {
+      width: 210mm;
+      max-width: 210mm;
+      min-height: 297mm;
+      margin: 5mm auto;
+      padding: 12mm 11mm 14mm;
+      background: #fff;
+      box-shadow: 0 1px 10px rgba(26, 20, 17, 0.22);
+    }
+  }
+
   /* ---------------------------------------------------------- letterhead -
    *
    * A statement, not a printout. The farm's own name leads at the top of the

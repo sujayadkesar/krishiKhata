@@ -1,8 +1,24 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@/hooks/useQuery'
 import {
-  getHeadUnits, listAccounts, listActivities, listGrades, listHeads, listPlots, listSubHeads,
+  getHeadUnits, listAccounts, listActivities, listHeads, listPlots, listSubHeadsFor,
 } from '@/data/masterData'
+import { missingFor } from './entryRules'
+import type { MissingKey } from './entryRules'
+import type { SubHead } from '@/db/types'
+import type { StringKey } from '@/i18n/strings'
+
+/** The rule returns stable keys; the interface needs words in two languages. */
+const MISSING_LABEL: Record<MissingKey, StringKey> = {
+  amount: 'common.amount',
+  head: 'entry.head',
+  subHead: 'entry.subHead',
+  variety: 'entry.variety',
+  grade: 'entry.grade',
+  plot: 'entry.plot',
+  account: 'entry.account',
+  toAccount: 'entry.to',
+}
 import { useI18n } from '@/i18n'
 import { lineTotalPaise } from '@/lib/quantity'
 import { todayISO } from '@/lib/date'
@@ -62,11 +78,22 @@ export type Patch = (patch: Partial<EntryDraft>) => void
 
 export interface EntryFormState {
   heads: ReturnType<typeof useHeadsList>
-  subHeads: { id: string; name_en: string; name_kn: string }[]
+  /**
+   * The top level of the sub-head tree for the chosen head and direction.
+   * On the income side these are varieties (G9, Mitka); on the expense side
+   * they are kinds of spend (Fertilizer, Transport).
+   */
+  subHeads: SubHead[]
+  /**
+   * The level below the chosen top-level row — grades, where the variety has
+   * any. Empty when it is a leaf, which is the normal case for most crops.
+   */
+  childSubHeads: SubHead[]
+  /** The top-level row currently in play, derived from the stored leaf. */
+  parentSubHeadId: string | null
   activities: { id: string; name_en: string; name_kn: string; sub_head_id: string | null }[]
   accounts: { id: string; name_en: string; name_kn: string }[]
   plots: { id: string; name_en: string; name_kn: string }[]
-  grades: { id: string; name_en: string; name_kn: string }[]
   headUnits: { unit_id: string; short_en: string; short_kn: string; name_en: string; name_kn: string }[]
   unitShort: string
   computedTotal: number | null
@@ -99,7 +126,6 @@ export function useEntryForm(
   const { t, lang } = useI18n()
 
   const heads = useHeadsList()
-  const { data: subHeads } = useQuery(() => listSubHeads(false), [])
   const { data: activities } = useQuery(() => listActivities(false), [])
   const { data: accounts } = useQuery(() => listAccounts(false), [])
   const { data: plots } = useQuery(() => listPlots(false), [])
@@ -107,12 +133,22 @@ export function useEntryForm(
     () => (draft.head_id ? getHeadUnits(draft.head_id) : Promise.resolve([])),
     [draft.head_id],
   )
-  // Grades belong to their crop: Banana has first class and second class, and
-  // they mean nothing under Pepper.
-  const { data: grades } = useQuery(
-    () => (draft.head_id ? listGrades(draft.head_id) : Promise.resolve([])),
-    [draft.head_id],
+
+  /**
+   * Only the sub-heads that belong to this crop, on this side of the book.
+   *
+   * The form used to offer every sub-head in the database for every entry,
+   * which is how a banana sale ended up filed under Fertilizer. Income and
+   * expense are read separately because they are genuinely different lists:
+   * under Banana the income side is G9 and Mitka, the expense side is manure
+   * and spray, and neither belongs in the other's picker.
+   */
+  const direction = draft.kind === 'income' ? 'income' : 'expense'
+  const { data: scoped } = useQuery(
+    () => (draft.head_id ? listSubHeadsFor(draft.head_id, direction) : Promise.resolve([])),
+    [draft.head_id, direction],
   )
+  const tree = useMemo(() => scoped ?? [], [scoped])
 
   const [autoTotal, setAutoTotal] = useState(startAutoTotal)
 
@@ -127,13 +163,32 @@ export function useEntryForm(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [headUnits])
 
-  // A grade from another crop must not survive changing the crop.
+  /**
+   * The two levels of the tree, and which top-level row is in play.
+   *
+   * Only the deepest choice is stored, so the variety is recovered by walking
+   * up from it. Storing both would let them disagree, and a sale filed under
+   * "Mitka / First class" where Mitka is not the parent of that grade is a row
+   * no report can make sense of.
+   */
+  const topLevel = useMemo(() => tree.filter((s) => !s.parent_id), [tree])
+  const parentSubHeadId = useMemo(() => {
+    const chosen = tree.find((s) => s.id === draft.sub_head_id)
+    if (!chosen) return null
+    return chosen.parent_id ?? chosen.id
+  }, [tree, draft.sub_head_id])
+  const childSubHeads = useMemo(
+    () => (parentSubHeadId ? tree.filter((s) => s.parent_id === parentSubHeadId) : []),
+    [tree, parentSubHeadId],
+  )
+
+  // A sub-head from another crop must not survive changing the crop.
   useEffect(() => {
-    if (draft.kind !== 'income' || !draft.sub_head_id) return
-    if ((grades ?? []).some((g) => g.id === draft.sub_head_id)) return
+    if (!draft.sub_head_id || !draft.head_id || !scoped) return
+    if (tree.some((s) => s.id === draft.sub_head_id)) return
     set({ sub_head_id: null })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [grades, draft.kind])
+  }, [tree, scoped, draft.head_id])
 
   // Choosing the work pre-selects the kind of spend it usually belongs to.
   useEffect(() => {
@@ -165,35 +220,26 @@ export function useEntryForm(
   const unitShort = unit ? (lang === 'en' ? unit.short_en : unit.short_kn) : ''
 
   /**
-   * Categorising is not optional.
+   * What is still needed, decided by `entryRules.ts` and only labelled here.
    *
-   * An uncategorised entry costs nothing to make and quietly ruins the crop
-   * report — a season's "where did the money go" comes out with a large blank
-   * row nobody can explain months later.
-   *
-   * A grade is required only where the crop HAS grades. Most crops are sold
-   * one way, and demanding a grade that was never set up would simply stop the
-   * sale being recorded at all.
+   * The rule itself is pure and lives apart from React so the gate can prove
+   * it — it is the rule that decides whether a sale gets recorded at all.
    */
-  const missing: string[] = []
-  if (!draft.amount_paise || draft.amount_paise <= 0) missing.push(t('common.amount'))
-  if (draft.kind !== 'transfer' && !draft.head_id) missing.push(t('entry.head'))
-  if (draft.kind === 'expense' && !draft.sub_head_id) missing.push(t('entry.subHead'))
-  if (draft.kind === 'income' && draft.head_id && (grades ?? []).length > 0 && !draft.sub_head_id) {
-    missing.push(t('entry.grade'))
-  }
-  if (!draft.account_id) missing.push(t('entry.account'))
-  if (draft.kind === 'transfer') {
-    if (!draft.to_account_id || draft.to_account_id === draft.account_id) missing.push(t('entry.to'))
-  }
+  const missing = missingFor(draft, {
+    topLevelCount: topLevel.length,
+    childCount: childSubHeads.length,
+    parentSubHeadId,
+    hasPlots: (plots ?? []).length > 0,
+  }).map((key) => t(MISSING_LABEL[key]))
 
   return {
     heads,
-    subHeads: subHeads ?? [],
+    subHeads: topLevel,
+    childSubHeads,
+    parentSubHeadId,
     activities: activities ?? [],
     accounts: accounts ?? [],
     plots: plots ?? [],
-    grades: grades ?? [],
     headUnits: headUnits ?? [],
     unitShort,
     computedTotal,

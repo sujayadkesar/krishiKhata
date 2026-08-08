@@ -130,6 +130,10 @@ export const STRINGS = {
     kn: 'ಪ್ರತಿ ಜಮೀನಿನ ಲಾಭ-ನಷ್ಟ ಪ್ರತ್ಯೇಕವಾಗಿ ಕಾಣಲು',
     en: 'So each piece of land shows its own profit and loss',
   },
+  'entry.plot': { kn: 'ಜಮೀನು', en: 'Plot' },
+  // A crop is sold by variety and each variety by grade: Banana → G9 → first
+  // class. "Variety" is the word a trader uses, so it is the word here.
+  'entry.variety': { kn: 'ತಳಿ', en: 'Variety' },
   'entry.account': { kn: 'ಖಾತೆ', en: 'Account' },
   'entry.accountIn': { kn: 'ಯಾವ ಖಾತೆಗೆ ಬಂತು', en: 'Received into' },
   'entry.accountOut': { kn: 'ಯಾವ ಖಾತೆಯಿಂದ', en: 'Paid from' },
@@ -262,7 +266,14 @@ export const STRINGS = {
   'set.ownerName': { kn: 'ರೈತರ ಹೆಸರು', en: 'Farmer name' },
   'set.accounts': { kn: 'ಖಾತೆಗಳು', en: 'Accounts' },
   'set.heads': { kn: 'ಬೆಳೆ / ಶೀರ್ಷಿಕೆ', en: 'Crops & Heads' },
+  'set.incomeHeads': { kn: 'ಮಾರಾಟದ ಬೆಳೆ', en: 'What you sell' },
+  'set.expenseHeads': { kn: 'ಖರ್ಚಿನ ಶೀರ್ಷಿಕೆ', en: 'What you spend on' },
   'set.subHeads': { kn: 'ಉಪ ಶೀರ್ಷಿಕೆ', en: 'Sub-heads' },
+  'set.varietiesGrades': { kn: 'ತಳಿ ಮತ್ತು ದರ್ಜೆ', en: 'Varieties & grades' },
+  'set.addVariety': { kn: 'ತಳಿ ಸೇರಿಸಿ', en: 'Add variety' },
+  'set.addGrade': { kn: 'ದರ್ಜೆ ಸೇರಿಸಿ', en: 'Add grade' },
+  'set.globalSpend': { kn: 'ಎಲ್ಲಾ ಬೆಳೆಗೂ', en: 'Used on every crop' },
+  'set.pickHead': { kn: 'ಯಾವ ಬೆಳೆ', en: 'Which crop' },
   'set.activities': { kn: 'ಕೆಲಸದ ವಿಧ', en: 'Work types' },
   'set.units': { kn: 'ಅಳತೆ', en: 'Units' },
   'set.language': { kn: 'ಭಾಷೆ', en: 'Language' },
@@ -284,6 +295,10 @@ export const STRINGS = {
     en: 'Then pick Google Drive, WhatsApp or Files — wherever you want it kept',
   },
   'backup.otherWays': { kn: 'ಇತರ ವಿಧಾನಗಳು', en: 'Other ways' },
+  'backup.driveHint': {
+    kn: 'ನಿಮ್ಮದೇ Google Drive ಗೆ. ಈ ಆ್ಯಪ್ ತಾನು ಮಾಡಿದ ಫೈಲ್ ಮಾತ್ರ ನೋಡಬಲ್ಲದು.',
+    en: 'Straight to your own Google Drive. The app can only see the files it creates.',
+  },
   'backup.explain': {
     kn: 'ನಿಮ್ಮ ಮಾಹಿತಿ ಫೋನಿನಲ್ಲೇ ಇರುತ್ತದೆ. ಬ್ಯಾಕಪ್ ಚಾಲು ಮಾಡಿದರೆ ನಿಮ್ಮದೇ Google Drive ಗೆ ಪ್ರತಿ ಹೋಗುತ್ತದೆ.',
     en: 'Your data stays on this phone. Turn on backup and a copy goes to your own Google Drive.',

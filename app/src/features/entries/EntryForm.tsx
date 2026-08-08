@@ -52,22 +52,51 @@ export function EntryFields({
             options={visibleHeads.map((h) => ({ value: h.id, label: nameOf(h) }))}
             value={draft.head_id}
             onChange={(v) => set({ head_id: v })}
-            onAdd={() => navigate('/settings/heads')}
+            onAdd={() => navigate(`/settings/heads/${kind === 'income' ? 'income' : 'expense'}`)}
           />
         </Field>
       ) : null}
 
-      {/* Which piece of land. Hidden entirely until the farmer has recorded
-          more than one plot — a single-plot farm should never be asked to pick
-          the only answer. */}
-      {kind !== 'transfer' && form.plots.length > 1 ? (
-        <Field label={t('plot.one')} hint={t('plot.hint')}>
+      {/* Which piece of land. Shown as soon as the farmer has entered any, and
+          required from then on: a plot recorded on some entries and not others
+          gives a plot report that silently under-counts. A farm that has not
+          entered land at all is never asked. */}
+      {kind !== 'transfer' && form.plots.length > 0 ? (
+        <Field label={t('plot.one')} hint={t('plot.hint')} required>
           <ChipSingle
             options={form.plots.map((p) => ({ value: p.id, label: nameOf(p) }))}
             value={draft.plot_id}
             onChange={(v) => set({ plot_id: v })}
             onAdd={() => navigate('/settings/plots')}
-            allowClear
+          />
+        </Field>
+      ) : null}
+
+      {/* -------------------------------------------- variety and grade --
+       *
+       * Two levels, and the second appears only when the first has one. Under
+       * Banana the varieties are G9, Mitka and Karibale; under each of those,
+       * first and second class. Under Pepper there is usually neither, and the
+       * farmer is asked for nothing.
+       */}
+      {kind !== 'transfer' && draft.head_id && form.subHeads.length > 0 ? (
+        <Field label={kind === 'income' ? t('entry.variety') : t('entry.subHead')} required>
+          <ChipSingle
+            options={form.subHeads.map((s) => ({ value: s.id, label: nameOf(s) }))}
+            value={form.parentSubHeadId}
+            onChange={(v) => set({ sub_head_id: v, activity_id: null })}
+            onAdd={() => navigate(`/settings/sub-heads/${draft.head_id}`)}
+          />
+        </Field>
+      ) : null}
+
+      {form.childSubHeads.length > 0 ? (
+        <Field label={t('entry.grade')} required>
+          <ChipSingle
+            options={form.childSubHeads.map((s) => ({ value: s.id, label: nameOf(s) }))}
+            value={draft.sub_head_id === form.parentSubHeadId ? null : draft.sub_head_id}
+            onChange={(v) => set({ sub_head_id: v ?? form.parentSubHeadId })}
+            onAdd={() => navigate(`/settings/sub-heads/${draft.head_id}`)}
           />
         </Field>
       ) : null}
@@ -75,19 +104,6 @@ export function EntryFields({
       {/* ------------------------------------------------------ income -- */}
       {kind === 'income' ? (
         <>
-          {/* Grades: first class and second class go out on the same day at
-              different prices, so each is its own entry. */}
-          {draft.head_id && form.grades.length > 0 ? (
-            <Field label={t('entry.grade')} required>
-              <ChipSingle
-                options={form.grades.map((g) => ({ value: g.id, label: nameOf(g) }))}
-                value={draft.sub_head_id}
-                onChange={(v) => set({ sub_head_id: v })}
-                onAdd={() => navigate('/settings/sub-heads')}
-              />
-            </Field>
-          ) : null}
-
           {form.headUnits.length > 1 ? (
             <Field label={t('entry.unit')}>
               <ChipSingle
@@ -118,28 +134,17 @@ export function EntryFields({
 
       {/* ----------------------------------------------------- expense -- */}
       {kind === 'expense' ? (
-        <>
-          <Field label={t('entry.subHead')} required>
-            <ChipSingle
-              options={form.subHeads.map((s) => ({ value: s.id, label: nameOf(s) }))}
-              value={draft.sub_head_id}
-              onChange={(v) => set({ sub_head_id: v, activity_id: null })}
-              onAdd={() => navigate('/settings/sub-heads')}
-            />
-          </Field>
-
-          <Field
-            label={t('entry.activity')}
-            hint="The more exact this is, the more useful the crop report becomes."
-          >
-            <Select
-              value={draft.activity_id}
-              onChange={(v) => set({ activity_id: v })}
-              placeholder={t('common.select')}
-              options={activityOptions.map((a) => ({ value: a.id, label: nameOf(a) }))}
-            />
-          </Field>
-        </>
+        <Field
+          label={t('entry.activity')}
+          hint="The more exact this is, the more useful the crop report becomes."
+        >
+          <Select
+            value={draft.activity_id}
+            onChange={(v) => set({ activity_id: v })}
+            placeholder={t('common.select')}
+            options={activityOptions.map((a) => ({ value: a.id, label: nameOf(a) }))}
+          />
+        </Field>
       ) : null}
 
       {/* ---------------------------------------------------- transfer -- */}

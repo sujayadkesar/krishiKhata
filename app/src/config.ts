@@ -10,10 +10,13 @@
 /**
  * Google OAuth client ID, for Drive backup.
  *
- * EMPTY BY DEFAULT, and the app is fully usable that way — backup simply
- * reports that it has not been set up. Filling it in is a free, five-minute
- * job that only the person who owns the app can do, because it is tied to
- * their own Google account:
+ * Supplied at build time as VITE_GOOGLE_CLIENT_ID rather than typed in here,
+ * so it can live as a GitHub Actions secret and nobody has to edit code to
+ * turn backup on. Empty is a supported state: the app is fully usable without
+ * it and backup simply says it is not set up yet.
+ *
+ * Creating it is a free, five-minute job that only the person who owns the app
+ * can do, because it is tied to their own Google account:
  *
  *   1. console.cloud.google.com → create a project.
  *   2. APIs & Services → Library → enable "Google Drive API".
@@ -21,9 +24,10 @@
  *      → Android. Package name: in.krishikhata.app
  *      SHA-1: from the keystore the APK is signed with
  *      (`keytool -list -v -keystore <file>`).
- *   4. Also create a "Web application" client; its ID is what goes below —
- *      Android sign-in needs the WEB client ID, not the Android one, which is
- *      the step everyone gets wrong.
+ *   4. Also create a "Web application" client; ITS id is the one to publish as
+ *      VITE_GOOGLE_CLIENT_ID — Android sign-in needs the WEB client ID, not
+ *      the Android one, which is the step everyone gets wrong. The Android
+ *      client still has to exist; it is what the SHA-1 is registered against.
  *   5. OAuth consent screen → add the scope
  *      https://www.googleapis.com/auth/drive.file
  *      It is non-sensitive, so there is no verification review and no
@@ -31,7 +35,8 @@
  *
  * See docs/BACKUP-SETUP.md for the same thing at more length.
  */
-export const GOOGLE_CLIENT_ID = ''
+export const GOOGLE_CLIENT_ID: string =
+  import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim() ?? ''
 
 /** Visible in the farmer's Drive, so they can see their backups exist. */
 export const DRIVE_FOLDER_NAME = 'Krishi Khata Backups'

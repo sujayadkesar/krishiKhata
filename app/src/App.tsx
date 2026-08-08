@@ -19,7 +19,9 @@ import { LabourerDetailScreen } from '@/features/labour/LabourerDetailScreen'
 import { SettingsScreen } from '@/features/settings/SettingsScreen'
 import { AccountsScreen } from '@/features/settings/AccountsScreen'
 import { HeadsScreen } from '@/features/settings/HeadsScreen'
-import { SubHeadsScreen } from '@/features/settings/SubHeadsScreen'
+import {
+  HeadSubHeadsScreen, SpendTypesScreen, SubHeadsScreen,
+} from '@/features/settings/SubHeadsScreen'
 import { ActivitiesScreen } from '@/features/settings/ActivitiesScreen'
 import { LabourersScreen } from '@/features/settings/LabourersScreen'
 import { PlotsScreen } from '@/features/settings/PlotsScreen'
@@ -115,8 +117,14 @@ const ROUTES: RouteDef[] = [
   { path: '/settings/profile', render: () => <FarmProfileScreen /> },
   { path: '/settings/accounts', render: () => <AccountsScreen /> },
   { path: '/settings/plots', render: () => <PlotsScreen /> },
-  { path: '/settings/heads', render: () => <HeadsScreen /> },
+  // "What you sell" and "what you spend on" are separate lists; a crop is one
+  // row appearing in both. /settings/heads keeps working and lands on sales.
+  { path: '/settings/heads', render: () => <HeadsScreen side="income" /> },
+  { path: '/settings/heads/income', render: () => <HeadsScreen side="income" /> },
+  { path: '/settings/heads/expense', render: () => <HeadsScreen side="expense" /> },
   { path: '/settings/sub-heads', render: () => <SubHeadsScreen /> },
+  { path: '/settings/sub-heads/:headId', render: (p) => <HeadSubHeadsScreen headId={p.headId} /> },
+  { path: '/settings/spend-types', render: () => <SpendTypesScreen /> },
   { path: '/settings/activities', render: () => <ActivitiesScreen /> },
   { path: '/settings/labourers', render: () => <LabourersScreen /> },
   { path: '/settings/backup', render: () => <BackupScreen /> },

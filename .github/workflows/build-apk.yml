@@ -63,8 +63,15 @@ jobs:
         working-directory: app
         run: npm run lint
 
+      # VITE_GOOGLE_CLIENT_ID turns on Drive backup. Absent, the build still
+      # succeeds and the app simply reports that backup is not set up yet —
+      # which is why this is a plain secret reference with no gate around it.
+      # It is not a credential: an Android OAuth client has no client secret,
+      # and this id ends up readable inside the APK either way.
       - name: Build web assets
         working-directory: app
+        env:
+          VITE_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
         run: npm run build
 
       - name: Sync Capacitor

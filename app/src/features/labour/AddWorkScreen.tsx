@@ -3,6 +3,7 @@ import { Check, Users } from 'lucide-react'
 import { Page, Shell } from '@/components/Shell'
 import { Button, Field, Input, MoneyInput, Select, TextArea } from '@/components/ui'
 import { MonthCalendar, type DaySelection } from '@/components/MonthCalendar'
+import { MissingHint } from '@/features/entries/EntryForm'
 import { useQuery } from '@/hooks/useQuery'
 import {
   listActivities, listHeads, listLabourers, listPlots, listSubHeads,
@@ -152,7 +153,11 @@ export function AddWorkScreen() {
     return { total, days, personDays }
   }, [selection, selected, maleCount, femaleCount, maleRate, femaleRate])
 
-  const valid = selectedIds.length > 0 && selection.size > 0
+  // A plot is required once the farm has entered any, matching the entry form:
+  // labour recorded against no land leaves a hole in every plot report, and
+  // wages are usually the largest thing in it.
+  const needsPlot = (plots ?? []).length > 0 && !plotId
+  const valid = selectedIds.length > 0 && selection.size > 0 && !needsPlot
 
   async function submit() {
     if (!valid) return
@@ -270,8 +275,8 @@ export function AddWorkScreen() {
         {/* Which land the crew was on. Every day in this session carries it,
             which is right: a crew moves to another plot on another day, and
             that is another session. */}
-        {(plots ?? []).length > 1 ? (
-          <Field label={t('plot.one')}>
+        {(plots ?? []).length > 0 ? (
+          <Field label={t('plot.one')} required>
             <Select
               value={plotId}
               onChange={setPlotId}
@@ -371,7 +376,18 @@ export function AddWorkScreen() {
           </div>
         ) : null}
 
-        <div className="sticky bottom-2">
+        <div className="sticky bottom-2 space-y-1.5">
+          {/* Say what is still needed. A greyed-out button with no explanation
+              is the commonest way an app loses a day's work. */}
+          {!saved && !valid ? (
+            <MissingHint
+              missing={[
+                selectedIds.length === 0 ? t('labour.labourer') : null,
+                selection.size === 0 ? t('labour.daysWorked') : null,
+                needsPlot ? t('plot.one') : null,
+              ].filter((x): x is string => !!x)}
+            />
+          ) : null}
           <button
             onClick={submit}
             disabled={!valid}

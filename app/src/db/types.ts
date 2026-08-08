@@ -118,6 +118,14 @@ export interface SubHead extends MasterRow {
   head_id: string | null
   /** Income sub-heads are grades; expense sub-heads are kinds of spend. */
   used_for: 'income' | 'expense' | 'both'
+  /**
+   * The variety this grade belongs to, or null for a top-level row.
+   *
+   * Banana → G9 → First class. One level deep in practice. A transaction
+   * stores the deepest node chosen, and reports walk up this to roll grades
+   * into their variety, so "what did G9 make" stays answerable across grades.
+   */
+  parent_id: string | null
 }
 
 /** The granular work: Harvesting, Spraying, Weeding, Loading, Pruning... */

@@ -13,7 +13,7 @@ import {
 } from '@/data/backup'
 import {
   DriveNotConfigured, deleteBackup, downloadBackup, isDriveConfigured, isSignedIn,
-  listBackups, pruneBackups, signIn, signOut, uploadBackup,
+  listBackups, pruneBackups, signOut, uploadBackup,
 } from '@/data/drive'
 import { BACKUP_RETENTION } from '@/config'
 import { formatDate } from '@/lib/date'
@@ -95,6 +95,21 @@ export function BackupScreen() {
       setMessage(`Backed up ${rows} records. Choose Drive to keep it safe off the phone.`)
     })
 
+  /**
+   * Sign in and back up, as ONE action.
+   *
+   * They were two taps with a sign-in step in between that produced no visible
+   * result, so it was entirely possible to sign in, see nothing happen, and
+   * conclude backup was broken. `uploadBackup` asks for a token interactively
+   * anyway, so signing in separately was never necessary — Google's own
+   * consent sheet is the only prompt the farmer sees, and a backup lands at
+   * the end of it.
+   *
+   * Automatic backup switches itself on the first time this succeeds. Somebody
+   * who has just connected Drive wants their records backed up; making them
+   * find a second switch to say so only produces farms that connected Drive
+   * once and never backed up again.
+   */
   const backupNow = () =>
     run('drive', async () => {
       const snapshot = await buildSnapshot()
@@ -104,6 +119,10 @@ export function BackupScreen() {
       await markBackedUp()
       reload()
       setSignedIn(true)
+      if (!enabled) {
+        setEnabled(true)
+        await setSetting(BACKUP_ENABLED_KEY, '1')
+      }
       setMessage(`Backed up to Google Drive as ${file.name}.`)
     })
 
@@ -181,24 +200,59 @@ export function BackupScreen() {
           </div>
         ) : null}
 
-        {/* The recommended route: no account, no setup, and Drive is one of the
-            choices the share sheet already offers. */}
-        <button
-          onClick={() => void saveLocal()}
-          disabled={!!busy}
-          className="w-full rounded-xl py-4 font-semibold text-white text-lg flex items-center justify-center gap-2"
-          style={{ background: 'var(--color-brand-500)', opacity: busy ? 0.5 : 1 }}
-        >
-          <CloudUpload size={20} />
-          {busy === 'local' ? t('common.loading') : t('backup.now')}
-        </button>
-        <p className="text-center text-xs -mt-2" style={{ color: 'var(--text-faint)' }}>
-          {t('backup.shareHint')}
-        </p>
+        {/*
+          ONE BUTTON. Sign-in, consent and the upload itself all happen behind
+          it, because "sign in" followed by "now press backup" is a two-step
+          journey where the first step shows no result — and a farmer who signs
+          in and sees nothing happen concludes it did not work.
+        */}
+        {configured ? (
+          <>
+            <button
+              onClick={() => void backupNow()}
+              disabled={!!busy}
+              className="w-full rounded-xl py-4 font-semibold text-white text-lg flex items-center justify-center gap-2"
+              style={{ background: 'var(--color-brand-500)', opacity: busy ? 0.5 : 1 }}
+            >
+              <CloudUpload size={20} />
+              {busy === 'drive'
+                ? t('common.loading')
+                : signedIn
+                  ? t('backup.now')
+                  : t('backup.signIn')}
+            </button>
+            <p className="text-center text-xs -mt-2" style={{ color: 'var(--text-faint)' }}>
+              {t('backup.driveHint')}
+            </p>
+          </>
+        ) : (
+          <>
+            <button
+              onClick={() => void saveLocal()}
+              disabled={!!busy}
+              className="w-full rounded-xl py-4 font-semibold text-white text-lg flex items-center justify-center gap-2"
+              style={{ background: 'var(--color-brand-500)', opacity: busy ? 0.5 : 1 }}
+            >
+              <CloudUpload size={20} />
+              {busy === 'local' ? t('common.loading') : t('backup.now')}
+            </button>
+            <p className="text-center text-xs -mt-2" style={{ color: 'var(--text-faint)' }}>
+              {t('backup.shareHint')}
+            </p>
+          </>
+        )}
 
         <div>
           <SectionHeader>{t('backup.otherWays')}</SectionHeader>
           <Card>
+            {configured ? (
+              <ListRow
+                title="Save a copy to this phone"
+                subtitle={t('backup.shareHint')}
+                leading={<Share2 size={19} style={{ color: 'var(--color-brand-600)' }} />}
+                onClick={() => void saveLocal()}
+              />
+            ) : null}
             <label className="w-full flex items-center gap-3 px-4 py-3 cursor-pointer">
               <RotateCcw size={19} style={{ color: 'var(--color-brand-600)' }} />
               <span className="flex-1 text-left">
@@ -241,49 +295,29 @@ export function BackupScreen() {
           ) : (
             <>
               <Card>
+                <ListRow
+                  title={t('backup.restore')}
+                  subtitle="Choose from your Drive backups"
+                  leading={<RotateCcw size={19} style={{ color: 'var(--color-brand-600)' }} />}
+                  onClick={() => void refreshList()}
+                />
                 {signedIn ? (
-                  <>
-                    <ListRow
-                      title={t('backup.now')}
-                      subtitle={busy === 'drive' ? t('common.loading') : undefined}
-                      leading={<CloudUpload size={19} style={{ color: 'var(--color-brand-600)' }} />}
-                      onClick={() => void backupNow()}
-                    />
-                    <ListRow
-                      title={t('backup.restore')}
-                      subtitle="Choose from your Drive backups"
-                      leading={<RotateCcw size={19} style={{ color: 'var(--color-brand-600)' }} />}
-                      onClick={() => void refreshList()}
-                    />
-                    <ListRow
-                      title={t('backup.signOut')}
-                      leading={<Share2 size={19} style={{ color: 'var(--text-faint)' }} />}
-                      onClick={() =>
-                        void run('signout', async () => {
-                          await signOut()
-                          setSignedIn(false)
-                          setFiles(null)
-                        })
-                      }
-                    />
-                  </>
-                ) : (
                   <ListRow
-                    title={t('backup.signIn')}
-                    subtitle="Krishi Khata can only see the files it creates"
-                    leading={<CloudUpload size={19} style={{ color: 'var(--color-brand-600)' }} />}
+                    title={t('backup.signOut')}
+                    leading={<Share2 size={19} style={{ color: 'var(--text-faint)' }} />}
                     onClick={() =>
-                      void run('signin', async () => {
-                        await signIn()
-                        setSignedIn(true)
+                      void run('signout', async () => {
+                        await signOut()
+                        setSignedIn(false)
+                        setFiles(null)
                       })
                     }
                   />
-                )}
+                ) : null}
               </Card>
 
               {signedIn ? (
-                <div className="card p-3 mt-3 space-y-3">
+                <div className="card p-3 mt-3 space-y-3" key="auto">
                   <Switch
                     checked={enabled}
                     onChange={(v) => {

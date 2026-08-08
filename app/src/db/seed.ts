@@ -14,6 +14,17 @@ import { seedId } from '@/lib/ids'
  * one, for the same reason.
  */
 
+/**
+ * Bump this when rows are ADDED to the seed, so phones already set up pick
+ * them up on next launch.
+ *
+ * Safe because every insert is `INSERT OR IGNORE` against a fixed id: a farm
+ * that has renamed Banana keeps its name, and re-running only fills in what is
+ * genuinely absent. It is NOT a way to change seeded rows — once a row exists,
+ * it belongs to the farmer.
+ */
+const SEED_VERSION = '2'
+
 const now = () => new Date().toISOString()
 
 type Row = Record<string, string | number | null>
@@ -74,6 +85,32 @@ const SUB_HEADS: [slug: string, en: string, kn: string, isLabour: 0 | 1][] = [
 ]
 
 /**
+ * Banana is not one thing, and this is the example the whole variety/grade
+ * level exists for.
+ *
+ * G9, Mitka and Karibale fetch different prices on the same day, and within
+ * each of them first and second class fetch different prices again. Seeded so
+ * the farmer sees what the two levels are FOR rather than having to invent
+ * them from an empty screen; all of it is renameable and can be retired.
+ *
+ * Only banana. Guessing varieties for pepper or arecanut would fill the entry
+ * screen with words this farm does not use.
+ */
+const VARIETIES: Record<string, [slug: string, en: string, kn: string][]> = {
+  banana: [
+    ['g9', 'G9', 'ಜಿ೯'],
+    ['mitka', 'Mitka', 'ಮಿಟ್ಕಾ'],
+    ['karibale', 'Karibale', 'ಕರಿಬಾಳೆ'],
+  ],
+}
+
+/** The grades every seeded variety is sold in. */
+const GRADES: [slug: string, en: string, kn: string][] = [
+  ['first', 'First class', 'ಒಂದನೇ ದರ್ಜೆ'],
+  ['second', 'Second class', 'ಎರಡನೇ ದರ್ಜೆ'],
+]
+
+/**
  * The granular work. This is the level the brief asked for: not "labour" but
  * "labour for cutting" as against "labour for spraying".
  */
@@ -126,8 +163,31 @@ function buildSeed(): SeedTable[] {
   const subHeads: Row[] = SUB_HEADS.map(([slug, en, kn, isLabour], i) => ({
     id: seedId(`sub:${slug}`),
     name_en: en, name_kn: kn, is_labour: isLabour,
+    head_id: null, used_for: 'expense', parent_id: null,
     is_active: 1, sort_order: i, created_at: ts, updated_at: ts,
   }))
+
+  // Varieties, then the grades beneath each of them.
+  let order = SUB_HEADS.length
+  for (const [headSlug, varieties] of Object.entries(VARIETIES)) {
+    for (const [vSlug, vEn, vKn] of varieties) {
+      const varietyId = seedId(`sub:${headSlug}:${vSlug}`)
+      subHeads.push({
+        id: varietyId,
+        name_en: vEn, name_kn: vKn, is_labour: 0,
+        head_id: seedId(`head:${headSlug}`), used_for: 'income', parent_id: null,
+        is_active: 1, sort_order: order++, created_at: ts, updated_at: ts,
+      })
+      for (const [gSlug, gEn, gKn] of GRADES) {
+        subHeads.push({
+          id: seedId(`sub:${headSlug}:${vSlug}:${gSlug}`),
+          name_en: gEn, name_kn: gKn, is_labour: 0,
+          head_id: seedId(`head:${headSlug}`), used_for: 'income', parent_id: varietyId,
+          is_active: 1, sort_order: order++, created_at: ts, updated_at: ts,
+        })
+      }
+    }
+  }
 
   const activities: Row[] = ACTIVITIES.map(([slug, en, kn, sub], i) => ({
     id: seedId(`act:${slug}`),
@@ -158,7 +218,10 @@ function buildSeed(): SeedTable[] {
     { table: 'head_units', columns: ['head_id', 'unit_id', 'is_default'], rows: headUnits },
     {
       table: 'sub_heads',
-      columns: ['id', 'name_en', 'name_kn', 'is_labour', 'is_active', 'sort_order', 'created_at', 'updated_at'],
+      columns: [
+        'id', 'name_en', 'name_kn', 'is_labour', 'head_id', 'used_for', 'parent_id',
+        'is_active', 'sort_order', 'created_at', 'updated_at',
+      ],
       rows: subHeads,
     },
     {
@@ -189,7 +252,7 @@ export async function seedIfEmpty(): Promise<void> {
     'SELECT value FROM settings WHERE key = ?;',
     ['seeded_version'],
   )
-  if (seeded?.value === '1') return
+  if (seeded?.value === SEED_VERSION) return
 
   await tx(async (run) => {
     for (const { table, columns, rows } of buildSeed()) {
@@ -201,7 +264,7 @@ export async function seedIfEmpty(): Promise<void> {
     }
     await run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?);', [
       'seeded_version',
-      '1',
+      SEED_VERSION,
     ])
   })
 

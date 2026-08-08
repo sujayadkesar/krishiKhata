@@ -43,8 +43,9 @@ const GROUPS: { title: string; rows: Row[] }[] = [
   {
     title: 'What you grow and spend on',
     rows: [
-      { path: '/settings/heads', label: 'set.heads', icon: Sprout, hint: 'Crops, the units they sell in, and their colours' },
-      { path: '/settings/sub-heads', label: 'set.subHeads', icon: Tags, hint: 'Kinds of spending, and grades a crop is sold in' },
+      { path: '/settings/heads/income', label: 'set.incomeHeads', icon: Sprout, hint: 'Crops and the units they sell in' },
+      { path: '/settings/heads/expense', label: 'set.expenseHeads', icon: Tags, hint: 'What your spending gets filed against' },
+      { path: '/settings/sub-heads', label: 'set.varietiesGrades', icon: Tags, hint: 'G9, Mitka, Karibale — and first or second class within each' },
       { path: '/settings/activities', label: 'set.activities', icon: Hammer, hint: 'The work itself — harvesting, spraying, weeding' },
     ],
   },

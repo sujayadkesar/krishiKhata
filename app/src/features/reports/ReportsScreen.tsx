@@ -19,7 +19,9 @@ import {
   labourStatementDoc, plotProfitDoc,
 } from './documents'
 import type { DocContext } from './documents'
+import { PagePreview } from './PagePreview'
 import { reportFileName, shareReport } from '@/lib/print'
+import { buildPrintDocument } from '@/lib/printDoc'
 import { accountBalances, monthlyTotals } from '@/data/entries'
 import {
   financialYearLabel, financialYearOf, financialYearRange, monthEnd, monthStart, todayISO,
@@ -110,7 +112,15 @@ export function ReportsScreen() {
   const [to, setTo] = useState(() => monthEnd(todayISO()))
   const [selected, setSelected] = useState<ReportId | null>(null)
   const [labourerId, setLabourerId] = useState<string | null>(null)
+  /** The report body, which is what gets handed to the print engine. */
   const [html, setHtml] = useState<string | null>(null)
+  /**
+   * The same body wrapped in the complete document — stylesheet, embedded
+   * font and all. The preview needs this rather than the bare body: an iframe
+   * has no cascade from the app, so handing it the markup alone rendered the
+   * whole report as unstyled stacked text while the PDF came out fine.
+   */
+  const [doc, setDoc] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
@@ -139,6 +149,7 @@ export function ReportsScreen() {
   // heading and never know.
   useEffect(() => {
     setHtml(null)
+    setDoc(null)
     setError(null)
     setNotice(null)
   }, [from, to, selected, labourerId, lang])
@@ -253,7 +264,11 @@ export function ReportsScreen() {
     setError(null)
     setNotice(null)
     try {
-      setHtml(await build(id))
+      const body = await build(id)
+      // Wrapped once, here, so the preview and the shared PDF are the same
+      // document rather than two renderings that can disagree.
+      setDoc(await buildPrintDocument(body, title(id)))
+      setHtml(body)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -335,18 +350,7 @@ export function ReportsScreen() {
           </div>
         ) : null}
 
-        {/*
-          An iframe, so the document's own stylesheet is the only thing acting
-          on it — exactly as when it reaches the print engine. It fills the
-          screen rather than sitting in a 68vh letterbox, and scrolls inside
-          itself, so the header stays put while a long report is read.
-        */}
-        <iframe
-          title="preview"
-          srcDoc={html}
-          className="flex-1 w-full border-0"
-          style={{ background: '#fff', minHeight: 0 }}
-        />
+        <PagePreview doc={doc} />
       </div>
     )
   }

@@ -1,18 +1,27 @@
 import { useEffect, useState } from 'react'
-import { Sprout } from 'lucide-react'
+import { Sprout, Tags, ChevronRight } from 'lucide-react'
 import { useQuery } from '@/hooks/useQuery'
-import { getHeadUnits, listHeads, listUnits, saveHead } from '@/data/masterData'
+import { getHeadUnits, listHeadsFor, listUnits, saveHead } from '@/data/masterData'
 import { useI18n } from '@/i18n'
-import { Button, ChipMulti, Field, Input, Select, Sheet } from '@/components/ui'
+import { Button, ChipMulti, Field, Input, Sheet, Switch } from '@/components/ui'
+import { navigate } from '@/router'
 import { MasterList, RowActions } from './MasterList'
 import type { Head, HeadUse } from '@/db/types'
 
 /**
- * Crops and income heads, and the units each is sold in.
+ * Heads, one side of the book at a time.
+ *
+ * "What you sell" and "what you spend on" are two lists because they are two
+ * questions, and reading one combined list forced the farmer to work out which
+ * rows were relevant to what they were doing. A crop answers both and is still
+ * ONE row underneath — see `listHeadsFor` for why splitting it in the database
+ * would quietly destroy crop profitability.
  *
  * The unit list is per head because honey is sold by the bottle AND by the
  * kilo while banana goes by kilo or by bunch. Offering every unit on every
  * crop turns a two-tap entry into a scroll through ten irrelevant options.
+ * It only appears on the income side: nothing is sold by the bag on a bill
+ * from the fertilizer shop.
  *
  * The FIRST selected unit is the default, and the chip order shows it, so
  * there is no separate "which is default" control to explain.
@@ -34,17 +43,34 @@ interface Draft {
   unitIds: string[]
 }
 
-const blank = (): Draft => ({
-  name_en: '', name_kn: '', used_for: 'both', color: 'emerald', unitIds: [],
+/**
+ * A crop entered from the sale side defaults to carrying costs too, because
+ * every crop does. Something entered from the expense side does not default to
+ * being sellable — a diesel bill is not a harvest.
+ */
+const blank = (side: Side): Draft => ({
+  name_en: '',
+  name_kn: '',
+  used_for: side === 'income' ? 'both' : 'expense',
+  color: 'emerald',
+  unitIds: [],
 })
 
-export function HeadsScreen() {
+export type Side = 'income' | 'expense'
+
+export function HeadsScreen({ side }: { side: Side }) {
   const { t, nameOf, lang } = useI18n()
   const [showInactive, setShowInactive] = useState(false)
-  const { data, loading } = useQuery(() => listHeads(showInactive), [showInactive])
+  const { data, loading } = useQuery(
+    () => listHeadsFor(side, showInactive),
+    [side, showInactive],
+  )
   const { data: units } = useQuery(() => listUnits(false), [])
   const [draft, setDraft] = useState<Draft | null>(null)
   const [editing, setEditing] = useState<Head | null>(null)
+
+  const bothLabel =
+    side === 'income' ? 'Also record expenses against this' : 'Also record sales against this'
 
   // Unit assignments live in their own table, so they are fetched when a head
   // is opened rather than joined into the list query.
@@ -88,7 +114,7 @@ export function HeadsScreen() {
 
   return (
     <MasterList
-      title={t('set.heads')}
+      title={side === 'income' ? t('set.incomeHeads') : t('set.expenseHeads')}
       table="heads"
       items={data ?? []}
       loading={loading}
@@ -97,12 +123,26 @@ export function HeadsScreen() {
       leadingOf={(h) => (
         <Sprout size={19} style={{ color: SWATCH[h.color] ?? 'var(--color-brand-600)' }} />
       )}
-      subtitleOf={(h) =>
-        h.used_for === 'both' ? 'Income & expense' : h.used_for === 'income' ? 'Income only' : 'Expense only'
-      }
+      subtitleOf={(h) => (h.used_for === 'both' ? 'Sales and expenses' : undefined)}
+      /* Straight from the head to the varieties and grades filed under it,
+         because that is where the farmer is going next and hunting for it in
+         another Settings screen is the step people give up on. */
+      rightOf={(h) => (
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            navigate(`/settings/sub-heads/${h.id}`)
+          }}
+          aria-label={t('set.varietiesGrades')}
+          className="px-1.5"
+          style={{ color: 'var(--color-brand-600)', minHeight: 32 }}
+        >
+          <Tags size={17} />
+        </button>
+      )}
       onAdd={() => {
         setEditing(null)
-        setDraft(blank())
+        setDraft(blank(side))
       }}
       onEdit={(h) => {
         setEditing(h)
@@ -122,7 +162,13 @@ export function HeadsScreen() {
           setDraft(null)
           setEditing(null)
         }}
-        title={editing ? nameOf(editing) : t('set.heads')}
+        title={
+          editing
+            ? nameOf(editing)
+            : side === 'income'
+              ? t('set.incomeHeads')
+              : t('set.expenseHeads')
+        }
         footer={
           <Button full onClick={submit} disabled={!valid}>
             {t('common.save')}
@@ -148,31 +194,43 @@ export function HeadsScreen() {
               />
             </Field>
 
-            <Field label="Used for">
-              <Select
-                value={draft.used_for}
-                onChange={(v) => setDraft({ ...draft, used_for: v })}
-                options={[
-                  { value: 'both', label: 'Income & expense' },
-                  { value: 'income', label: 'Income only' },
-                  { value: 'expense', label: 'Expense only' },
-                ]}
+            {/* One switch instead of a three-way "used for". The farmer is
+                already in the list they meant; all that is left to say is
+                whether this head also belongs on the other side. */}
+            <div className="card px-4 py-2">
+              <Switch
+                checked={draft.used_for === 'both'}
+                onChange={(v) => setDraft({ ...draft, used_for: v ? 'both' : side })}
+                label={bothLabel}
               />
-            </Field>
+            </div>
 
-            <Field
-              label={t('set.allowedUnits')}
-              hint="Tap in the order you use them — the first one is offered by default."
-            >
-              <ChipMulti
-                options={(units ?? []).map((u) => ({
-                  value: u.id,
-                  label: `${nameOf(u)} (${lang === 'en' ? u.short_en : u.short_kn})`,
-                }))}
-                selected={new Set(draft.unitIds)}
-                onToggle={toggleUnit}
-              />
-            </Field>
+            {side === 'income' ? (
+              <Field
+                label={t('set.allowedUnits')}
+                hint="Tap in the order you use them — the first one is offered by default."
+              >
+                <ChipMulti
+                  options={(units ?? []).map((u) => ({
+                    value: u.id,
+                    label: `${nameOf(u)} (${lang === 'en' ? u.short_en : u.short_kn})`,
+                  }))}
+                  selected={new Set(draft.unitIds)}
+                  onToggle={toggleUnit}
+                />
+              </Field>
+            ) : null}
+
+            {editing ? (
+              <button
+                onClick={() => navigate(`/settings/sub-heads/${editing.id}`)}
+                className="card w-full flex items-center gap-3 px-4 py-3 text-left"
+              >
+                <Tags size={18} style={{ color: 'var(--color-brand-600)' }} />
+                <span className="flex-1 text-sm font-medium">{t('set.varietiesGrades')}</span>
+                <ChevronRight size={16} style={{ color: 'var(--text-faint)' }} />
+              </button>
+            ) : null}
 
             <Field label="Colour" hint="Used for this crop everywhere — charts, lists, statements.">
               <div className="flex flex-wrap gap-2">

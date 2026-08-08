@@ -23,6 +23,7 @@ import {
   matchFifo, balancePaise, balanceState, splitByHead, crewWagePaise, crewSize,
 } from '../src/lib/labour.ts'
 import { isNewer } from '../src/lib/updates.ts'
+import { missingFor } from '../src/features/entries/entryRules.ts'
 
 let passed = 0
 const failures = []
@@ -243,6 +244,108 @@ ok(isNewer('1.2.10', '1.2.9'), 'update: compared numerically, not as strings')
 ok(!isNewer('1.0.0', '1.0.0'), 'update: same version is not newer')
 ok(!isNewer('0.9.9', '1.0.0'), 'update: older is not newer')
 ok(isNewer('1.0', '0.9.9'), 'update: short version still compares')
+
+/* ------------------------------------------------- entry requirements --- */
+
+{
+  const sale = (over = {}) => ({
+    kind: 'income',
+    head_id: 'banana',
+    sub_head_id: null,
+    plot_id: null,
+    account_id: 'cash',
+    to_account_id: null,
+    amount_paise: 50000,
+    ...over,
+  })
+  // No varieties, no plots: a plain crop sold one way needs nothing extra.
+  const bare = { topLevelCount: 0, childCount: 0, parentSubHeadId: null, hasPlots: false }
+
+  eq(missingFor(sale(), bare).length, 0, 'entry: a complete simple sale is saveable')
+
+  eq(
+    missingFor(sale({ amount_paise: 0 }), bare),
+    ['amount'],
+    'entry: zero amount is not an entry',
+  )
+  eq(
+    missingFor(sale({ head_id: null }), bare),
+    ['head'],
+    'entry: the crop is required',
+  )
+
+  // Banana has varieties, so one must be chosen.
+  const withVarieties = { ...bare, topLevelCount: 3 }
+  eq(
+    missingFor(sale(), withVarieties),
+    ['variety'],
+    'entry: a crop that HAS varieties must be given one',
+  )
+  eq(
+    missingFor(sale({ sub_head_id: 'g9' }), { ...withVarieties, parentSubHeadId: 'g9' }),
+    [],
+    'entry: a variety with no grades under it is enough on its own',
+  )
+
+  // G9 has first and second class, which fetch different money.
+  const g9 = { topLevelCount: 3, childCount: 2, parentSubHeadId: 'g9', hasPlots: false }
+  eq(
+    missingFor(sale({ sub_head_id: 'g9' }), g9),
+    ['grade'],
+    'entry: stopping at the variety is not enough when it has grades',
+  )
+  eq(
+    missingFor(sale({ sub_head_id: 'g9-first' }), g9),
+    [],
+    'entry: taking it down to a grade completes it',
+  )
+
+  // Plots are required once the farm has entered any — but never on a transfer.
+  eq(
+    missingFor(sale(), { ...bare, hasPlots: true }),
+    ['plot'],
+    'entry: a farm with plots must say which one',
+  )
+  eq(
+    missingFor(
+      {
+        kind: 'transfer',
+        head_id: null,
+        sub_head_id: null,
+        plot_id: null,
+        account_id: 'cash',
+        to_account_id: 'bank',
+        amount_paise: 50000,
+      },
+      { topLevelCount: 3, childCount: 2, parentSubHeadId: null, hasPlots: true },
+    ),
+    [],
+    'entry: a transfer needs no crop, no grade and no plot',
+  )
+  eq(
+    missingFor(
+      {
+        kind: 'transfer',
+        head_id: null,
+        sub_head_id: null,
+        plot_id: null,
+        account_id: 'cash',
+        to_account_id: 'cash',
+        amount_paise: 50000,
+      },
+      bare,
+    ),
+    ['toAccount'],
+    'entry: a transfer to the same account is not a transfer',
+  )
+
+  // The expense side asks for a spend type, not a variety.
+  eq(
+    missingFor(sale({ kind: 'expense' }), withVarieties),
+    ['subHead'],
+    'entry: the expense side asks for a sub-head, not a variety',
+  )
+}
 
 /* ------------------------------------------------------------------------ */
 
