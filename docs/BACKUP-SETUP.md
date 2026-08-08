@@ -84,21 +84,38 @@ Android app.
 Android one. This is the single step almost everyone gets wrong; the Android
 client must exist, but the ID you paste into the app is the web one.
 
-### 6. Put it in the app
+### 6. Put it in the build
 
-`app/src/config.ts`:
+The client ID is read at build time from `VITE_GOOGLE_CLIENT_ID`, so nothing in
+the source has to change. It is not a credential — an Android OAuth client has
+no client secret, and the ID ends up readable inside the APK either way — but
+keeping it out of the repository means one less thing to edit per release.
 
-```ts
-export const GOOGLE_CLIENT_ID = '123456789-abcdefg.apps.googleusercontent.com'
+**For released APKs**, add it once as a repository secret:
+
+GitHub → the repo → **Settings → Secrets and variables → Actions → New
+repository secret**
+
+- Name: `GOOGLE_CLIENT_ID`
+- Value: the **web** client ID from step 5
+
+Every tagged release from then on has backup enabled. Nothing else changes.
+
+**For a local build**, put it in `app/.env.local` (git-ignored):
+
+```
+VITE_GOOGLE_CLIENT_ID=123456789-abcdefg.apps.googleusercontent.com
 ```
 
-Rebuild and reinstall:
+then
 
 ```bash
 npm run sync
 ```
 
-Settings → Backup will stop saying "not set up" and offer Google sign-in.
+Settings → Backup stops saying "not set up" and shows a single **Sign in with
+Google** button. Tapping it signs in, takes consent and uploads a backup in one
+go, and switches automatic backup on once it has succeeded.
 
 ---
 
