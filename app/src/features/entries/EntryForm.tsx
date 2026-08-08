@@ -1,5 +1,6 @@
+import { Plus } from 'lucide-react'
 import {
-  ChipSingle, DateInput, Field, Input, MoneyInput, QuantityInput, Select, TextArea,
+  Button, ChipSingle, DateInput, Field, Input, MoneyInput, QuantityInput, Select, TextArea,
 } from '@/components/ui'
 import { useI18n } from '@/i18n'
 import { navigate } from '@/router'
@@ -61,14 +62,31 @@ export function EntryFields({
           required from then on: a plot recorded on some entries and not others
           gives a plot report that silently under-counts. A farm that has not
           entered land at all is never asked. */}
-      {kind !== 'transfer' && form.plots.length > 0 ? (
-        <Field label={t('plot.one')} hint={t('plot.hint')} required>
-          <ChipSingle
-            options={form.plots.map((p) => ({ value: p.id, label: nameOf(p) }))}
-            value={draft.plot_id}
-            onChange={(v) => set({ plot_id: v })}
-            onAdd={() => navigate('/settings/plots')}
-          />
+      {kind !== 'transfer' ? (
+        <Field
+          label={t('plot.one')}
+          hint={form.plots.length > 0 ? t('plot.hint') : t('plot.none')}
+          required={form.plots.length > 0}
+        >
+          {form.plots.length > 0 ? (
+            <ChipSingle
+              options={form.plots.map((p) => ({ value: p.id, label: nameOf(p) }))}
+              value={draft.plot_id}
+              onChange={(v) => set({ plot_id: v })}
+              onAdd={() => navigate('/settings/plots')}
+            />
+          ) : (
+            /* Shown even with nothing to choose, so plot tracking is
+               discoverable. Hidden, a farmer never learns it exists and every
+               plot report stays empty forever. It stays optional until there
+               is a plot to pick — an entry must never be blocked behind
+               setting up master data. */
+            <Button variant="soft" full onClick={() => navigate('/settings/plots')}>
+              <span className="inline-flex items-center gap-2 justify-center">
+                <Plus size={16} /> {t('plot.title')}
+              </span>
+            </Button>
+          )}
         </Field>
       ) : null}
 
