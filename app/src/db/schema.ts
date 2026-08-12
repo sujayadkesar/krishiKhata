@@ -11,7 +11,7 @@
  * about what the table looks like. Add a new migration instead.
  */
 
-export const SCHEMA_VERSION = 6
+export const SCHEMA_VERSION = 7
 
 const V1 = `
 CREATE TABLE IF NOT EXISTS settings (
@@ -358,5 +358,56 @@ ALTER TABLE sub_heads ADD COLUMN parent_id TEXT REFERENCES sub_heads(id);
 CREATE INDEX IF NOT EXISTS idx_subhead_parent ON sub_heads(parent_id);
 `
 
+/**
+ * The book is a household's, not a field's — and work is not always a day.
+ *
+ * TWO THINGS THIS FIXES.
+ *
+ * A farmer's ledger is not only the farm. Diesel, a car service, school fees
+ * and cloth are the same money out of the same pocket, and an app that only
+ * understands crops sends them somewhere else — usually nowhere. Heads gain a
+ * `category`: a 'crop' carries land, units, quantity and crop profitability; a
+ * 'general' head carries none of that and asks for none of it. Everything
+ * seeded so far is a crop except the catch-all, which becomes general.
+ *
+ * WORK IS PAID FOUR DIFFERENT WAYS, and only one of them was expressible.
+ *
+ *   day    — a day rate, what already existed.
+ *   piece  — spraying, paid per litre. The rate is NOT KNOWN while the job
+ *            runs; it is agreed when the work finishes. So the quantity is
+ *            recorded per day with no amount at all, the session is priced
+ *            once at the end, and every row under it gets its amount then.
+ *            Money handed over in the meantime is already handled: with no
+ *            priced work outstanding it lands as an advance, and the FIFO
+ *            engine settles it the moment the job is priced. No second code
+ *            path, which is the rule that keeps this ledger balancing.
+ *   lump   — coconut plucking, where the figure is whatever was agreed on the
+ *            day. An amount, no rate, no quantity to multiply.
+ *   salary — a fixed worker, posted once a month. `day_fraction` is 0 for
+ *            these, because a salaried month is not a day worked and counting
+ *            it as one would corrupt every person-day statistic.
+ *
+ * `rate_paise` still lives on the attendance row and is still a snapshot.
+ * Pricing an unpriced job is not a rate change — it is the first time the rate
+ * has ever existed — so it fills the snapshot in rather than rewriting it.
+ */
+const V7 = `
+ALTER TABLE heads ADD COLUMN category TEXT NOT NULL DEFAULT 'crop';
+
+ALTER TABLE labourers ADD COLUMN employment TEXT NOT NULL DEFAULT 'casual';
+ALTER TABLE labourers ADD COLUMN monthly_salary_paise INTEGER;
+
+ALTER TABLE work_sessions ADD COLUMN basis TEXT NOT NULL DEFAULT 'day';
+ALTER TABLE work_sessions ADD COLUMN unit_id TEXT REFERENCES units(id);
+ALTER TABLE work_sessions ADD COLUMN rate_paise INTEGER;
+ALTER TABLE work_sessions ADD COLUMN priced_at TEXT;
+
+ALTER TABLE attendance ADD COLUMN basis TEXT NOT NULL DEFAULT 'day';
+ALTER TABLE attendance ADD COLUMN quantity_milli INTEGER;
+
+CREATE INDEX IF NOT EXISTS idx_ws_pricing ON work_sessions(basis, priced_at);
+CREATE INDEX IF NOT EXISTS idx_heads_category ON heads(category);
+`
+
 /** Index in this array + 1 is the version it produces. Append only. */
-export const MIGRATIONS: string[] = [V1, V2, V3, V4, V5, V6]
+export const MIGRATIONS: string[] = [V1, V2, V3, V4, V5, V6, V7]

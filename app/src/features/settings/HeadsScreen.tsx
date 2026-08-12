@@ -3,10 +3,10 @@ import { Sprout, Tags, ChevronRight } from 'lucide-react'
 import { useQuery } from '@/hooks/useQuery'
 import { getHeadUnits, listHeadsFor, listUnits, saveHead } from '@/data/masterData'
 import { useI18n } from '@/i18n'
-import { Button, ChipMulti, Field, Input, Sheet, Switch } from '@/components/ui'
+import { Button, ChipMulti, Field, Input, Select, Sheet, Switch } from '@/components/ui'
 import { navigate } from '@/router'
 import { MasterList, RowActions } from './MasterList'
-import type { Head, HeadUse } from '@/db/types'
+import type { Head, HeadCategory, HeadUse } from '@/db/types'
 
 /**
  * Heads, one side of the book at a time.
@@ -39,6 +39,7 @@ interface Draft {
   name_en: string
   name_kn: string
   used_for: HeadUse
+  category: HeadCategory
   color: string
   unitIds: string[]
 }
@@ -52,6 +53,9 @@ const blank = (side: Side): Draft => ({
   name_en: '',
   name_kn: '',
   used_for: side === 'income' ? 'both' : 'expense',
+  // Something added from the sale side is almost always a crop; something
+  // added from the expense side is as likely to be the car as the field.
+  category: side === 'income' ? 'crop' : 'general',
   color: 'emerald',
   unitIds: [],
 })
@@ -96,8 +100,10 @@ export function HeadsScreen({ side }: { side: Side }) {
       name_en: draft.name_en.trim() || name,
       name_kn: draft.name_kn.trim() || name,
       used_for: draft.used_for,
+      category: draft.category,
       color: draft.color,
-      unitIds: draft.unitIds,
+      // Units describe how something is SOLD BY. A general head has no yield.
+      unitIds: draft.category === 'crop' ? draft.unitIds : [],
     })
     setDraft(null)
     setEditing(null)
@@ -123,7 +129,10 @@ export function HeadsScreen({ side }: { side: Side }) {
       leadingOf={(h) => (
         <Sprout size={19} style={{ color: SWATCH[h.color] ?? 'var(--color-brand-600)' }} />
       )}
-      subtitleOf={(h) => (h.used_for === 'both' ? 'Sales and expenses' : undefined)}
+      subtitleOf={(h) =>
+        [h.category === 'crop' ? t('head.isCrop') : t('head.isGeneral'),
+         h.used_for === 'both' ? 'sales and expenses' : null]
+          .filter(Boolean).join(' · ')}
       /* Straight from the head to the varieties and grades filed under it,
          because that is where the farmer is going next and hunting for it in
          another Settings screen is the step people give up on. */
@@ -151,6 +160,7 @@ export function HeadsScreen({ side }: { side: Side }) {
           name_en: h.name_en,
           name_kn: h.name_kn,
           used_for: h.used_for,
+          category: h.category,
           color: h.color,
           unitIds: [],
         })
@@ -194,6 +204,21 @@ export function HeadsScreen({ side }: { side: Side }) {
               />
             </Field>
 
+            {/* Land or life. This is the single most consequential thing about
+                a head: a crop carries plots, units, quantities and a line in
+                the profitability report; everything else carries an amount
+                and nothing more. */}
+            <Field label={t('head.category')}>
+              <Select
+                value={draft.category}
+                onChange={(v) => setDraft({ ...draft, category: v })}
+                options={[
+                  { value: 'crop', label: t('head.isCrop') },
+                  { value: 'general', label: t('head.isGeneral') },
+                ]}
+              />
+            </Field>
+
             {/* One switch instead of a three-way "used for". The farmer is
                 already in the list they meant; all that is left to say is
                 whether this head also belongs on the other side. */}
@@ -205,7 +230,7 @@ export function HeadsScreen({ side }: { side: Side }) {
               />
             </div>
 
-            {side === 'income' ? (
+            {side === 'income' && draft.category === 'crop' ? (
               <Field
                 label={t('set.allowedUnits')}
                 hint="Tap in the order you use them — the first one is offered by default."

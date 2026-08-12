@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Check, Users } from 'lucide-react'
 import { Page, Shell } from '@/components/Shell'
-import { Button, Field, Input, MoneyInput, Select, TextArea } from '@/components/ui'
+import {
+  Button, ChipSingle, Field, Input, MoneyInput, QuantityInput, Select, TextArea,
+} from '@/components/ui'
 import { MonthCalendar, type DaySelection } from '@/components/MonthCalendar'
 import { MissingHint } from '@/features/entries/EntryForm'
 import { useQuery } from '@/hooks/useQuery'
 import {
-  listActivities, listHeads, listLabourers, listPlots, listSubHeads,
+  listActivities, listHeads, listLabourers, listPlots, listSubHeads, listUnits,
 } from '@/data/masterData'
 import { attendanceInMonth, saveWorkSession } from '@/data/labour'
 import { useI18n } from '@/i18n'
@@ -15,7 +17,15 @@ import { attendanceAmountPaise, crewWagePaise } from '@/lib/labour'
 import { FULL_DAY, HALF_DAY } from '@/db/types'
 import { monthEnd, monthStart } from '@/lib/date'
 import { back, navigate } from '@/router'
-import type { ISODate } from '@/db/types'
+import type { ISODate, WorkBasis } from '@/db/types'
+
+/** What each way of being paid means, in the farmer's own terms. */
+const BASIS_HINT: Record<WorkBasis, string> = {
+  day: 'A day rate, times the days they came.',
+  piece: 'Paid per litre or per bag. The price is agreed when the job finishes.',
+  lump: 'One agreed figure for the whole job.',
+  salary: 'A fixed worker, paid by the month.',
+}
 
 /**
  * Recording work days.
@@ -44,6 +54,22 @@ export function AddWorkScreen() {
   const [error, setError] = useState<string | null>(null)
 
   /**
+   * How this job is paid for.
+   *
+   * A day rate was the only thing the app could express, and most of the work
+   * on this farm is not a day rate. Spraying is per litre at a price agreed
+   * afterwards; coconut plucking is whatever was asked; a fixed worker draws
+   * a month. Each needs different fields, so this choice comes first and the
+   * rest of the form follows it.
+   */
+  const [basis, setBasis] = useState<WorkBasis>('day')
+  /** Piece work: litres per selected day, and what they are measured in. */
+  const [quantity, setQuantity] = useState<number | null>(null)
+  const [unitId, setUnitId] = useState<string | null>(null)
+  /** Lump-sum work: the figure agreed for the job. */
+  const [lumpAmount, setLumpAmount] = useState<number | null>(null)
+
+  /**
    * Crew composition, shown as plain fields.
    *
    * This was a press-and-hold on a calendar day, which nobody discovers — a
@@ -60,6 +86,7 @@ export function AddWorkScreen() {
   const { data: activities } = useQuery(() => listActivities(false), [])
   const { data: subHeads } = useQuery(() => listSubHeads(false), [])
   const { data: plots } = useQuery(() => listPlots(false), [])
+  const { data: units } = useQuery(() => listUnits(false), [])
 
   const selected = useMemo(
     () => (labourers ?? []).filter((l) => selectedIds.includes(l.id)),
@@ -80,6 +107,9 @@ export function AddWorkScreen() {
     setFemaleRate((r) => r ?? lead.female_rate_paise ?? lead.daily_rate_paise)
     setMales((m) => m || String(lead.typical_group_size ?? ''))
   }, [lead])
+
+  const chosenUnit = (units ?? []).find((u) => u.id === unitId)
+  const unitShort = chosenUnit ? nameOf(chosenUnit) : ''
 
   const from = monthStart(`${year}-${String(monthIndex + 1).padStart(2, '0')}-01`)
   const to = monthEnd(from)
@@ -127,6 +157,25 @@ export function AddWorkScreen() {
     let days = 0
     let personDays = 0
 
+    // Piece work has NO total yet, and that is the whole point of it: the
+    // price is agreed when the job finishes. Showing a zero here would be
+    // read as "this work is worth nothing".
+    if (basis === 'piece') {
+      return {
+        total: null,
+        days: selection.size,
+        personDays: selection.size * selected.length,
+      }
+    }
+
+    if (basis === 'lump') {
+      return {
+        total: (lumpAmount ?? 0) * selected.length,
+        days: selection.size,
+        personDays: selection.size * selected.length,
+      }
+    }
+
     for (const [, sel] of selection) {
       for (const l of selected) {
         if (l.is_group_lead) {
@@ -150,14 +199,23 @@ export function AddWorkScreen() {
       }
       days += sel.fraction / FULL_DAY
     }
-    return { total, days, personDays }
-  }, [selection, selected, maleCount, femaleCount, maleRate, femaleRate])
+    return { total: total as number | null, days, personDays }
+  }, [selection, selected, maleCount, femaleCount, maleRate, femaleRate, basis, lumpAmount])
 
   // A plot is required once the farm has entered any, matching the entry form:
   // labour recorded against no land leaves a hole in every plot report, and
   // wages are usually the largest thing in it.
   const needsPlot = (plots ?? []).length > 0 && !plotId
-  const valid = selectedIds.length > 0 && selection.size > 0 && !needsPlot
+  const needsQuantity = basis === 'piece' && (!quantity || quantity <= 0)
+  const needsUnit = basis === 'piece' && !unitId
+  const needsLump = basis === 'lump' && (!lumpAmount || lumpAmount <= 0)
+  const valid =
+    selectedIds.length > 0 &&
+    selection.size > 0 &&
+    !needsPlot &&
+    !needsQuantity &&
+    !needsUnit &&
+    !needsLump
 
   async function submit() {
     if (!valid) return
@@ -181,6 +239,10 @@ export function AddWorkScreen() {
           female_count: isCrew ? femaleCount : 0,
           male_rate_paise: isCrew ? (maleRate ?? l.daily_rate_paise) : l.daily_rate_paise,
           female_rate_paise: isCrew ? (femaleRate ?? l.daily_rate_paise) : 0,
+          // The quantity is per person per day: two people spraying 100 litres
+          // each is 200 litres of work, and the price is per litre sprayed.
+          quantity_milli: basis === 'piece' ? quantity : null,
+          amount_paise: basis === 'lump' ? lumpAmount : null,
         })
       }
     }
@@ -191,6 +253,11 @@ export function AddWorkScreen() {
         activity_id: activityId,
         sub_head_id: labourSubHead,
         plot_id: plotId,
+        basis,
+        unit_id: basis === 'piece' ? unitId : null,
+        // Deliberately never priced here. Piece work is priced when the job is
+        // finished, from the Team screen.
+        rate_paise: null,
         note: note.trim() || null,
         days,
       })
@@ -201,6 +268,8 @@ export function AddWorkScreen() {
 
     setSelection(new Map())
     setNote('')
+    setQuantity(null)
+    setLumpAmount(null)
     setError(null)
     setSaved(true)
     setTimeout(() => setSaved(false), 1800)
@@ -252,6 +321,46 @@ export function AddWorkScreen() {
             })}
           </div>
         </Field>
+
+        {/*
+          How the work is paid for, chosen before anything else, because it
+          decides what the rest of the form even asks. Four chips rather than a
+          dropdown: it is the shape of the whole screen, so it should be
+          visible rather than hidden behind a tap.
+        */}
+        <Field label={t('labour.basis')} hint={BASIS_HINT[basis]}>
+          <ChipSingle
+            options={[
+              { value: 'day', label: t('labour.basisDay') },
+              { value: 'piece', label: t('labour.basisPiece') },
+              { value: 'lump', label: t('labour.basisLump') },
+            ]}
+            value={basis}
+            onChange={(v) => setBasis((v as WorkBasis) ?? 'day')}
+          />
+        </Field>
+
+        {basis === 'piece' ? (
+          <div className="grid grid-cols-2 gap-3">
+            <Field label={t('labour.quantityPerDay')} required>
+              <QuantityInput milli={quantity} onChange={setQuantity} suffix={unitShort} />
+            </Field>
+            <Field label={t('entry.unit')} required>
+              <Select
+                value={unitId}
+                onChange={setUnitId}
+                placeholder={t('common.select')}
+                options={(units ?? []).map((u) => ({ value: u.id, label: nameOf(u) }))}
+              />
+            </Field>
+          </div>
+        ) : null}
+
+        {basis === 'lump' ? (
+          <Field label={t('labour.agreedAmount')} hint={t('labour.lumpHint')} required>
+            <MoneyInput paise={lumpAmount} onChange={setLumpAmount} />
+          </Field>
+        ) : null}
 
         <div className="grid grid-cols-2 gap-3">
           <Field label={t('entry.head')}>
@@ -357,8 +466,16 @@ export function AddWorkScreen() {
                 </p>
               ) : null}
             </div>
-            <p className="text-xl font-semibold tnum" style={{ color: 'var(--color-brand-600)' }}>
-              {formatRupees(summary.total)}
+            {/* Piece work has no figure yet, and saying so is more honest than
+                showing ₹0 — which reads as "this work earned nothing". */}
+            <p
+              className="text-xl font-semibold tnum text-right"
+              style={{
+                color: summary.total == null ? 'var(--text-faint)' : 'var(--color-brand-600)',
+                fontSize: summary.total == null ? '0.8125rem' : undefined,
+              }}
+            >
+              {summary.total == null ? t('labour.notPricedYet') : formatRupees(summary.total)}
             </p>
           </div>
         ) : null}

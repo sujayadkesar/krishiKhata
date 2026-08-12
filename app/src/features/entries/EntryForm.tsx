@@ -47,13 +47,34 @@ export function EntryFields({
         <DateInput value={draft.date} onChange={(v) => set({ date: v })} />
       </Field>
 
+      {/*
+        A dropdown, not chips.
+
+        Chips were right when the list was five crops. This is a household's
+        whole book now — crops, the vehicle, the house, school fees — and
+        twenty chips is a wall of words to read before every entry. The heads
+        are grouped so land and life are visibly different things.
+      */}
       {kind !== 'transfer' ? (
         <Field label={t('entry.head')} required>
-          <ChipSingle
-            options={visibleHeads.map((h) => ({ value: h.id, label: nameOf(h) }))}
+          <Select
             value={draft.head_id}
             onChange={(v) => set({ head_id: v })}
-            onAdd={() => navigate(`/settings/heads/${kind === 'income' ? 'income' : 'expense'}`)}
+            placeholder={t('common.select')}
+            groups={[
+              {
+                label: t('head.crops'),
+                options: visibleHeads
+                  .filter((h) => h.category === 'crop')
+                  .map((h) => ({ value: h.id, label: nameOf(h) })),
+              },
+              {
+                label: t('head.general'),
+                options: visibleHeads
+                  .filter((h) => h.category !== 'crop')
+                  .map((h) => ({ value: h.id, label: nameOf(h) })),
+              },
+            ]}
           />
         </Field>
       ) : null}
@@ -62,7 +83,7 @@ export function EntryFields({
           required from then on: a plot recorded on some entries and not others
           gives a plot report that silently under-counts. A farm that has not
           entered land at all is never asked. */}
-      {kind !== 'transfer' ? (
+      {kind !== 'transfer' && form.isCropHead ? (
         <Field
           label={t('plot.one')}
           hint={form.plots.length > 0 ? t('plot.hint') : t('plot.none')}
@@ -98,16 +119,23 @@ export function EntryFields({
        * farmer is asked for nothing.
        */}
       {kind !== 'transfer' && draft.head_id && form.subHeads.length > 0 ? (
-        <Field label={kind === 'income' ? t('entry.variety') : t('entry.subHead')} required>
-          <ChipSingle
-            options={form.subHeads.map((s) => ({ value: s.id, label: nameOf(s) }))}
+        <Field
+          label={
+            kind === 'income' && form.isCropHead ? t('entry.variety') : t('entry.subHead')
+          }
+          required
+        >
+          <Select
             value={form.parentSubHeadId}
             onChange={(v) => set({ sub_head_id: v, activity_id: null })}
-            onAdd={() => navigate(`/settings/sub-heads/${draft.head_id}`)}
+            placeholder={t('common.select')}
+            options={form.subHeads.map((s) => ({ value: s.id, label: nameOf(s) }))}
           />
         </Field>
       ) : null}
 
+      {/* Grades stay chips: there are two or three of them, they are the last
+          thing chosen before the money, and one tap beats opening a list. */}
       {form.childSubHeads.length > 0 ? (
         <Field label={t('entry.grade')} required>
           <ChipSingle
@@ -119,8 +147,13 @@ export function EntryFields({
         </Field>
       ) : null}
 
-      {/* ------------------------------------------------------ income -- */}
-      {kind === 'income' ? (
+      {/* -------------------------------------- income, from the land --
+       *
+       * Quantity and rate belong to something grown and sold by measure.
+       * Rent, a subsidy or interest is a figure, not a yield, so the general
+       * heads get the amount field alone.
+       */}
+      {kind === 'income' && form.isCropHead ? (
         <>
           {form.headUnits.length > 1 ? (
             <Field label={t('entry.unit')}>
@@ -150,8 +183,13 @@ export function EntryFields({
         </>
       ) : null}
 
-      {/* ----------------------------------------------------- expense -- */}
-      {kind === 'expense' ? (
+      {/* ----------------------------------------------------- expense --
+       *
+       * "Work done" is a field about labour on land. A car service is not
+       * weeding, and being asked which farm task it was is exactly the noise
+       * that makes somebody stop recording their own spending.
+       */}
+      {kind === 'expense' && form.isCropHead ? (
         <Field
           label={t('entry.activity')}
           hint="The more exact this is, the more useful the crop report becomes."

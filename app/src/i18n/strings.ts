@@ -131,6 +131,13 @@ export const STRINGS = {
     en: 'So each piece of land shows its own profit and loss',
   },
   'entry.plot': { kn: 'ಜಮೀನು', en: 'Plot' },
+  // The two halves of the book: what grows on the land, and everything else
+  // the same pocket pays for.
+  'head.crops': { kn: 'ಬೆಳೆ', en: 'Crops' },
+  'head.general': { kn: 'ಇತರ', en: 'Other' },
+  'head.category': { kn: 'ಯಾವ ಬಗೆ', en: 'Kind' },
+  'head.isCrop': { kn: 'ಬೆಳೆ (ಜಮೀನಿನಲ್ಲಿ)', en: 'A crop grown on land' },
+  'head.isGeneral': { kn: 'ಇತರ ಖರ್ಚು', en: 'Something else' },
   // A crop is sold by variety and each variety by grade: Banana → G9 → first
   // class. "Variety" is the word a trader uses, so it is the word here.
   'entry.variety': { kn: 'ತಳಿ', en: 'Variety' },
@@ -157,6 +164,33 @@ export const STRINGS = {
   'labour.addWork': { kn: 'ಕೆಲಸದ ದಿನ ಸೇರಿಸಿ', en: 'Add work days' },
   'labour.workShort': { kn: 'ಕೆಲಸ', en: 'Work' },
   'labour.pay': { kn: 'ಪಾವತಿ', en: 'Pay' },
+  // Work is not always a day. Spraying is by the litre at a price agreed
+  // afterwards; plucking is whatever was asked; a fixed hand draws a month.
+  'labour.basis': { kn: 'ಹೇಗೆ ಕೂಲಿ', en: 'How they are paid' },
+  'labour.basisDay': { kn: 'ದಿನದ ಲೆಕ್ಕ', en: 'By the day' },
+  'labour.basisPiece': { kn: 'ಅಳತೆ ಲೆಕ್ಕ', en: 'By quantity' },
+  'labour.basisLump': { kn: 'ಗುತ್ತಿಗೆ', en: 'Agreed amount' },
+  'labour.basisSalary': { kn: 'ಮಾಸಿಕ ಸಂಬಳ', en: 'Monthly salary' },
+  'labour.quantityPerDay': { kn: 'ದಿನಕ್ಕೆ ಎಷ್ಟು', en: 'How much per day' },
+  'labour.agreedAmount': { kn: 'ಒಪ್ಪಿದ ಮೊತ್ತ', en: 'Agreed amount' },
+  'labour.lumpHint': {
+    kn: 'ಒಬ್ಬರಿಗೆ, ಒಂದು ಕೆಲಸಕ್ಕೆ',
+    en: 'Per person, for the whole job',
+  },
+  'labour.notPricedYet': { kn: 'ದರ ಇನ್ನೂ ನಿಗದಿ ಆಗಿಲ್ಲ', en: 'Price not agreed yet' },
+  'labour.openJobs': { kn: 'ದರ ನಿಗದಿ ಬಾಕಿ', en: 'Waiting to be priced' },
+  'labour.setPrice': { kn: 'ದರ ನಿಗದಿ ಮಾಡಿ', en: 'Set the price' },
+  'labour.perUnit': { kn: 'ಪ್ರತಿ ಅಳತೆಗೆ ದರ', en: 'Rate per unit' },
+  'labour.priceHint': {
+    kn: 'ಕೆಲಸ ಮುಗಿದ ಮೇಲೆ ದರ ಒಪ್ಪಿದಾಗ ಇಲ್ಲಿ ಹಾಕಿ. ಮುಂಗಡ ತಾನಾಗಿ ಹೊಂದಾಣಿಕೆ ಆಗುತ್ತದೆ.',
+    en: 'Enter the rate once the job is done. Any advance already paid settles itself against it.',
+  },
+  'labour.employment': { kn: 'ಯಾವ ಬಗೆಯ ಕೆಲಸಗಾರ', en: 'Kind of worker' },
+  'labour.casual': { kn: 'ದಿನಗೂಲಿ', en: 'Paid per job' },
+  'labour.monthly': { kn: 'ಮಾಸಿಕ ಸಂಬಳ', en: 'Monthly salary' },
+  'labour.monthlySalary': { kn: 'ತಿಂಗಳ ಸಂಬಳ', en: 'Monthly salary' },
+  'labour.postSalary': { kn: 'ಸಂಬಳ ದಾಖಲಿಸಿ', en: 'Post salary' },
+  'labour.salaryPosted': { kn: 'ಸಂಬಳ ದಾಖಲಾಗಿದೆ', en: 'Salary already posted' },
   'labour.khata': { kn: 'ಖಾತೆ', en: 'Khata' },
   'labour.labourer': { kn: 'ಕೆಲಸಗಾರ', en: 'Worker' },
   'labour.labourers': { kn: 'ಕೆಲಸಗಾರರು', en: 'Workers' },

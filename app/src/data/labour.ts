@@ -1,9 +1,10 @@
 import { all, one, run, tx } from '@/db/db'
 import { newId } from '@/lib/ids'
 import { notifyDataChanged } from '@/hooks/useQuery'
-import { attendanceAmountPaise, crewSize, crewWagePaise, matchFifo } from '@/lib/labour'
+import { crewSize, matchFifo, wagePaise } from '@/lib/labour'
+import { lineTotalPaise } from '@/lib/quantity'
 import type { Alloc, OpenPayment, OpenWork } from '@/lib/labour'
-import type { Bool, ISODate, PaymentMode } from '@/db/types'
+import type { Bool, ISODate, PaymentMode, WorkBasis } from '@/db/types'
 
 /**
  * The labour ledger.
@@ -27,8 +28,21 @@ const nowISO = () => new Date().toISOString()
 export interface WorkDay {
   labourer_id: string
   date: ISODate
-  /** FULL_DAY (1000) or HALF_DAY (500). */
+  /** FULL_DAY (1000), HALF_DAY (500), or 0 for a salaried month. */
   day_fraction: number
+  /**
+   * Piece work: how much was done that day, in milli-units. The amount stays
+   * 0 until the session is priced.
+   */
+  quantity_milli?: number | null
+  /**
+   * Lump-sum work: the figure agreed for the job, used as-is.
+   *
+   * Coconut plucking is whatever was asked and agreed on the day. There is no
+   * rate to multiply and pretending there is one — by dividing by trees, or by
+   * days — invents a number nobody quoted.
+   */
+  amount_paise?: number | null
   is_group: Bool
   /** Snapshotted from the labourer at entry time. Never re-read later. */
   daily_rate_paise: number
@@ -50,6 +64,17 @@ export interface WorkSessionInput {
   sub_head_id: string | null
   /** Which piece of land the crew was on. Null when the farm is one plot. */
   plot_id: string | null
+  /** Defaults to 'day', which is what every existing caller means. */
+  basis?: WorkBasis
+  /** Piece work: what the quantity is measured in. */
+  unit_id?: string | null
+  /**
+   * Piece work: the agreed rate, if it happens to be known already.
+   *
+   * Normally null — the whole reason piece work exists here is that the price
+   * is settled after the job. See `priceSession`.
+   */
+  rate_paise?: number | null
   note: string | null
   days: WorkDay[]
 }
@@ -65,47 +90,43 @@ export async function saveWorkSession(input: WorkSessionInput): Promise<string> 
   const ts = nowISO()
   const sessionId = newId()
 
+  const basis: WorkBasis = input.basis ?? 'day'
+  const sessionRate = input.rate_paise ?? null
+
   await tx(async (exec) => {
     await exec(
       `INSERT INTO work_sessions
-         (id, head_id, activity_id, sub_head_id, plot_id, note, is_deleted, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?);`,
+         (id, head_id, activity_id, sub_head_id, plot_id, basis, unit_id, rate_paise,
+          priced_at, note, is_deleted, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?);`,
       [
         sessionId, input.head_id, input.activity_id, input.sub_head_id, input.plot_id,
+        basis, input.unit_id ?? null, sessionRate, sessionRate != null ? ts : null,
         input.note, ts, ts,
       ],
     )
 
     for (const d of input.days) {
       const size = crewSize(d.male_count, d.female_count)
-
-      // An individual with no explicit split is one person at their own rate,
-      // which is exactly what the crew formula gives for 1 male and 0 female —
-      // except where they have a separate half-day rate agreed, which only
-      // applies to individuals and wins.
-      const amount =
-        d.is_group || size !== 1 || d.female_count > 0
-          ? crewWagePaise(
-              d.day_fraction,
-              d.male_count,
-              d.male_rate_paise,
-              d.female_count,
-              d.female_rate_paise,
-            )
-          : attendanceAmountPaise(d.day_fraction, d.daily_rate_paise, d.half_day_rate_paise, 1)
+      const amount = wageForDay(basis, d, sessionRate)
 
       await exec(
         `INSERT INTO attendance
            (id, work_session_id, labourer_id, date, is_group, group_size,
             male_count, female_count, male_rate_paise, female_rate_paise,
             member_names, day_fraction, rate_paise, amount_paise, head_id,
-            activity_id, plot_id, note, is_deleted, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 0, ?, ?);`,
+            activity_id, plot_id, basis, quantity_milli, note, is_deleted,
+            created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 0, ?, ?);`,
         [
           newId(), sessionId, d.labourer_id, d.date, d.is_group, Math.max(1, size),
           d.male_count, d.female_count, d.male_rate_paise, d.female_rate_paise,
-          d.member_names ?? null, d.day_fraction, d.daily_rate_paise, amount,
-          input.head_id, input.activity_id, input.plot_id, ts, ts,
+          d.member_names ?? null, d.day_fraction,
+          basis === 'piece' ? (sessionRate ?? 0) : d.daily_rate_paise,
+          amount,
+          input.head_id, input.activity_id, input.plot_id,
+          basis, d.quantity_milli ?? null,
+          ts, ts,
         ],
       )
     }
@@ -117,6 +138,170 @@ export async function saveWorkSession(input: WorkSessionInput): Promise<string> 
 
   notifyDataChanged()
   return sessionId
+}
+
+/** The rule itself lives in `lib/labour.ts`, where the gate can assert it. */
+const wageForDay = (basis: WorkBasis, d: WorkDay, sessionRate: number | null): number =>
+  wagePaise(basis, d, sessionRate, lineTotalPaise)
+
+/**
+ * Agree the price of a piece-rate job, once it is finished.
+ *
+ * This is the moment the spraying becomes money. Every row under the session
+ * gets `quantity × rate`, rounded once per row by `lineTotalPaise`, and then
+ * the ordinary FIFO engine runs — which is what makes any advance taken during
+ * the job settle itself against the work it was always for. There is no second
+ * code path for "advance against unpriced work", because there does not need
+ * to be one.
+ *
+ * Re-pricing is allowed. A rate that was mis-typed has to be fixable, and the
+ * balance following it is the correct consequence rather than a bug. This does
+ * NOT violate the rate-snapshot rule: that rule protects a rate the labourer
+ * already worked under from being rewritten by a later Settings change, and
+ * this is the one job's own price being set on the one job.
+ */
+export async function priceSession(sessionId: string, ratePaise: number): Promise<number> {
+  const ts = nowISO()
+  const rate = Math.abs(Math.round(ratePaise))
+
+  const rows = await all<{ id: string; quantity_milli: number | null; labourer_id: string }>(
+    `SELECT id, quantity_milli, labourer_id FROM attendance
+      WHERE work_session_id = ? AND is_deleted = 0;`,
+    [sessionId],
+  )
+
+  await tx(async (exec) => {
+    await exec(
+      'UPDATE work_sessions SET rate_paise = ?, priced_at = ?, updated_at = ? WHERE id = ?;',
+      [rate, ts, ts, sessionId],
+    )
+    for (const r of rows) {
+      await exec(
+        'UPDATE attendance SET rate_paise = ?, amount_paise = ?, updated_at = ? WHERE id = ?;',
+        [rate, lineTotalPaise(r.quantity_milli ?? 0, rate), ts, r.id],
+      )
+    }
+  })
+
+  for (const labourerId of new Set(rows.map((r) => r.labourer_id))) {
+    await settleOutstanding(labourerId)
+  }
+
+  notifyDataChanged()
+  return rows.length
+}
+
+export interface OpenJob {
+  session_id: string
+  basis: WorkBasis
+  first_date: ISODate
+  last_date: ISODate
+  quantity_milli: number
+  unit_short_en: string | null
+  unit_short_kn: string | null
+  head_name_en: string | null
+  head_name_kn: string | null
+  activity_name_en: string | null
+  activity_name_kn: string | null
+  labourer_id: string
+  labourer_name_en: string
+  labourer_name_kn: string
+  days: number
+  note: string | null
+}
+
+/**
+ * Piece-rate jobs still waiting for a price.
+ *
+ * Surfaced prominently rather than left to be remembered: work that has been
+ * done but never priced is invisible in every total on a cash basis, so
+ * without this the farmer's books quietly understate what they are about to
+ * owe — which is the exact failure the outstanding-wages line exists to
+ * prevent everywhere else.
+ */
+export function openJobs(): Promise<OpenJob[]> {
+  return all<OpenJob>(
+    `SELECT ws.id AS session_id, ws.basis, ws.note,
+            MIN(a.date) AS first_date, MAX(a.date) AS last_date,
+            COALESCE(SUM(a.quantity_milli), 0) AS quantity_milli,
+            SUM(a.day_fraction) / 1000.0 AS days,
+            u.short_en AS unit_short_en, u.short_kn AS unit_short_kn,
+            h.name_en AS head_name_en, h.name_kn AS head_name_kn,
+            ac.name_en AS activity_name_en, ac.name_kn AS activity_name_kn,
+            a.labourer_id,
+            l.name_en AS labourer_name_en, l.name_kn AS labourer_name_kn
+       FROM work_sessions ws
+       JOIN attendance a       ON a.work_session_id = ws.id AND a.is_deleted = 0
+       JOIN labourers l        ON l.id = a.labourer_id
+       LEFT JOIN units u       ON u.id = ws.unit_id
+       LEFT JOIN heads h       ON h.id = ws.head_id
+       LEFT JOIN activities ac ON ac.id = ws.activity_id
+      WHERE ws.basis = 'piece' AND ws.priced_at IS NULL AND ws.is_deleted = 0
+      GROUP BY ws.id, a.labourer_id
+      ORDER BY first_date;`,
+  )
+}
+
+/** Which monthly workers already have a salary row for the month of `date`. */
+export async function salaryDueFor(monthEndDate: ISODate): Promise<string[]> {
+  const rows = await all<{ labourer_id: string }>(
+    `SELECT DISTINCT labourer_id FROM attendance
+      WHERE basis = 'salary' AND is_deleted = 0 AND substr(date, 1, 7) = ?;`,
+    [monthEndDate.slice(0, 7)],
+  )
+  return rows.map((r) => r.labourer_id)
+}
+
+/**
+ * Post a fixed worker's salary for one month.
+ *
+ * A salary is earned by the month, so it enters the ledger as a single row
+ * dated the last day of that month with `day_fraction` 0 — a salaried month is
+ * not a day worked, and counting it as one would corrupt every person-day
+ * figure the labour reports produce.
+ *
+ * Idempotent by month. Tapping "post July" twice is a thing that happens, and
+ * paying somebody twice because of it is not recoverable from the farmer's
+ * side.
+ */
+export async function postSalary(
+  labourerId: string,
+  monthEndDate: ISODate,
+  amountPaise: number,
+  opts: { head_id?: string | null; sub_head_id?: string | null; note?: string | null } = {},
+): Promise<string | null> {
+  const month = monthEndDate.slice(0, 7)
+  const existing = await one<{ id: string }>(
+    `SELECT a.id FROM attendance a
+      WHERE a.labourer_id = ? AND a.basis = 'salary' AND a.is_deleted = 0
+        AND substr(a.date, 1, 7) = ?;`,
+    [labourerId, month],
+  )
+  if (existing) return null
+
+  return saveWorkSession({
+    head_id: opts.head_id ?? null,
+    activity_id: null,
+    sub_head_id: opts.sub_head_id ?? null,
+    plot_id: null,
+    basis: 'salary',
+    note: opts.note ?? null,
+    days: [
+      {
+        labourer_id: labourerId,
+        date: monthEndDate,
+        day_fraction: 0,
+        is_group: 0,
+        daily_rate_paise: 0,
+        half_day_rate_paise: null,
+        male_count: 1,
+        female_count: 0,
+        male_rate_paise: 0,
+        female_rate_paise: 0,
+        amount_paise: amountPaise,
+      },
+    ],
+  })
 }
 
 export async function deleteAttendance(id: string): Promise<void> {

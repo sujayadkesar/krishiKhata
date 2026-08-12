@@ -209,3 +209,63 @@ export function splitByHead(
 
   return { byHead, unallocated }
 }
+
+/**
+ * What one recorded day of work is worth, by the basis it was recorded under.
+ *
+ * Pure and here rather than beside the SQL, because it is the single decision
+ * that turns work into money and every basis gets it wrong differently:
+ *
+ *   piece  Returns 0 while the rate is unknown, and that zero is CORRECT
+ *          rather than missing. Spraying is priced when the job finishes, so
+ *          until then nothing has been earned that anybody could argue about,
+ *          nothing is owed, and no total moves. `priceSession` fills it in.
+ *   lump   The figure agreed, used as-is. There is no rate to multiply and
+ *          inventing one — per tree, per day — quotes a number nobody agreed.
+ *   salary The month's wage, likewise as-is.
+ *   day    The existing crew arithmetic.
+ */
+export interface WageInput {
+  day_fraction: number
+  is_group: 0 | 1
+  daily_rate_paise: number
+  half_day_rate_paise: number | null
+  male_count: number
+  female_count: number
+  male_rate_paise: number
+  female_rate_paise: number
+  quantity_milli?: number | null
+  amount_paise?: number | null
+}
+
+export function wagePaise(
+  basis: 'day' | 'piece' | 'lump' | 'salary',
+  d: WageInput,
+  sessionRate: number | null,
+  /** Injected so this file stays free of the quantity module's rounding. */
+  multiply: (quantityMilli: number, ratePaise: number) => number,
+): number {
+  if (basis === 'lump' || basis === 'salary') {
+    return Math.abs(Math.round(d.amount_paise ?? 0))
+  }
+
+  if (basis === 'piece') {
+    if (sessionRate == null || d.quantity_milli == null) return 0
+    return multiply(d.quantity_milli, sessionRate)
+  }
+
+  // An individual with no explicit split is one person at their own rate,
+  // which is exactly what the crew formula gives for 1 male and 0 female —
+  // except where they have a separate half-day rate agreed, which only applies
+  // to individuals and wins.
+  const size = crewSize(d.male_count, d.female_count)
+  return d.is_group || size !== 1 || d.female_count > 0
+    ? crewWagePaise(
+        d.day_fraction,
+        d.male_count,
+        d.male_rate_paise,
+        d.female_count,
+        d.female_rate_paise,
+      )
+    : attendanceAmountPaise(d.day_fraction, d.daily_rate_paise, d.half_day_rate_paise, 1)
+}

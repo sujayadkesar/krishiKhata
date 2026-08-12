@@ -6,7 +6,9 @@ import type {
   Activity,
   AreaUnit,
   Bool,
+  Employment,
   Head,
+  HeadCategory,
   HeadUnit,
   Labourer,
   Plot,
@@ -123,19 +125,40 @@ export const listAllSubHeads = (includeInactive = false) =>
  * splits them by `parent_id`, which is cheaper than a query per level and
  * keeps the ordering consistent.
  */
-export const listSubHeadsFor = (
+export async function listSubHeadsFor(
   headId: string,
   usedFor: 'income' | 'expense',
   includeInactive = false,
-) =>
-  all<SubHead>(
+): Promise<SubHead[]> {
+  const active = includeInactive ? '' : 'AND is_active = 1'
+
+  const own = await all<SubHead>(
     `SELECT * FROM sub_heads
-      WHERE used_for IN (?, 'both')
-        AND (head_id IS NULL OR head_id = ?)
-        ${includeInactive ? '' : 'AND is_active = 1'}
+      WHERE used_for IN (?, 'both') AND head_id = ? ${active}
       ORDER BY sort_order, name_en;`,
     [usedFor, headId],
   )
+
+  /*
+   * A head that has been given its own sub-heads gets ONLY those.
+   *
+   * Returning the global list alongside them is what left the entry screen
+   * offering every sub-head in the database for every head — Petrol under
+   * Banana, Fertilizer under the car. Once somebody has said what belongs
+   * under a head, that statement is the answer.
+   *
+   * The global list remains the fallback for a head nobody has set up yet, so
+   * a fresh install can still record an expense on day one.
+   */
+  if (own.length > 0) return own
+
+  return all<SubHead>(
+    `SELECT * FROM sub_heads
+      WHERE used_for IN (?, 'both') AND head_id IS NULL ${active}
+      ORDER BY sort_order, name_en;`,
+    [usedFor],
+  )
+}
 
 /** Everything filed under one head, both directions — for the Settings tree. */
 export const listSubHeadsOfHead = (headId: string, includeInactive = false) =>
@@ -221,6 +244,8 @@ export interface HeadInput {
   name_en: string
   name_kn: string
   used_for: Head['used_for']
+  /** 'crop' carries land, units and profitability; 'general' carries none. */
+  category?: HeadCategory
   color: string
   /** Unit ids this head may be sold in; the first is the default. */
   unitIds: string[]
@@ -234,14 +259,23 @@ export async function saveHead(input: HeadInput): Promise<string> {
   await tx(async (exec) => {
     if (input.id) {
       await exec(
-        'UPDATE heads SET name_en=?, name_kn=?, used_for=?, color=?, updated_at=? WHERE id=?;',
-        [input.name_en, input.name_kn, input.used_for, input.color, ts, id],
+        `UPDATE heads SET name_en=?, name_kn=?, used_for=?, category=?, color=?, updated_at=?
+         WHERE id=?;`,
+        [
+          input.name_en, input.name_kn, input.used_for, input.category ?? 'crop',
+          input.color, ts, id,
+        ],
       )
     } else {
       await exec(
-        `INSERT INTO heads (id, name_en, name_kn, used_for, color, icon, is_active, sort_order, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, NULL, 1, ?, ?, ?);`,
-        [id, input.name_en, input.name_kn, input.used_for, input.color, order, ts, ts],
+        `INSERT INTO heads
+           (id, name_en, name_kn, used_for, category, color, icon, is_active, sort_order,
+            created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, NULL, 1, ?, ?, ?);`,
+        [
+          id, input.name_en, input.name_kn, input.used_for, input.category ?? 'crop',
+          input.color, order, ts, ts,
+        ],
       )
     }
 
@@ -393,6 +427,9 @@ export interface LabourerInput {
   phone: string | null
   village: string | null
   is_group_lead: Bool
+  /** 'casual' is paid for what they do; 'monthly' draws a fixed salary. */
+  employment?: Employment
+  monthly_salary_paise?: number | null
   daily_rate_paise: number
   half_day_rate_paise: number | null
   female_rate_paise: number | null
@@ -407,11 +444,13 @@ export async function saveLabourer(input: LabourerInput): Promise<string> {
     // carry their own snapshot and must not be touched — see CLAUDE.md rule 6.
     await run(
       `UPDATE labourers SET name_en=?, name_kn=?, phone=?, village=?, is_group_lead=?,
+              employment=?, monthly_salary_paise=?,
               daily_rate_paise=?, half_day_rate_paise=?, female_rate_paise=?,
               typical_group_size=?, note=?, updated_at=?
        WHERE id=?;`,
       [
         input.name_en, input.name_kn, input.phone, input.village, input.is_group_lead,
+        input.employment ?? 'casual', input.monthly_salary_paise ?? null,
         input.daily_rate_paise, input.half_day_rate_paise, input.female_rate_paise,
         input.typical_group_size, input.note, ts, input.id,
       ],
@@ -425,12 +464,14 @@ export async function saveLabourer(input: LabourerInput): Promise<string> {
   const code = await nextWorkerCode()
   await run(
     `INSERT INTO labourers
-       (id, code, name_en, name_kn, phone, village, is_group_lead, daily_rate_paise,
+       (id, code, name_en, name_kn, phone, village, is_group_lead,
+        employment, monthly_salary_paise, daily_rate_paise,
         half_day_rate_paise, female_rate_paise, typical_group_size, note,
         is_active, sort_order, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?);`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?);`,
     [
       id, code, input.name_en, input.name_kn, input.phone, input.village, input.is_group_lead,
+      input.employment ?? 'casual', input.monthly_salary_paise ?? null,
       input.daily_rate_paise, input.half_day_rate_paise, input.female_rate_paise,
       input.typical_group_size, input.note, await nextOrder('labourers'), ts, ts,
     ],

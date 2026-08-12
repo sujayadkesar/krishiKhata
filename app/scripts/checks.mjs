@@ -20,7 +20,7 @@ import {
 } from '../src/lib/date.ts'
 import {
   perPersonWagePaise, attendanceAmountPaise, daysFromFractions, personDaysFromRows,
-  matchFifo, balancePaise, balanceState, splitByHead, crewWagePaise, crewSize,
+  matchFifo, balancePaise, balanceState, splitByHead, crewWagePaise, crewSize, wagePaise,
 } from '../src/lib/labour.ts'
 import { isNewer } from '../src/lib/updates.ts'
 import { missingFor } from '../src/features/entries/entryRules.ts'
@@ -244,6 +244,72 @@ ok(isNewer('1.2.10', '1.2.9'), 'update: compared numerically, not as strings')
 ok(!isNewer('1.0.0', '1.0.0'), 'update: same version is not newer')
 ok(!isNewer('0.9.9', '1.0.0'), 'update: older is not newer')
 ok(isNewer('1.0', '0.9.9'), 'update: short version still compares')
+
+/* ------------------------------------------------------ ways of paying -- */
+
+{
+  const day = {
+    day_fraction: 1000,
+    is_group: 0,
+    daily_rate_paise: 50000,
+    half_day_rate_paise: null,
+    male_count: 1,
+    female_count: 0,
+    male_rate_paise: 50000,
+    female_rate_paise: 0,
+  }
+
+  eq(wagePaise('day', day, null, lineTotalPaise), 50000, 'wage: a plain day at the day rate')
+
+  // Spraying: 247.5 litres, price not agreed yet.
+  const spray = { ...day, quantity_milli: 247500 }
+  eq(
+    wagePaise('piece', spray, null, lineTotalPaise),
+    0,
+    'wage: unpriced piece work is worth nothing YET — the zero is the point',
+  )
+  eq(
+    wagePaise('piece', spray, 1200, lineTotalPaise),
+    lineTotalPaise(247500, 1200),
+    'wage: priced piece work is quantity x rate, rounded once',
+  )
+  eq(
+    wagePaise('piece', { ...day, quantity_milli: null }, 1200, lineTotalPaise),
+    0,
+    'wage: a priced job with no quantity recorded still earns nothing',
+  )
+
+  // Coconut plucking: whatever was agreed, used as-is.
+  eq(
+    wagePaise('lump', { ...day, amount_paise: 350000 }, null, lineTotalPaise),
+    350000,
+    'wage: a lump sum is the agreed figure, not derived from days or rate',
+  )
+  eq(
+    wagePaise('lump', { ...day, amount_paise: -350000 }, null, lineTotalPaise),
+    350000,
+    'wage: a lump sum is always positive; direction comes from the ledger',
+  )
+
+  // A salaried month is not a day worked.
+  eq(
+    wagePaise('salary', { ...day, day_fraction: 0, amount_paise: 1200000 }, null, lineTotalPaise),
+    1200000,
+    'wage: a salary is the month, taken as given',
+  )
+
+  // A crew still works the way it always did.
+  eq(
+    wagePaise(
+      'day',
+      { ...day, is_group: 1, male_count: 6, female_count: 4, female_rate_paise: 40000 },
+      null,
+      lineTotalPaise,
+    ),
+    crewWagePaise(1000, 6, 50000, 4, 40000),
+    'wage: a mixed crew is unchanged by the new bases',
+  )
+}
 
 /* ------------------------------------------------- entry requirements --- */
 

@@ -81,8 +81,20 @@ export interface Plot extends MasterRow {
 export type HeadUse = 'income' | 'expense' | 'both'
 
 /** A crop or income source: Banana, Pepper, Arecanut, Honey, General. */
+/**
+ * What kind of thing a head is.
+ *
+ * 'crop' is grown on land and sold: it carries plots, units, quantities, work
+ * types and a place in crop profitability. 'general' is everything else a
+ * household spends on — the car, the house, school fees — and carries none of
+ * that, which is the whole point. Asking which plot the car insurance was for
+ * is how a farmer decides the app is not for this and stops recording it.
+ */
+export type HeadCategory = 'crop' | 'general'
+
 export interface Head extends MasterRow {
   used_for: HeadUse
+  category: HeadCategory
   /** Tailwind-ish token, chosen in Settings, used consistently in charts. */
   color: string
   icon: string | null
@@ -134,6 +146,18 @@ export interface Activity extends MasterRow {
   sub_head_id: string | null
 }
 
+export type Employment = 'casual' | 'monthly'
+
+/**
+ * How a piece of work turns into money.
+ *
+ *   day    a day rate, times days, times people.
+ *   piece  a quantity — litres sprayed — times a rate agreed AFTERWARDS.
+ *   lump   an agreed figure for the job. No rate, nothing to multiply.
+ *   salary a fixed worker's month.
+ */
+export type WorkBasis = 'day' | 'piece' | 'lump' | 'salary'
+
 export interface Labourer extends MasterRow {
   /**
    * A short human code — W001. Two Rameshas in one village is normal and a
@@ -148,6 +172,14 @@ export interface Labourer extends MasterRow {
    * the app tracks the lead and a head-count, not twelve named individuals.
    */
   is_group_lead: Bool
+  /**
+   * 'casual' is paid for what they do — days, litres, or an agreed figure.
+   * 'monthly' is a fixed worker whose salary is posted once a month and then
+   * settled by exactly the same payment engine as everyone else.
+   */
+  employment: Employment
+  /** Only meaningful for a monthly worker. */
+  monthly_salary_paise: number | null
   daily_rate_paise: number
   /** null means "half of daily_rate_paise", which is the usual arrangement. */
   half_day_rate_paise: number | null
@@ -229,6 +261,20 @@ export interface WorkSession extends BaseRow {
   activity_id: string | null
   sub_head_id: string | null
   plot_id: string | null
+  basis: WorkBasis
+  /** Piece work: what the quantity is measured in — litres, bags, trees. */
+  unit_id: string | null
+  /**
+   * Piece work: the rate finally agreed, per unit.
+   *
+   * Null while the job is running, and that is the normal state rather than
+   * an error — the price is settled when the spraying finishes. Until then
+   * every row under this session is worth nothing, which keeps the cash-basis
+   * books honest: nothing has been earned that anybody could argue about.
+   */
+  rate_paise: number | null
+  /** When the rate was agreed. Null means the job is still open. */
+  priced_at: string | null
   note: string | null
   is_deleted: Bool
 }
@@ -267,7 +313,18 @@ export interface Attendance extends BaseRow {
   /** Optional free-text list, for the rare case the crew is known. */
   member_names: string | null
 
-  /** FULL_DAY or HALF_DAY. */
+  /** How this row turns into money. Denormalised from its work session. */
+  basis: WorkBasis
+  /**
+   * Piece work only: what was actually done that day, in integer milli-units
+   * of the session's unit. 250.5 litres is 250500.
+   */
+  quantity_milli: number | null
+
+  /**
+   * FULL_DAY or HALF_DAY — and 0 for a salaried month, which is not a day
+   * worked and must not be counted as one by any person-day statistic.
+   */
   day_fraction: number
 
   /**

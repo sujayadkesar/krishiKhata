@@ -3,10 +3,10 @@ import { User, UsersRound, Phone } from 'lucide-react'
 import { useQuery } from '@/hooks/useQuery'
 import { listLabourers, saveLabourer } from '@/data/masterData'
 import { useI18n } from '@/i18n'
-import { Button, Field, Input, MoneyInput, Sheet, Switch, TextArea } from '@/components/ui'
+import { Button, Field, Input, MoneyInput, Select, Sheet, Switch, TextArea } from '@/components/ui'
 import { formatRupees } from '@/lib/money'
 import { MasterList, RowActions } from './MasterList'
-import type { Bool, Labourer } from '@/db/types'
+import type { Bool, Employment, Labourer } from '@/db/types'
 
 /**
  * Labourers, their wages, and which of them are group leads.
@@ -28,6 +28,8 @@ interface Draft {
   phone: string
   village: string
   is_group_lead: Bool
+  employment: Employment
+  monthly_salary_paise: number | null
   daily_rate_paise: number | null
   half_day_rate_paise: number | null
   female_rate_paise: number | null
@@ -37,7 +39,8 @@ interface Draft {
 
 const blank = (): Draft => ({
   name_en: '', name_kn: '', phone: '', village: '',
-  is_group_lead: 0, daily_rate_paise: null, half_day_rate_paise: null,
+  is_group_lead: 0, employment: 'casual', monthly_salary_paise: null,
+  daily_rate_paise: null, half_day_rate_paise: null,
   female_rate_paise: null, typical_group_size: '', note: '',
 })
 
@@ -61,6 +64,9 @@ export function LabourersScreen() {
       phone: draft.phone.trim() || null,
       village: draft.village.trim() || null,
       is_group_lead: draft.is_group_lead,
+      employment: draft.employment,
+      monthly_salary_paise:
+        draft.employment === 'monthly' ? draft.monthly_salary_paise : null,
       daily_rate_paise: draft.daily_rate_paise ?? 0,
       half_day_rate_paise: draft.half_day_rate_paise,
       female_rate_paise: draft.female_rate_paise,
@@ -118,6 +124,8 @@ export function LabourersScreen() {
           phone: l.phone ?? '',
           village: l.village ?? '',
           is_group_lead: l.is_group_lead,
+          employment: l.employment,
+          monthly_salary_paise: l.monthly_salary_paise,
           daily_rate_paise: l.daily_rate_paise,
           half_day_rate_paise: l.half_day_rate_paise,
           female_rate_paise: l.female_rate_paise,
@@ -176,13 +184,41 @@ export function LabourersScreen() {
               </Field>
             </div>
 
-            <div className="card px-4 py-2">
-              <Switch
-                checked={draft.is_group_lead === 1}
-                onChange={(v) => setDraft({ ...draft, is_group_lead: v ? 1 : 0 })}
-                label={`${t('labour.groupLead')} — brings a crew`}
+            {/* A fixed hand and a daily labourer are paid on entirely
+                different clocks, and every field below this depends on which
+                one it is. */}
+            <Field label={t('labour.employment')}>
+              <Select
+                value={draft.employment}
+                onChange={(v) => setDraft({ ...draft, employment: v })}
+                options={[
+                  { value: 'casual', label: t('labour.casual') },
+                  { value: 'monthly', label: t('labour.monthly') },
+                ]}
               />
-            </div>
+            </Field>
+
+            {draft.employment === 'monthly' ? (
+              <Field
+                label={t('labour.monthlySalary')}
+                hint="Posted once a month from the Team screen, then settled by whatever you pay them."
+              >
+                <MoneyInput
+                  paise={draft.monthly_salary_paise}
+                  onChange={(p) => setDraft({ ...draft, monthly_salary_paise: p })}
+                />
+              </Field>
+            ) : null}
+
+            {draft.employment === 'casual' ? (
+              <div className="card px-4 py-2">
+                <Switch
+                  checked={draft.is_group_lead === 1}
+                  onChange={(v) => setDraft({ ...draft, is_group_lead: v ? 1 : 0 })}
+                  label={`${t('labour.groupLead')} — brings a crew`}
+                />
+              </div>
+            ) : null}
 
             {draft.is_group_lead === 1 ? (
               <Field
@@ -200,6 +236,11 @@ export function LabourersScreen() {
               </Field>
             ) : null}
 
+            {/* Day rates are meaningless for a salaried worker, and leaving
+                them on screen invites somebody to fill one in and then wonder
+                why it never appears anywhere. */}
+            {draft.employment === 'casual' ? (
+              <>
             <Field
               label={t('labour.dayRate')}
               hint={
@@ -240,6 +281,8 @@ export function LabourersScreen() {
                 }
               />
             </Field>
+              </>
+            ) : null}
 
             <Field label={t('common.note')}>
               <TextArea

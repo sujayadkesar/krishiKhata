@@ -5,7 +5,7 @@ import {
 } from '@/data/masterData'
 import { missingFor } from './entryRules'
 import type { MissingKey } from './entryRules'
-import type { SubHead } from '@/db/types'
+import type { HeadCategory, SubHead } from '@/db/types'
 import type { StringKey } from '@/i18n/strings'
 
 /** The rule returns stable keys; the interface needs words in two languages. */
@@ -91,6 +91,14 @@ export interface EntryFormState {
   childSubHeads: SubHead[]
   /** The top-level row currently in play, derived from the stored leaf. */
   parentSubHeadId: string | null
+  /**
+   * Whether the chosen head is land that is grown and sold.
+   *
+   * A general head — the car, the house — asks for none of the crop
+   * machinery: no plot, no unit, no quantity, no "work done". Showing them
+   * anyway is what makes recording a petrol bill feel like filing a harvest.
+   */
+  isCropHead: boolean
   activities: { id: string; name_en: string; name_kn: string; sub_head_id: string | null }[]
   accounts: { id: string; name_en: string; name_kn: string }[]
   plots: { id: string; name_en: string; name_kn: string }[]
@@ -105,7 +113,13 @@ export interface EntryFormState {
   valid: boolean
 }
 
-type HeadRow = { id: string; name_en: string; name_kn: string; used_for: string }
+type HeadRow = {
+  id: string
+  name_en: string
+  name_kn: string
+  used_for: string
+  category: HeadCategory
+}
 function useHeadsList(): HeadRow[] {
   const { data } = useQuery(() => listHeads(false), [])
   return (data ?? []) as HeadRow[]
@@ -219,6 +233,22 @@ export function useEntryForm(
   // Unit codes stay single-language — "ಕೆ.ಜಿ · kg" inside a field suffix is noise.
   const unitShort = unit ? (lang === 'en' ? unit.short_en : unit.short_kn) : ''
 
+  // Land and its machinery apply only to a crop. Until a head is chosen the
+  // answer is "not yet", and treating that as general keeps the form short.
+  const isCropHead = heads.find((h) => h.id === draft.head_id)?.category === 'crop'
+
+  /*
+   * A general head carries no land, so anything already picked is cleared
+   * rather than left to be saved invisibly. A petrol bill silently filed
+   * against Hosatota is worse than one filed against nothing.
+   */
+  useEffect(() => {
+    if (!draft.head_id || isCropHead) return
+    if (draft.plot_id == null && draft.unit_id == null && draft.quantity_milli == null) return
+    set({ plot_id: null, unit_id: null, quantity_milli: null, rate_paise: null })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCropHead, draft.head_id])
+
   /**
    * What is still needed, decided by `entryRules.ts` and only labelled here.
    *
@@ -229,7 +259,8 @@ export function useEntryForm(
     topLevelCount: topLevel.length,
     childCount: childSubHeads.length,
     parentSubHeadId,
-    hasPlots: (plots ?? []).length > 0,
+    // Only land asks about land.
+    hasPlots: isCropHead && (plots ?? []).length > 0,
   }).map((key) => t(MISSING_LABEL[key]))
 
   return {
@@ -237,6 +268,7 @@ export function useEntryForm(
     subHeads: topLevel,
     childSubHeads,
     parentSubHeadId,
+    isCropHead,
     activities: activities ?? [],
     accounts: accounts ?? [],
     plots: plots ?? [],

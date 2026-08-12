@@ -14,6 +14,7 @@ import { EntryDetailScreen } from '@/features/entries/EntryDetailScreen'
 import { ReportsScreen } from '@/features/reports/ReportsScreen'
 import { LabourScreen } from '@/features/labour/LabourScreen'
 import { AddWorkScreen } from '@/features/labour/AddWorkScreen'
+import { PriceJobsScreen } from '@/features/labour/PriceJobsScreen'
 import { PayScreen } from '@/features/labour/PayScreen'
 import { LabourerDetailScreen } from '@/features/labour/LabourerDetailScreen'
 import { SettingsScreen } from '@/features/settings/SettingsScreen'
@@ -108,6 +109,7 @@ const ROUTES: RouteDef[] = [
   { path: '/add', render: () => <AddEntryScreen /> },
   { path: '/labour', render: () => <LabourScreen /> },
   { path: '/labour/work', render: () => <AddWorkScreen /> },
+  { path: '/labour/price', render: () => <PriceJobsScreen /> },
   { path: '/labour/pay', render: () => <PayScreen /> },
   { path: '/labour/pay/:id', render: (p) => <PayScreen labourerId={p.id} /> },
   { path: '/labour/khata/:id', render: (p) => <LabourerDetailScreen id={p.id} /> },

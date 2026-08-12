@@ -1,11 +1,15 @@
-import { CalendarPlus, IndianRupee, Users, User, ChevronRight } from 'lucide-react'
+import {
+  BadgeIndianRupee, CalendarPlus, ChevronRight, Droplets, IndianRupee, User, Users,
+} from 'lucide-react'
 import { Page, Shell } from '@/components/Shell'
 import { Card, EmptyState, SectionHeader } from '@/components/ui'
 import { useQuery } from '@/hooks/useQuery'
-import { labourBalances } from '@/data/labour'
+import { labourBalances, openJobs, postSalary, salaryDueFor } from '@/data/labour'
+import { listLabourers } from '@/data/masterData'
 import { useI18n } from '@/i18n'
 import { formatRupees } from '@/lib/money'
 import { balanceState } from '@/lib/labour'
+import { addMonths, formatMonth, monthEnd, monthStart, todayISO } from '@/lib/date'
 import { navigate } from '@/router'
 
 /**
@@ -17,8 +21,39 @@ import { navigate } from '@/router'
  */
 
 export function LabourScreen() {
-  const { t, nameOf } = useI18n()
+  const { t, lang, nameOf } = useI18n()
   const { data, loading } = useQuery(() => labourBalances(false), [])
+  const { data: jobs, reload: reloadJobs } = useQuery(openJobs, [])
+  const { data: workers, reload: reloadWorkers } = useQuery(() => listLabourers(false), [])
+
+  /**
+   * Salary is posted for the month that has ENDED, not the one running.
+   *
+   * Posting mid-month would put a full month's wage into a month that is not
+   * over, and the balance would say the farm owes it before it has been
+   * earned. The last day of last month is also the date the row carries.
+   */
+  const lastMonthEnd = monthEnd(monthStart(addMonths(todayISO(), -1)))
+  const lastMonthLabel = formatMonth(lastMonthEnd, lang)
+
+  const { data: posted, reload: reloadPosted } = useQuery(
+    () => salaryDueFor(lastMonthEnd),
+    [lastMonthEnd],
+  )
+
+  const salaryDue = (workers ?? []).filter(
+    (l) =>
+      l.employment === 'monthly' &&
+      (l.monthly_salary_paise ?? 0) > 0 &&
+      !(posted ?? []).includes(l.id),
+  )
+
+  async function postFor(labourerId: string, amount: number) {
+    await postSalary(labourerId, lastMonthEnd, amount)
+    reloadPosted()
+    reloadWorkers()
+    reloadJobs()
+  }
 
   const rows = data ?? []
   const totalOwed = rows.reduce((s, r) => s + Math.max(0, r.balance_paise), 0)
@@ -45,6 +80,63 @@ export function LabourScreen() {
             <span className="text-sm">{t('labour.pay')}</span>
           </button>
         </div>
+
+        {/*
+          Work that has been done but never priced.
+
+          On a cash basis an unpriced job is worth nothing in every total on
+          this screen, so without saying so plainly the farmer's books quietly
+          understate what they are about to owe. This is the same reasoning as
+          the unpaid-wages line on every statement, applied one step earlier.
+        */}
+        {(jobs ?? []).length > 0 ? (
+          <button
+            onClick={() => navigate('/labour/price')}
+            className="card p-3.5 w-full flex items-center gap-3 text-left"
+            style={{
+              background: 'var(--color-earth-100)',
+              borderColor: 'var(--color-earth-300)',
+              color: 'var(--color-earth-700)',
+            }}
+          >
+            <Droplets size={20} className="shrink-0" />
+            <span className="flex-1 min-w-0">
+              <span className="block text-sm font-semibold">{t('labour.openJobs')}</span>
+              <span className="block text-xs">
+                {jobs?.length} {jobs?.length === 1 ? 'job' : 'jobs'} · {t('labour.setPrice')}
+              </span>
+            </span>
+            <ChevronRight size={16} />
+          </button>
+        ) : null}
+
+        {/*
+          A salaried worker's month, one tap. Offered only where it has not
+          already been posted — `postSalary` refuses a second one for the same
+          month anyway, but a button that does nothing is worse than no button.
+        */}
+        {salaryDue.length > 0 ? (
+          <Card>
+            {salaryDue.map((l) => (
+              <div key={l.id} className="flex items-center gap-3 px-4 py-3">
+                <BadgeIndianRupee size={19} style={{ color: 'var(--color-income)' }} />
+                <span className="flex-1 min-w-0">
+                  <span className="block font-medium truncate">{nameOf(l)}</span>
+                  <span className="block text-xs" style={{ color: 'var(--text-faint)' }}>
+                    {formatRupees(l.monthly_salary_paise ?? 0)} · {lastMonthLabel}
+                  </span>
+                </span>
+                <button
+                  onClick={() => void postFor(l.id, l.monthly_salary_paise ?? 0)}
+                  className="rounded-lg px-3 py-2 text-sm font-semibold"
+                  style={{ background: 'var(--color-brand-500)', color: '#fff', minHeight: 38 }}
+                >
+                  {t('labour.postSalary')}
+                </button>
+              </div>
+            ))}
+          </Card>
+        ) : null}
 
         <div className="grid grid-cols-2 gap-2.5">
           <div className="card p-3.5">

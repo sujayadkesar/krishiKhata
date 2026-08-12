@@ -23,7 +23,7 @@ import { seedId } from '@/lib/ids'
  * genuinely absent. It is NOT a way to change seeded rows — once a row exists,
  * it belongs to the farmer.
  */
-const SEED_VERSION = '2'
+const SEED_VERSION = '3'
 
 const now = () => new Date().toISOString()
 
@@ -50,14 +50,59 @@ const UNITS: [slug: string, en: string, kn: string, shortEn: string, shortKn: st
   ['dozen', 'Dozen', 'ಡಜನ್', 'dz', 'ಡಜನ್', 0],
 ]
 
-const HEADS: [slug: string, en: string, kn: string, use: string, color: string][] = [
-  ['banana', 'Banana', 'ಬಾಳೆಕಾಯಿ', 'both', 'amber'],
-  ['pepper', 'Pepper', 'ಕಾಳುಮೆಣಸು', 'both', 'rose'],
-  ['arecanut', 'Arecanut', 'ಅಡಿಕೆ', 'both', 'orange'],
-  ['honey', 'Honey', 'ಜೇನುತುಪ್ಪ', 'both', 'yellow'],
-  ['coconut', 'Coconut', 'ತೆಂಗಿನಕಾಯಿ', 'both', 'lime'],
-  ['general', 'General / Farm-wide', 'ಸಾಮಾನ್ಯ', 'both', 'slate'],
+/**
+ * Heads, and whether each is land or life.
+ *
+ * The last four are not crops and never were. A farmer's ledger is one pocket:
+ * diesel, a car service, school fees and cloth come out of the same money the
+ * banana brought in, and an app that only understands crops sends them
+ * nowhere. They are seeded because they are what everybody has, and being
+ * offered them beats being asked to invent them on day one.
+ */
+const HEADS: [
+  slug: string, en: string, kn: string, use: string, color: string, category: string,
+][] = [
+  ['banana', 'Banana', 'ಬಾಳೆಕಾಯಿ', 'both', 'amber', 'crop'],
+  ['pepper', 'Pepper', 'ಕಾಳುಮೆಣಸು', 'both', 'rose', 'crop'],
+  ['arecanut', 'Arecanut', 'ಅಡಿಕೆ', 'both', 'orange', 'crop'],
+  ['honey', 'Honey', 'ಜೇನುತುಪ್ಪ', 'both', 'yellow', 'crop'],
+  ['coconut', 'Coconut', 'ತೆಂಗಿನಕಾಯಿ', 'both', 'lime', 'crop'],
+  ['general', 'General / Farm-wide', 'ಸಾಮಾನ್ಯ', 'both', 'slate', 'general'],
+  ['vehicle', 'Vehicle', 'ವಾಹನ', 'expense', 'slate', 'general'],
+  ['household', 'Household', 'ಮನೆ ಖರ್ಚು', 'expense', 'violet', 'general'],
+  ['personal', 'Personal', 'ವೈಯಕ್ತಿಕ', 'expense', 'sky', 'general'],
+  ['other-income', 'Other income', 'ಇತರ ಆದಾಯ', 'income', 'emerald', 'general'],
 ]
+
+/**
+ * Sub-heads that belong to one head rather than to everything.
+ *
+ * Petrol has no business being offered under Banana, and once a head has its
+ * own list it gets only that list — see `listSubHeadsFor`. These are the ones
+ * where the head genuinely owns the vocabulary.
+ */
+const HEAD_SPEND: Record<string, [slug: string, en: string, kn: string][]> = {
+  vehicle: [
+    ['petrol', 'Petrol / Diesel', 'ಪೆಟ್ರೋಲ್ / ಡೀಸೆಲ್'],
+    ['service', 'Service & Repair', 'ಸರ್ವಿಸ್ ಮತ್ತು ರಿಪೇರಿ'],
+    ['insurance', 'Insurance & Tax', 'ವಿಮೆ ಮತ್ತು ತೆರಿಗೆ'],
+    ['tyres', 'Tyres & Parts', 'ಟಯರ್ ಮತ್ತು ಬಿಡಿಭಾಗ'],
+  ],
+  household: [
+    ['groceries', 'Groceries', 'ದಿನಸಿ'],
+    ['electricity', 'Electricity & Water', 'ಕರೆಂಟ್ ಮತ್ತು ನೀರು'],
+    ['gas', 'Gas & Fuel', 'ಗ್ಯಾಸ್'],
+    ['repairs', 'House repairs', 'ಮನೆ ದುರಸ್ತಿ'],
+    ['phone', 'Phone & Internet', 'ಫೋನ್ ಮತ್ತು ಇಂಟರ್ನೆಟ್'],
+  ],
+  personal: [
+    ['clothes', 'Clothes', 'ಬಟ್ಟೆ'],
+    ['medical', 'Medical', 'ಔಷಧಿ'],
+    ['education', 'School & College', 'ಶಾಲೆ ಮತ್ತು ಕಾಲೇಜು'],
+    ['function', 'Functions & Gifts', 'ಸಮಾರಂಭ ಮತ್ತು ಉಡುಗೊರೆ'],
+    ['travel', 'Travel', 'ಪ್ರಯಾಣ'],
+  ],
+}
 
 /** Which units each head may be sold in; the first is offered by default. */
 const HEAD_UNITS: Record<string, string[]> = {
@@ -143,9 +188,9 @@ function buildSeed(): SeedTable[] {
     created_at: ts, updated_at: ts,
   }))
 
-  const heads: Row[] = HEADS.map(([slug, en, kn, use, color], i) => ({
+  const heads: Row[] = HEADS.map(([slug, en, kn, use, color, category], i) => ({
     id: seedId(`head:${slug}`),
-    name_en: en, name_kn: kn, used_for: use, color, icon: null,
+    name_en: en, name_kn: kn, used_for: use, category, color, icon: null,
     is_active: 1, sort_order: i, created_at: ts, updated_at: ts,
   }))
 
@@ -167,8 +212,20 @@ function buildSeed(): SeedTable[] {
     is_active: 1, sort_order: i, created_at: ts, updated_at: ts,
   }))
 
-  // Varieties, then the grades beneath each of them.
+  // Spend types owned by one head — Petrol under Vehicle, and nowhere else.
   let order = SUB_HEADS.length
+  for (const [headSlug, spends] of Object.entries(HEAD_SPEND)) {
+    for (const [slug, en, kn] of spends) {
+      subHeads.push({
+        id: seedId(`sub:${headSlug}:${slug}`),
+        name_en: en, name_kn: kn, is_labour: 0,
+        head_id: seedId(`head:${headSlug}`), used_for: 'expense', parent_id: null,
+        is_active: 1, sort_order: order++, created_at: ts, updated_at: ts,
+      })
+    }
+  }
+
+  // Varieties, then the grades beneath each of them.
   for (const [headSlug, varieties] of Object.entries(VARIETIES)) {
     for (const [vSlug, vEn, vKn] of varieties) {
       const varietyId = seedId(`sub:${headSlug}:${vSlug}`)
@@ -212,7 +269,10 @@ function buildSeed(): SeedTable[] {
     },
     {
       table: 'heads',
-      columns: ['id', 'name_en', 'name_kn', 'used_for', 'color', 'icon', 'is_active', 'sort_order', 'created_at', 'updated_at'],
+      columns: [
+        'id', 'name_en', 'name_kn', 'used_for', 'category', 'color', 'icon',
+        'is_active', 'sort_order', 'created_at', 'updated_at',
+      ],
       rows: heads,
     },
     { table: 'head_units', columns: ['head_id', 'unit_id', 'is_default'], rows: headUnits },
@@ -262,6 +322,21 @@ export async function seedIfEmpty(): Promise<void> {
         await run(sql, columns.map((c) => row[c] ?? null))
       }
     }
+    /*
+     * The one correction, rather than an insert.
+     *
+     * "General / Farm-wide" was seeded before heads had a category, so a phone
+     * that already ran the old seed has it defaulted to 'crop' — which would
+     * ask which plot the electricity bill was for. Scoped to that exact seeded
+     * id and only while nobody has changed it, so a farmer who has deliberately
+     * made it a crop keeps their choice.
+     */
+    await run(
+      `UPDATE heads SET category = 'general'
+        WHERE id = ? AND category = 'crop';`,
+      [seedId('head:general')],
+    )
+
     await run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?);', [
       'seeded_version',
       SEED_VERSION,

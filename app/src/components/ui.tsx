@@ -320,17 +320,34 @@ export function QuantityInput({
   )
 }
 
+/**
+ * A native select.
+ *
+ * Native on purpose: Android renders it as a full-screen list with its own
+ * scrolling and keyboard handling, which beats anything hand-rolled on a cheap
+ * phone held in one hand, and it is the control every other app on the device
+ * already uses.
+ *
+ * `groups` exists because the head list stopped being one kind of thing. Crops
+ * and household heads are both heads and are not the same question, and an
+ * optgroup says so without a second control.
+ */
 export function Select<T extends string>({
   value,
   onChange,
   options,
+  groups,
   placeholder,
 }: {
   value: T | null
   onChange: (v: T) => void
-  options: { value: T; label: string }[]
+  options?: { value: T; label: string }[]
+  /** Labelled sections. Empty ones are dropped rather than shown bare. */
+  groups?: { label: string; options: { value: T; label: string }[] }[]
   placeholder?: string
 }) {
+  const filled = (groups ?? []).filter((g) => g.options.length > 0)
+
   return (
     <div className="relative">
       <select
@@ -343,10 +360,19 @@ export function Select<T extends string>({
             {placeholder}
           </option>
         ) : null}
-        {options.map((o) => (
+        {(options ?? []).map((o) => (
           <option key={o.value} value={o.value}>
             {o.label}
           </option>
+        ))}
+        {filled.map((g) => (
+          <optgroup key={g.label} label={g.label}>
+            {g.options.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </optgroup>
         ))}
       </select>
       <ChevronDown
