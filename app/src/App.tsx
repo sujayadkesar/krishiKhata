@@ -28,7 +28,6 @@ import { LabourersScreen } from '@/features/settings/LabourersScreen'
 import { PlotsScreen } from '@/features/settings/PlotsScreen'
 import { FarmProfileScreen } from '@/features/settings/FarmProfileScreen'
 import { BackupScreen } from '@/features/settings/BackupScreen'
-import { UpdateScreen } from '@/features/settings/UpdateScreen'
 
 /**
  * Boot, then routes.
@@ -130,7 +129,6 @@ const ROUTES: RouteDef[] = [
   { path: '/settings/activities', render: () => <ActivitiesScreen /> },
   { path: '/settings/labourers', render: () => <LabourersScreen /> },
   { path: '/settings/backup', render: () => <BackupScreen /> },
-  { path: '/settings/update', render: () => <UpdateScreen /> },
 ]
 
 export default function App() {

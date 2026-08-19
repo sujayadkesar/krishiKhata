@@ -63,15 +63,8 @@ jobs:
         working-directory: app
         run: npm run lint
 
-      # VITE_GOOGLE_CLIENT_ID turns on Drive backup. Absent, the build still
-      # succeeds and the app simply reports that backup is not set up yet —
-      # which is why this is a plain secret reference with no gate around it.
-      # It is not a credential: an Android OAuth client has no client secret,
-      # and this id ends up readable inside the APK either way.
       - name: Build web assets
         working-directory: app
-        env:
-          VITE_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
         run: npm run build
 
       - name: Sync Capacitor
@@ -129,23 +122,34 @@ jobs:
         working-directory: app/android
         run: sh gradlew assembleDebug --no-daemon --stacktrace
 
+      # The bundle is what Google Play takes; the APK above is for sideloading
+      # and for testers who install from a GitHub release. Only a signed
+      # release build can be uploaded, so this is skipped for debug builds.
+      - name: Build release AAB for Play
+        if: steps.decide.outputs.type == 'release'
+        working-directory: app/android
+        run: sh gradlew bundleRelease --no-daemon --stacktrace
+
       # The signing material must not outlive the job, even on a private runner.
       - name: Shred signing material
         if: always()
         run: rm -f app/android/release.keystore app/android/keystore.properties
 
-      - name: Collect APK
+      - name: Collect APK and AAB
         id: collect
         run: |
           mkdir -p out
           find app/android -path "*/outputs/apk/*" -name "*.apk" -exec cp {} out/ \;
+          find app/android -path "*/outputs/bundle/*" -name "*.aab" -exec cp {} out/ \;
           ls -la out
           echo "name=$(ls out | head -1)" >> "$GITHUB_OUTPUT"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: krishi-khata-apk-${{ steps.decide.outputs.type }}
-          path: out/*.apk
+          name: krishi-khata-${{ steps.decide.outputs.type }}
+          path: |
+            out/*.apk
+            out/*.aab
           retention-days: 30
 
       - name: Summary

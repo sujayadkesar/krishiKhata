@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The same rules again, for Android 12 and above.
+
+  Android 12 split what used to be one setting into two, because they are two
+  different risks and deserve two answers:
+
+    cloud-backup    goes to the user's Google account over the network.
+    device-transfer goes straight to the new phone during setup, cable or
+                    wi-fi direct, never touching Google's servers.
+
+  Both carry the ledger, because losing a season's figures is the thing this
+  app exists to prevent and neither route is more likely to lose them. The
+  exclusions match backup_rules.xml — see that file for why each one is out.
+
+  Two files rather than one is not duplication anybody chose: Android 11 reads
+  only the first, Android 12+ reads only this. Change one and change the other.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <include domain="database" path="." />
+        <include domain="file" path="." />
+
+        <exclude domain="sharedpref" path="CapacitorStorage.xml" />
+        <exclude domain="cache" path="." />
+        <exclude domain="external_cache" path="." />
+    </cloud-backup>
+
+    <device-transfer>
+        <include domain="database" path="." />
+        <include domain="file" path="." />
+
+        <exclude domain="cache" path="." />
+        <exclude domain="external_cache" path="." />
+    </device-transfer>
+</data-extraction-rules>

@@ -91,25 +91,6 @@ export const STRINGS = {
   'subhead.incomeGrade': { kn: 'ಮಾರಾಟದ ದರ್ಜೆ', en: 'Sale grade' },
   'subhead.belongsTo': { kn: 'ಯಾವ ಬೆಳೆಗೆ', en: 'Belongs to crop' },
   'subhead.gradeOf': { kn: 'ದರ್ಜೆ ·', en: 'Grade of' },
-  'update.available': { kn: 'ಹೊಸ ಆವೃತ್ತಿ ಬಂದಿದೆ', en: 'New version available' },
-  'update.tapToGet': { kn: 'ಡೌನ್‌ಲೋಡ್ ಮಾಡಲು ಒತ್ತಿ', en: 'Tap to download and install' },
-  'update.title': { kn: 'ಆ್ಯಪ್ ಅಪ್‌ಡೇಟ್', en: 'App update' },
-  'update.current': { kn: 'ಈಗಿನ ಆವೃತ್ತಿ', en: 'Installed version' },
-  'update.check': { kn: 'ಪರಿಶೀಲಿಸಿ', en: 'Check for updates' },
-  'update.checking': { kn: 'ನೋಡುತ್ತಿದೆ…', en: 'Checking…' },
-  'update.upToDate': { kn: 'ನೀವು ಹೊಸ ಆವೃತ್ತಿಯಲ್ಲೇ ಇದ್ದೀರಿ', en: 'You are on the latest version' },
-  'update.install': { kn: 'ಡೌನ್‌ಲೋಡ್ ಮತ್ತು ಇನ್‌ಸ್ಟಾಲ್', en: 'Download and install' },
-  'update.downloading': { kn: 'ಡೌನ್‌ಲೋಡ್ ಆಗುತ್ತಿದೆ', en: 'Downloading' },
-  'update.whatsNew': { kn: 'ಏನು ಹೊಸತು', en: "What's new" },
-  'update.keepsData': {
-    kn: 'ನಿಮ್ಮ ಎಲ್ಲ ದಾಖಲೆಗಳು ಹಾಗೆಯೇ ಇರುತ್ತವೆ. ಅನ್‌ಇನ್‌ಸ್ಟಾಲ್ ಮಾಡುವ ಅಗತ್ಯವಿಲ್ಲ.',
-    en: 'Your records stay exactly as they are. Nothing is uninstalled.',
-  },
-  'update.needsPermission': {
-    kn: 'ಇನ್‌ಸ್ಟಾಲ್ ಮಾಡಲು ಒಮ್ಮೆ ಅನುಮತಿ ಕೊಡಬೇಕು',
-    en: 'Android needs permission to install apps from Krishi Khata. This is asked once.',
-  },
-  'update.openSettings': { kn: 'ಅನುಮತಿ ಕೊಡಿ', en: 'Allow installing' },
   'entry.activity': { kn: 'ಯಾವ ಕೆಲಸ', en: 'Work done' },
   // "Plot" and not "land": most farmers here have two or three, and the word
   // has to be short enough to sit on a chip without wrapping.
@@ -315,7 +296,7 @@ export const STRINGS = {
   'set.incomeHeads': { kn: 'ಮಾರಾಟದ ಬೆಳೆ', en: 'What you sell' },
   'set.expenseHeads': { kn: 'ಖರ್ಚಿನ ಶೀರ್ಷಿಕೆ', en: 'What you spend on' },
   'set.subHeads': { kn: 'ಉಪ ಶೀರ್ಷಿಕೆ', en: 'Sub-heads' },
-  'set.varietiesGrades': { kn: 'ತಳಿ ಮತ್ತು ದರ್ಜೆ', en: 'Varieties & grades' },
+  'set.varietiesGrades': { kn: 'ತಳಿಗಳು', en: 'Varieties' },
   'set.varieties': { kn: 'ತಳಿಗಳು', en: 'Varieties' },
   'set.varietiesHint': {
     kn: 'ಬೇರೆ ಬೇರೆ ದರ ಇರುವ ತಳಿಗಳಿದ್ದರೆ ಮಾತ್ರ. ಇಲ್ಲದಿದ್ದರೆ ಖಾಲಿ ಬಿಡಿ.',
@@ -335,24 +316,43 @@ export const STRINGS = {
   'set.showInactive': { kn: 'ನಿಷ್ಕ್ರಿಯವನ್ನೂ ತೋರಿಸಿ', en: 'Show inactive' },
 
   /* backup */
+  'backup.autoTitle': {
+    kn: 'ಫೋನ್ ತಾನಾಗಿಯೇ ಬ್ಯಾಕಪ್ ಮಾಡುತ್ತದೆ',
+    en: 'Your phone backs this up on its own',
+  },
+  'backup.autoBody': {
+    kn: 'ನಿಮ್ಮ Google ಖಾತೆಗೆ ದಿನಕ್ಕೊಮ್ಮೆ ಸೇವ್ ಆಗುತ್ತದೆ. ಹೊಸ ಫೋನ್‌ನಲ್ಲಿ ಈ ಆ್ಯಪ್ ಹಾಕಿದಾಗ ಎಲ್ಲವೂ ವಾಪಸ್ ಬರುತ್ತದೆ. ಸೈನ್ ಇನ್ ಬೇಡ.',
+    en: 'Android saves your records to your Google account about once a day, and puts them back when you set up a new phone. No sign-in needed.',
+  },
+  'backup.ownCopy': { kn: 'ನಿಮ್ಮದೇ ಪ್ರತಿ', en: 'A copy you keep' },
+  'backup.ownCopyBody': {
+    kn: 'ಒಂದು ಫೈಲ್ ಆಗಿ ಉಳಿಸಿ — Drive, WhatsApp, ಮೆಮೊರಿ ಕಾರ್ಡ್, ಎಲ್ಲಿ ಬೇಕಾದರೂ.',
+    en: 'Save it as a file and put it wherever you like — Drive, WhatsApp, a memory card. This is the copy you can hand to somebody.',
+  },
+  'backup.savedRows': {
+    kn: '{n} ದಾಖಲೆಗಳ ಪ್ರತಿ ಸಿದ್ಧ. ಎಲ್ಲಿ ಇಡಬೇಕೆಂದು ಆರಿಸಿ.',
+    en: 'A copy of {n} records is ready. Choose where to keep it.',
+  },
+  'backup.restoredRows': {
+    kn: '{n} ದಾಖಲೆಗಳು ಮರುಸ್ಥಾಪನೆ ಆಗಿವೆ. ಹಿಂದಿನ ಪ್ರತಿ ಫೋನಿನಲ್ಲಿ ಉಳಿಸಲಾಗಿದೆ.',
+    en: 'Restored {n} records. A copy of what was here before has been saved to your phone.',
+  },
+  'backup.restoreFile': { kn: 'ಫೈಲ್‌ನಿಂದ ಮರುಸ್ಥಾಪಿಸಿ', en: 'Restore from a file' },
+  'backup.restoreWarn': {
+    kn: 'ಈಗಿನ ಎಲ್ಲಾ ದಾಖಲೆಗಳ ಬದಲಿಗೆ ಬರುತ್ತದೆ',
+    en: 'Replaces everything currently in the app',
+  },
+  'backup.privacyBody': {
+    kn: 'ನಿಮ್ಮ ಲೆಕ್ಕ ಈ ಫೋನಿನಲ್ಲೇ ಇರುತ್ತದೆ. ಯಾವ ಸರ್ವರ್‌ಗೂ ಹೋಗುವುದಿಲ್ಲ.',
+    en: 'Your records stay on this phone. Krishi Khata has no server and sends them nowhere.',
+  },
   'backup.lastBackup': { kn: 'ಕೊನೆಯ ಬ್ಯಾಕಪ್', en: 'Last backup' },
   'backup.never': { kn: 'ಇನ್ನೂ ಆಗಿಲ್ಲ', en: 'Never' },
   'backup.now': { kn: 'ಈಗ ಬ್ಯಾಕಪ್ ಮಾಡಿ', en: 'Back up now' },
   'backup.restore': { kn: 'ಮರುಸ್ಥಾಪಿಸಿ', en: 'Restore' },
-  'backup.signIn': { kn: 'Google ನಲ್ಲಿ ಸೈನ್ ಇನ್ ಮಾಡಿ', en: 'Sign in with Google' },
-  'backup.signOut': { kn: 'ಸೈನ್ ಔಟ್', en: 'Sign out' },
   'backup.shareHint': {
     kn: 'Google Drive, WhatsApp ಅಥವಾ ಫೈಲ್ಸ್ — ಎಲ್ಲಿ ಬೇಕಾದರೂ ಉಳಿಸಿ',
     en: 'Then pick Google Drive, WhatsApp or Files — wherever you want it kept',
-  },
-  'backup.otherWays': { kn: 'ಇತರ ವಿಧಾನಗಳು', en: 'Other ways' },
-  'backup.driveHint': {
-    kn: 'ನಿಮ್ಮದೇ Google Drive ಗೆ. ಈ ಆ್ಯಪ್ ತಾನು ಮಾಡಿದ ಫೈಲ್ ಮಾತ್ರ ನೋಡಬಲ್ಲದು.',
-    en: 'Straight to your own Google Drive. The app can only see the files it creates.',
-  },
-  'backup.explain': {
-    kn: 'ನಿಮ್ಮ ಮಾಹಿತಿ ಫೋನಿನಲ್ಲೇ ಇರುತ್ತದೆ. ಬ್ಯಾಕಪ್ ಚಾಲು ಮಾಡಿದರೆ ನಿಮ್ಮದೇ Google Drive ಗೆ ಪ್ರತಿ ಹೋಗುತ್ತದೆ.',
-    en: 'Your data stays on this phone. Turn on backup and a copy goes to your own Google Drive.',
   },
 } satisfies Record<string, Entry>
 

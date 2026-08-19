@@ -1,13 +1,12 @@
 import {
   Wallet, Sprout, Tags, Hammer, Users, Home, Languages, CloudUpload, ChevronRight, MapPin,
-  Download,
 } from 'lucide-react'
 import { Page, Shell } from '@/components/Shell'
 import { Card, ListRow, SectionHeader } from '@/components/ui'
 import { useI18n } from '@/i18n'
 import { LANGS } from '@/i18n/strings'
 import { navigate } from '@/router'
-import { APP_VERSION } from '@/lib/updates'
+import versionFile from '../../../version.json'
 import type { StringKey } from '@/i18n/strings'
 
 /**
@@ -45,7 +44,7 @@ const GROUPS: { title: string; rows: Row[] }[] = [
     rows: [
       { path: '/settings/heads/income', label: 'set.incomeHeads', icon: Sprout, hint: 'Crops and the units they sell in' },
       { path: '/settings/heads/expense', label: 'set.expenseHeads', icon: Tags, hint: 'What your spending gets filed against' },
-      { path: '/settings/sub-heads', label: 'set.varietiesGrades', icon: Tags, hint: 'G9, Mitka, Karibale — and first or second class within each' },
+      { path: '/settings/sub-heads', label: 'set.varietiesGrades', icon: Tags, hint: 'G9, Mitka, Karibale — the kinds each crop is sold as' },
       { path: '/settings/activities', label: 'set.activities', icon: Hammer, hint: 'The work itself — harvesting, spraying, weeding' },
     ],
   },
@@ -59,6 +58,8 @@ const GROUPS: { title: string; rows: Row[] }[] = [
 
 export function SettingsScreen() {
   const { t, lang, setLang } = useI18n()
+  // Straight from version.json, the one place the shipped version lives.
+  const { version } = versionFile
 
   return (
     <Shell title={t('set.title')} right={<span />}>
@@ -122,7 +123,7 @@ export function SettingsScreen() {
           <Card>
             <ListRow
               title={t('set.backup')}
-              subtitle={t('backup.explain')}
+              subtitle={t('backup.privacyBody')}
               onClick={() => navigate('/settings/backup')}
               leading={<CloudUpload size={20} style={{ color: 'var(--color-brand-600)' }} />}
               right={<ChevronRight size={18} style={{ color: 'var(--text-faint)' }} />}
@@ -130,21 +131,8 @@ export function SettingsScreen() {
           </Card>
         </div>
 
-        <div>
-          <SectionHeader>{t('update.title')}</SectionHeader>
-          <Card>
-            <ListRow
-              title={t('update.title')}
-              subtitle={`${t('update.current')} ${APP_VERSION}`}
-              onClick={() => navigate('/settings/update')}
-              leading={<Download size={20} style={{ color: 'var(--color-brand-600)' }} />}
-              right={<ChevronRight size={18} style={{ color: 'var(--text-faint)' }} />}
-            />
-          </Card>
-        </div>
-
         <p className="text-center text-xs pt-2" style={{ color: 'var(--text-faint)' }}>
-          ಕೃಷಿ ಖಾತೆ · Krishi Khata · {APP_VERSION}
+          ಕೃಷಿ ಖಾತೆ · Krishi Khata · {version}
         </p>
       </Page>
     </Shell>

@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import {
   Bar, BarChart, CartesianGrid, LabelList, Legend, ResponsiveContainer, Tooltip,
   XAxis, YAxis,
 } from 'recharts'
 import {
-  Plus, CalendarPlus, Wallet, CloudUpload, Download, MapPin,
+  Plus, CalendarPlus, Wallet, CloudUpload, MapPin,
   IndianRupee, ChartColumn,
 } from 'lucide-react'
 import { Page, Shell } from '@/components/Shell'
@@ -20,8 +20,6 @@ import { useI18n } from '@/i18n'
 import { formatCompactINR, formatRupees } from '@/lib/money'
 import { addMonths, formatMonth, monthEnd, monthStart, todayISO } from '@/lib/date'
 import { navigate } from '@/router'
-import { checkForUpdate } from '@/lib/updates'
-import type { UpdateInfo } from '@/lib/updates'
 import type { Lang } from '@/i18n/strings'
 
 /**
@@ -107,14 +105,6 @@ export function HomeScreen() {
   const { t, lang, nameOf } = useI18n()
   const { data, loading } = useQuery(load, [])
 
-  // Checked on launch, throttled to once every six hours inside the helper.
-  // Failures are silent — an update check is not worth an error message in
-  // front of somebody trying to record a sale.
-  const [update, setUpdate] = useState<UpdateInfo | null>(null)
-  useEffect(() => {
-    void checkForUpdate().then(setUpdate)
-  }, [])
-
   const net = (data?.income ?? 0) - (data?.expense ?? 0)
   const owed = (data?.labour ?? []).reduce((s, r) => s + Math.max(0, r.balance_paise), 0)
   const daysThisMonth = (data?.labour ?? []).reduce((s, r) => s + r.days, 0)
@@ -164,31 +154,6 @@ export function HomeScreen() {
   return (
     <Shell>
       <Page>
-        {/* Straight to the update screen, not to a browser download. The APK
-            is fetched and installed inside the app; a file landing in Downloads
-            is the thing this replaced. */}
-        {update ? (
-          <button
-            onClick={() => navigate('/settings/update')}
-            className="card p-3.5 w-full text-left flex items-center gap-3"
-            style={{
-              background: 'var(--color-brand-50)',
-              borderColor: 'var(--color-brand-300)',
-              color: 'var(--color-brand-700)',
-            }}
-          >
-            <Download size={20} className="shrink-0" />
-            <span className="flex-1 min-w-0">
-              <span className="block text-sm font-semibold">
-                {t('update.available')} {update.version}
-              </span>
-              <span className="block text-xs" style={{ color: 'var(--color-brand-600)' }}>
-                {t('update.tapToGet')}
-              </span>
-            </span>
-          </button>
-        ) : null}
-
         {/* A reminder rather than a silent background backup, because there is
             no silent one to run: with no server there is no refresh token, so
             reaching Drive needs the farmer present. Saying so beats pretending. */}

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  What Android's automatic backup carries, on Android 11 and below.
+
+  THIS IS THE APP'S REAL BACKUP, and it costs no code, no permission, no
+  sign-in and no OAuth client. Android copies the app's private storage to the
+  user's Google account roughly once a day while the phone is idle, charging
+  and on wi-fi, then restores it when they set up a new phone or reinstall.
+  It is the mechanism people already understand from their chat app, and the
+  farmer never has to know it is happening.
+
+  The ledger is a SQLite file under databases/, which is included by default.
+  It is listed explicitly anyway: a default that nobody wrote down is a default
+  somebody removes by accident, and this file is the entire farm.
+
+  Excluded on purpose:
+
+    sharedpref/CapacitorStorage — holds the chosen language and other device
+    preferences. Harmless to carry, but restoring a WebView's own scratch
+    state onto different hardware is the kind of thing that produces a bug
+    nobody can reproduce. The farmer re-picking Kannada once is cheaper.
+
+    cache — reports and temporary files, regenerated on demand. Backing up a
+    PDF nobody asked for eats the 25 MB quota that the ledger needs.
+-->
+<full-backup-content>
+    <include domain="database" path="." />
+    <include domain="file" path="." />
+
+    <exclude domain="sharedpref" path="CapacitorStorage.xml" />
+    <exclude domain="cache" path="." />
+    <exclude domain="external_cache" path="." />
+</full-backup-content>

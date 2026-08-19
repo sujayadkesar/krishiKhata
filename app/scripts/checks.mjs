@@ -22,7 +22,6 @@ import {
   perPersonWagePaise, attendanceAmountPaise, daysFromFractions, personDaysFromRows,
   matchFifo, balancePaise, balanceState, splitByHead, crewWagePaise, crewSize, wagePaise,
 } from '../src/lib/labour.ts'
-import { isNewer } from '../src/lib/updates.ts'
 import { missingFor } from '../src/features/entries/entryRules.ts'
 
 let passed = 0
@@ -235,15 +234,6 @@ eq(balanceState(0), 'settled', 'balance: settled')
   eq(byHead.get('pepper'), 30000, 'split: pepper labour')
   eq(unallocated, 10000, 'split: work with no crop is its own line, not dropped')
 }
-
-/* --------------------------------------------------------- updates ------ */
-
-ok(isNewer('1.0.1', '1.0.0'), 'update: patch bump')
-ok(isNewer('v1.1.0', '1.0.9'), 'update: leading v tolerated')
-ok(isNewer('1.2.10', '1.2.9'), 'update: compared numerically, not as strings')
-ok(!isNewer('1.0.0', '1.0.0'), 'update: same version is not newer')
-ok(!isNewer('0.9.9', '1.0.0'), 'update: older is not newer')
-ok(isNewer('1.0', '0.9.9'), 'update: short version still compares')
 
 /* ------------------------------------------------------ ways of paying -- */
 
