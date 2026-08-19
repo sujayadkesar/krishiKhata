@@ -10,24 +10,23 @@
   farmer never has to know it is happening.
 
   The ledger is a SQLite file under databases/, which is included by default.
-  It is listed explicitly anyway: a default that nobody wrote down is a default
+  It is listed explicitly anyway: a default nobody wrote down is a default
   somebody removes by accident, and this file is the entire farm.
 
-  Excluded on purpose:
+  ONLY THESE DOMAINS EXIST: root, file, database, sharedpref, external, and
+  their device_ prefixed twins. There is no `cache` domain — an earlier
+  version of this file tried to exclude one and failed the build. Cache
+  directories are excluded by Android automatically and cannot be opted back
+  in, so there is nothing to say about them here.
 
-    sharedpref/CapacitorStorage — holds the chosen language and other device
-    preferences. Harmless to carry, but restoring a WebView's own scratch
-    state onto different hardware is the kind of thing that produces a bug
-    nobody can reproduce. The farmer re-picking Kannada once is cheaper.
-
-    cache — reports and temporary files, regenerated on demand. Backing up a
-    PDF nobody asked for eats the 25 MB quota that the ledger needs.
+  Excluded on purpose: sharedpref/CapacitorStorage holds the chosen language
+  and other device preferences. Harmless to carry, but restoring a WebView's
+  scratch state onto different hardware is the kind of thing that produces a
+  bug nobody can reproduce. The farmer re-picking Kannada once is cheaper.
 -->
 <full-backup-content>
     <include domain="database" path="." />
     <include domain="file" path="." />
 
     <exclude domain="sharedpref" path="CapacitorStorage.xml" />
-    <exclude domain="cache" path="." />
-    <exclude domain="external_cache" path="." />
 </full-backup-content>

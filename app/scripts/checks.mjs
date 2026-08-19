@@ -23,6 +23,9 @@ import {
   matchFifo, balancePaise, balanceState, splitByHead, crewWagePaise, crewSize, wagePaise,
 } from '../src/lib/labour.ts'
 import { missingFor } from '../src/features/entries/entryRules.ts'
+import { readFileSync } from 'node:fs'
+import { join, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 let passed = 0
 const failures = []
@@ -396,6 +399,55 @@ eq(balanceState(0), 'settled', 'balance: settled')
     ['subHead'],
     'entry: the expense side asks for a sub-head, not a variety',
   )
+}
+
+/* ------------------------------------------------- android backup rules -- */
+
+/*
+ * The backup XML decides whether a farmer's records survive a lost phone, and
+ * it is validated by aapt rather than by anything that runs here — so a typo
+ * in it does not fail until four minutes into a CI build, with a Gradle stack
+ * trace that never names the file.
+ *
+ * It has already cost one build: `domain="cache"` looks obvious and does not
+ * exist. Android's domain list is closed and short, so checking it is three
+ * lines and pays for itself the first time.
+ */
+{
+  const ANDROID_RES = join(
+    dirname(fileURLToPath(import.meta.url)),
+    '..', 'android', 'app', 'src', 'main', 'res', 'xml',
+  )
+
+  // The complete set. Cache directories are always excluded by Android and
+  // cannot be named at all.
+  const DOMAINS = new Set([
+    'root', 'file', 'database', 'sharedpref', 'external',
+    'device_root', 'device_file', 'device_database', 'device_sharedpref',
+  ])
+
+  for (const file of ['backup_rules.xml', 'data_extraction_rules.xml']) {
+    let xml
+    try {
+      xml = readFileSync(join(ANDROID_RES, file), 'utf8')
+    } catch {
+      failures.push(`backup: ${file} is missing — Android would back up everything by default`)
+      continue
+    }
+
+    const used = [...xml.matchAll(/domain="([^"]+)"/g)].map((m) => m[1])
+    ok(used.length > 0, `backup: ${file} declares at least one rule`)
+
+    const bad = [...new Set(used)].filter((d) => !DOMAINS.has(d))
+    eq(bad, [], `backup: every domain in ${file} is one Android recognises`)
+
+    // The ledger itself. Everything else in these files is a refinement.
+    ok(
+      /<include domain="database" path="\.".?\/>/.test(xml.replace(/\s+/g, ' ')) ||
+        xml.includes('<include domain="database"'),
+      `backup: ${file} carries the database — the ledger is the whole point`,
+    )
+  }
 }
 
 /* ------------------------------------------------------------------------ */
