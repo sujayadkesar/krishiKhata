@@ -19,14 +19,18 @@
   directories are excluded by Android automatically and cannot be opted back
   in, so there is nothing to say about them here.
 
-  Excluded on purpose: sharedpref/CapacitorStorage holds the chosen language
-  and other device preferences. Harmless to carry, but restoring a WebView's
-  scratch state onto different hardware is the kind of thing that produces a
-  bug nobody can reproduce. The farmer re-picking Kannada once is cheaper.
+  NAMING AN <include> MAKES IT AN ALLOW-LIST. Everything not listed is left
+  out, which is why there are no <exclude> rules here at all: shared
+  preferences, caches and external storage are already excluded by not being
+  mentioned. Lint enforces this — an <exclude> whose domain is not also
+  included is a fatal error, and it cost a build to learn.
+
+  That omission is deliberate rather than lazy. CapacitorStorage holds the
+  chosen language and other WebView scratch state; restoring it onto different
+  hardware is the kind of thing that produces a bug nobody can reproduce, and
+  the farmer re-picking Kannada once is cheaper.
 -->
 <full-backup-content>
     <include domain="database" path="." />
     <include domain="file" path="." />
-
-    <exclude domain="sharedpref" path="CapacitorStorage.xml" />
 </full-backup-content>

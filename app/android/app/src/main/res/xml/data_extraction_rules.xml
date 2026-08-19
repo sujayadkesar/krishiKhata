@@ -10,9 +10,10 @@
                     wi-fi direct, never touching Google's servers.
 
   Both carry the ledger, because losing a season's figures is the thing this
-  app exists to prevent and neither route is more likely to lose them. The
-  exclusion matches backup_rules.xml — see that file for why, and for the list
-  of domains that actually exist.
+  app exists to prevent and neither route is more likely to lose them. Listing
+  <include> makes each an allow-list, so everything else — shared preferences,
+  caches, external storage — is left out by not being named. See
+  backup_rules.xml for why that is deliberate.
 
   Two files rather than one is not duplication anybody chose: Android 11 reads
   only the first, Android 12+ reads only this. Change one and change the other.
@@ -21,8 +22,6 @@
     <cloud-backup>
         <include domain="database" path="." />
         <include domain="file" path="." />
-
-        <exclude domain="sharedpref" path="CapacitorStorage.xml" />
     </cloud-backup>
 
     <device-transfer>

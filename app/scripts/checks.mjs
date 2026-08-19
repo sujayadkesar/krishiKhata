@@ -441,6 +441,24 @@ eq(balanceState(0), 'settled', 'balance: settled')
     const bad = [...new Set(used)].filter((d) => !DOMAINS.has(d))
     eq(bad, [], `backup: every domain in ${file} is one Android recognises`)
 
+    /*
+     * An <include> makes the file an allow-list, and lint treats an <exclude>
+     * outside it as a FATAL error rather than a redundancy. This is the rule
+     * that actually failed the build: excluding a sharedpref file while only
+     * database and file were included reads as sensible and is rejected.
+     */
+    const included = new Set(
+      [...xml.matchAll(/<include[^>]*domain="([^"]+)"/g)].map((m) => m[1]),
+    )
+    const strayExcludes = [
+      ...new Set([...xml.matchAll(/<exclude[^>]*domain="([^"]+)"/g)].map((m) => m[1])),
+    ].filter((d) => !included.has(d))
+    eq(
+      strayExcludes,
+      [],
+      `backup: every exclude in ${file} sits under an include — lint calls this fatal`,
+    )
+
     // The ledger itself. Everything else in these files is a refinement.
     ok(
       /<include domain="database" path="\.".?\/>/.test(xml.replace(/\s+/g, ' ')) ||
