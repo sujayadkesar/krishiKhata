@@ -622,7 +622,19 @@ export interface AttendanceRow {
   paid_paise: number
 }
 
-export function attendanceFor(labourerId: string, limit = 400): Promise<AttendanceRow[]> {
+/**
+ * One person's work, optionally within a date range.
+ *
+ * The range exists so a farmer can settle up for a stretch — "what did he do
+ * this month, what is still open" — and hand over exactly that. Without it,
+ * every statement was the whole history, which is the wrong document to give
+ * somebody who worked three weeks.
+ */
+export function attendanceFor(
+  labourerId: string,
+  limit = 400,
+  range?: { from: ISODate; to: ISODate },
+): Promise<AttendanceRow[]> {
   return all<AttendanceRow>(
     `SELECT a.id, a.date, a.day_fraction, a.group_size, a.is_group,
             a.rate_paise, a.amount_paise, a.head_id,
@@ -634,9 +646,10 @@ export function attendanceFor(labourerId: string, limit = 400): Promise<Attendan
        LEFT JOIN heads h       ON h.id  = a.head_id
        LEFT JOIN activities ac ON ac.id = a.activity_id
       WHERE a.labourer_id = ? AND a.is_deleted = 0
+        ${range ? 'AND a.date >= ? AND a.date <= ?' : ''}
       ORDER BY a.date DESC, a.created_at DESC
       LIMIT ${Math.max(1, Math.min(limit, 2000))};`,
-    [labourerId],
+    range ? [labourerId, range.from, range.to] : [labourerId],
   )
 }
 
@@ -653,7 +666,11 @@ export interface PaymentRow {
   allocated_paise: number
 }
 
-export function paymentsFor(labourerId: string, limit = 400): Promise<PaymentRow[]> {
+export function paymentsFor(
+  labourerId: string,
+  limit = 400,
+  range?: { from: ISODate; to: ISODate },
+): Promise<PaymentRow[]> {
   return all<PaymentRow>(
     `SELECT p.id, p.date, p.amount_paise, p.mode, p.is_advance, p.direction, p.note,
             a.name_en AS account_name_en, a.name_kn AS account_name_kn,
@@ -662,9 +679,10 @@ export function paymentsFor(labourerId: string, limit = 400): Promise<PaymentRow
        FROM labour_payments p
        LEFT JOIN accounts a ON a.id = p.account_id
       WHERE p.labourer_id = ? AND p.is_deleted = 0
+        ${range ? 'AND p.date >= ? AND p.date <= ?' : ''}
       ORDER BY p.date DESC, p.created_at DESC
       LIMIT ${Math.max(1, Math.min(limit, 2000))};`,
-    [labourerId],
+    range ? [labourerId, range.from, range.to] : [labourerId],
   )
 }
 

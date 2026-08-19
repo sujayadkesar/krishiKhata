@@ -23,7 +23,7 @@ import { seedId } from '@/lib/ids'
  * genuinely absent. It is NOT a way to change seeded rows — once a row exists,
  * it belongs to the farmer.
  */
-const SEED_VERSION = '3'
+const SEED_VERSION = '4'
 
 const now = () => new Date().toISOString()
 
@@ -159,10 +159,13 @@ const GRADES: [slug: string, en: string, kn: string][] = [
  * The granular work. This is the level the brief asked for: not "labour" but
  * "labour for cutting" as against "labour for spraying".
  */
-const ACTIVITIES: [slug: string, en: string, kn: string, subHead: string][] = [
+const ACTIVITIES: [
+  slug: string, en: string, kn: string, subHead: string, basis?: string, unit?: string,
+][] = [
   ['harvest', 'Harvesting / Cutting', 'ಕೊಯ್ಲು', 'labour'],
   ['fert_apply', 'Fertilizer application', 'ಗೊಬ್ಬರ ಹಾಕುವುದು', 'labour'],
-  ['spraying', 'Spraying', 'ಔಷಧಿ ಸಿಂಪರಣೆ', 'labour'],
+  // Spraying is paid per litre at a price agreed when the job finishes.
+  ['spraying', 'Spraying', 'ಔಷಧಿ ಸಿಂಪರಣೆ', 'labour', 'piece', 'litre'],
   ['weeding', 'Weeding', 'ಕಳೆ ತೆಗೆಯುವುದು', 'labour'],
   ['pruning', 'Pruning', 'ಕತ್ತರಿಸುವುದು', 'labour'],
   ['planting', 'Planting', 'ನಾಟಿ', 'labour'],
@@ -174,6 +177,11 @@ const ACTIVITIES: [slug: string, en: string, kn: string, subHead: string][] = [
   ['watchman', 'Watchman', 'ಕಾವಲು', 'labour'],
   ['goods_purchase', 'Goods purchased', 'ಸಾಮಗ್ರಿ ಖರೀದಿ', 'misc'],
   ['vehicle_hire', 'Vehicle hire', 'ವಾಹನ ಬಾಡಿಗೆ', 'transport'],
+  // Machinery is hired by the hour, which is what the hourly basis is for.
+  ['tractor', 'Tractor work', 'ಟ್ರ್ಯಾಕ್ಟರ್ ಕೆಲಸ', 'machinery', 'hour'],
+  ['tiller', 'Power tiller', 'ಟಿಲ್ಲರ್', 'machinery', 'hour'],
+  ['jcb', 'JCB / Earth mover', 'ಜೆಸಿಬಿ', 'machinery', 'hour'],
+  ['pump', 'Pump set work', 'ಪಂಪ್ ಸೆಟ್', 'machinery', 'hour'],
 ]
 
 /* ------------------------------------------------------------------ */
@@ -246,9 +254,12 @@ function buildSeed(): SeedTable[] {
     }
   }
 
-  const activities: Row[] = ACTIVITIES.map(([slug, en, kn, sub], i) => ({
+  const activities: Row[] = ACTIVITIES.map(([slug, en, kn, sub, basis, unit], i) => ({
     id: seedId(`act:${slug}`),
     name_en: en, name_kn: kn, sub_head_id: seedId(`sub:${sub}`),
+    default_basis: basis ?? 'day',
+    default_rate_paise: null,
+    default_unit_id: unit ? seedId(`unit:${unit}`) : null,
     is_active: 1, sort_order: i, created_at: ts, updated_at: ts,
   }))
 
@@ -286,7 +297,10 @@ function buildSeed(): SeedTable[] {
     },
     {
       table: 'activities',
-      columns: ['id', 'name_en', 'name_kn', 'sub_head_id', 'is_active', 'sort_order', 'created_at', 'updated_at'],
+      columns: [
+        'id', 'name_en', 'name_kn', 'sub_head_id', 'default_basis', 'default_rate_paise',
+        'default_unit_id', 'is_active', 'sort_order', 'created_at', 'updated_at',
+      ],
       rows: activities,
     },
     {
@@ -322,6 +336,26 @@ export async function seedIfEmpty(): Promise<void> {
         await run(sql, columns.map((c) => row[c] ?? null))
       }
     }
+    /*
+     * Grades under a variety are retired.
+     *
+     * They were seeded, and then removed from the entry form: "G9 -> first
+     * class -> 40 kg" is three decisions to record one sale, and a form that
+     * long is one a farmer stops filling in. The rows are DEACTIVATED rather
+     * than deleted, because entries made while they existed still point at
+     * them and every report resolves the name through that join.
+     *
+     * Only the seeded ones, by their fixed ids. A farmer who built their own
+     * second level meant it.
+     */
+    for (const variety of ['g9', 'mitka', 'karibale']) {
+      for (const grade of ['first', 'second']) {
+        await run('UPDATE sub_heads SET is_active = 0 WHERE id = ?;', [
+          seedId(`sub:banana:${variety}:${grade}`),
+        ])
+      }
+    }
+
     /*
      * The one correction, rather than an insert.
      *

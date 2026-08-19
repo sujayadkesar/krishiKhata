@@ -11,7 +11,7 @@
  * about what the table looks like. Add a new migration instead.
  */
 
-export const SCHEMA_VERSION = 7
+export const SCHEMA_VERSION = 8
 
 const V1 = `
 CREATE TABLE IF NOT EXISTS settings (
@@ -409,5 +409,28 @@ CREATE INDEX IF NOT EXISTS idx_ws_pricing ON work_sessions(basis, priced_at);
 CREATE INDEX IF NOT EXISTS idx_heads_category ON heads(category);
 `
 
+/**
+ * Machinery is paid by the hour, and a work type should remember how it is paid.
+ *
+ * A tractor, a tiller and a sprayer pump are hired by the hour, not the day,
+ * and the farmer was having to think in days and convert. 'hour' joins the
+ * bases; it reuses `quantity_milli` for the hours, because hours and litres
+ * are the same shape of number and a second column would only be one more
+ * place for them to disagree.
+ *
+ * The bigger change is that a WORK TYPE now carries its own default basis and
+ * rate. "Tractor ploughing" is always hourly at roughly the same figure, and
+ * making the farmer re-state that every time is how the wrong basis gets
+ * picked. Choosing the work now sets the shape of the rest of the form, and
+ * every one of them is editable in Settings — added, renamed, retired.
+ */
+const V8 = `
+ALTER TABLE labourers ADD COLUMN hourly_rate_paise INTEGER;
+
+ALTER TABLE activities ADD COLUMN default_basis TEXT NOT NULL DEFAULT 'day';
+ALTER TABLE activities ADD COLUMN default_rate_paise INTEGER;
+ALTER TABLE activities ADD COLUMN default_unit_id TEXT REFERENCES units(id);
+`
+
 /** Index in this array + 1 is the version it produces. Append only. */
-export const MIGRATIONS: string[] = [V1, V2, V3, V4, V5, V6, V7]
+export const MIGRATIONS: string[] = [V1, V2, V3, V4, V5, V6, V7, V8]

@@ -111,12 +111,14 @@ export function EntryFields({
         </Field>
       ) : null}
 
-      {/* -------------------------------------------- variety and grade --
+      {/* ------------------------------------------------------ variety --
        *
-       * Two levels, and the second appears only when the first has one. Under
-       * Banana the varieties are G9, Mitka and Karibale; under each of those,
-       * first and second class. Under Pepper there is usually neither, and the
-       * farmer is asked for nothing.
+       * ONE level, not two. Grades under each variety were tried and removed:
+       * "G9 → first class → 40 kg" is three decisions to record one sale, and
+       * a form that long is one a farmer stops filling in. A grade that really
+       * does fetch a different price is its own variety.
+       *
+       * Shown only when the head HAS varieties. Honey is just honey.
        */}
       {kind !== 'transfer' && draft.head_id && form.subHeads.length > 0 ? (
         <Field
@@ -130,19 +132,6 @@ export function EntryFields({
             onChange={(v) => set({ sub_head_id: v, activity_id: null })}
             placeholder={t('common.select')}
             options={form.subHeads.map((s) => ({ value: s.id, label: nameOf(s) }))}
-          />
-        </Field>
-      ) : null}
-
-      {/* Grades stay chips: there are two or three of them, they are the last
-          thing chosen before the money, and one tap beats opening a list. */}
-      {form.childSubHeads.length > 0 ? (
-        <Field label={t('entry.grade')} required>
-          <ChipSingle
-            options={form.childSubHeads.map((s) => ({ value: s.id, label: nameOf(s) }))}
-            value={draft.sub_head_id === form.parentSubHeadId ? null : draft.sub_head_id}
-            onChange={(v) => set({ sub_head_id: v ?? form.parentSubHeadId })}
-            onAdd={() => navigate(`/settings/sub-heads/${draft.head_id}`)}
           />
         </Field>
       ) : null}

@@ -144,6 +144,18 @@ export interface SubHead extends MasterRow {
 export interface Activity extends MasterRow {
   /** The sub-head this work usually belongs to; pre-selected, still editable. */
   sub_head_id: string | null
+  /**
+   * How this kind of work is normally paid for, and at what.
+   *
+   * "Tractor ploughing" is always hourly at roughly the same figure, and
+   * making the farmer restate that every single time is how the wrong basis
+   * gets chosen. Choosing the work now sets the shape of the rest of the
+   * form; all of it stays editable on the day.
+   */
+  default_basis: WorkBasis
+  default_rate_paise: number | null
+  /** For piece and hourly work: litres, bags, hours. */
+  default_unit_id: string | null
 }
 
 export type Employment = 'casual' | 'monthly'
@@ -152,11 +164,14 @@ export type Employment = 'casual' | 'monthly'
  * How a piece of work turns into money.
  *
  *   day    a day rate, times days, times people.
+ *   hour   machinery and its operator, by the hour. Like piece, but the rate
+ *          is known up front — a tractor's hourly hire is not negotiated
+ *          afterwards the way a spraying contract is.
  *   piece  a quantity — litres sprayed — times a rate agreed AFTERWARDS.
  *   lump   an agreed figure for the job. No rate, nothing to multiply.
  *   salary a fixed worker's month.
  */
-export type WorkBasis = 'day' | 'piece' | 'lump' | 'salary'
+export type WorkBasis = 'day' | 'hour' | 'piece' | 'lump' | 'salary'
 
 export interface Labourer extends MasterRow {
   /**
@@ -172,6 +187,8 @@ export interface Labourer extends MasterRow {
    * the app tracks the lead and a head-count, not twelve named individuals.
    */
   is_group_lead: Bool
+  /** Machinery and its operator, per hour. Null when they never work hourly. */
+  hourly_rate_paise: number | null
   /**
    * 'casual' is paid for what they do — days, litres, or an agreed figure.
    * 'monthly' is a fixed worker whose salary is posted once a month and then

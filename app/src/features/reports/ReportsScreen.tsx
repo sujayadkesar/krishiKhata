@@ -3,7 +3,10 @@ import {
   FileText, Sprout, Users, BookOpen, ChevronRight, User, LayoutDashboard, Share2, MapPin,
 } from 'lucide-react'
 import { Page, Shell } from '@/components/Shell'
-import { Button, Card, DateInput, EmptyState, Field, ListRow, Select, SectionHeader } from '@/components/ui'
+import {
+  Button, Card, DateInput, EmptyState, Field, ListRow, SectionHeader, Sheet,
+} from '@/components/ui'
+import { SearchSelect } from '@/components/SearchPicker'
 import { useQuery } from '@/hooks/useQuery'
 import { useI18n } from '@/i18n'
 import { getFarmProfile } from '@/data/masterData'
@@ -43,6 +46,21 @@ import {
  * looking at the thing, then sending it.
  */
 
+/**
+ * Reports, grouped by what the farmer is trying to do.
+ *
+ * Seven rows in one list is a wall to read. "The whole farm", "one part of
+ * it", "the people" is how somebody actually arrives at a report, and the
+ * grouping means they only read the third of the list that applies.
+ */
+type ReportGroup = 'farm' | 'detail' | 'people'
+
+const GROUPS: { id: ReportGroup; title: string }[] = [
+  { id: 'farm', title: 'The whole farm' },
+  { id: 'detail', title: 'A closer look' },
+  { id: 'people', title: 'The people' },
+]
+
 type ReportId =
   | 'comprehensive'
   | 'income-expense'
@@ -52,9 +70,17 @@ type ReportId =
   | 'labour-statement'
   | 'day-book'
 
-const REPORTS: { id: ReportId; icon: typeof FileText; kn: string; en: string; hint: string }[] = [
+const REPORTS: {
+  id: ReportId
+  group: ReportGroup
+  icon: typeof FileText
+  kn: string
+  en: string
+  hint: string
+}[] = [
   {
     id: 'comprehensive',
+    group: 'farm',
     icon: LayoutDashboard,
     kn: 'ಸಂಪೂರ್ಣ ವರದಿ',
     en: 'Complete farm report',
@@ -62,6 +88,7 @@ const REPORTS: { id: ReportId; icon: typeof FileText; kn: string; en: string; hi
   },
   {
     id: 'crop-profit',
+    group: 'detail',
     icon: Sprout,
     kn: 'ಬೆಳೆವಾರು ಲಾಭ',
     en: 'Crop-wise profit',
@@ -69,6 +96,7 @@ const REPORTS: { id: ReportId; icon: typeof FileText; kn: string; en: string; hi
   },
   {
     id: 'plot-profit',
+    group: 'detail',
     icon: MapPin,
     kn: 'ಜಮೀನುವಾರು ಲಾಭ',
     en: 'Plot-wise profit',
@@ -76,6 +104,7 @@ const REPORTS: { id: ReportId; icon: typeof FileText; kn: string; en: string; hi
   },
   {
     id: 'income-expense',
+    group: 'farm',
     icon: FileText,
     kn: 'ಆದಾಯ ಮತ್ತು ಖರ್ಚು',
     en: 'Income & Expense',
@@ -83,6 +112,7 @@ const REPORTS: { id: ReportId; icon: typeof FileText; kn: string; en: string; hi
   },
   {
     id: 'labour-dues',
+    group: 'people',
     icon: Users,
     kn: 'ಪಾವತಿ ಬಾಕಿ',
     en: 'Wages due',
@@ -90,6 +120,7 @@ const REPORTS: { id: ReportId; icon: typeof FileText; kn: string; en: string; hi
   },
   {
     id: 'labour-statement',
+    group: 'people',
     icon: User,
     kn: 'ಕೆಲಸ ಮತ್ತು ಪಾವತಿ ವಿವರ',
     en: 'One worker: full statement',
@@ -97,6 +128,7 @@ const REPORTS: { id: ReportId; icon: typeof FileText; kn: string; en: string; hi
   },
   {
     id: 'day-book',
+    group: 'farm',
     icon: BookOpen,
     kn: 'ದಿನಚರಿ',
     en: 'Day book',
@@ -121,6 +153,7 @@ export function ReportsScreen() {
    * whole report as unstyled stacked text while the PDF came out fine.
    */
   const [doc, setDoc] = useState<string | null>(null)
+  const [pickingWorker, setPickingWorker] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
@@ -177,7 +210,7 @@ export function ReportsScreen() {
     return lang === 'kn' ? r.kn : r.en
   }
 
-  async function build(id: ReportId): Promise<string> {
+  async function build(id: ReportId, worker?: string | null): Promise<string> {
     if (!ctx) throw new Error('Farm profile is not loaded yet.')
 
     switch (id) {
@@ -234,14 +267,15 @@ export function ReportsScreen() {
         return labourDuesDoc(ctx, dues, effort)
       }
       case 'labour-statement': {
-        if (!labourerId) throw new Error('Choose someone first.')
-        const person = labourers?.find((l) => l.labourer_id === labourerId)
+        const who = worker ?? labourerId
+        if (!who) throw new Error('Choose someone first.')
+        const person = labourers?.find((l) => l.labourer_id === who)
         if (!person) throw new Error('That person is no longer on the list.')
         const [work, payments, byCrop, monthly] = await Promise.all([
-          attendanceFor(labourerId),
-          paymentsFor(labourerId),
-          workByCropFor(labourerId),
-          monthlyFor(labourerId),
+          attendanceFor(who),
+          paymentsFor(who),
+          workByCropFor(who),
+          monthlyFor(who),
         ])
         return labourStatementDoc(ctx, person, work, payments, person.balance_paise, {
           byCrop,
@@ -255,16 +289,17 @@ export function ReportsScreen() {
     }
   }
 
-  async function preview(id: ReportId) {
+  async function preview(id: ReportId, worker?: string) {
     setSelected(id)
+    const person = worker ?? labourerId
     // The one report that needs a subject chosen before it means anything.
-    if (id === 'labour-statement' && !labourerId) return
+    if (id === 'labour-statement' && !person) return
 
     setBusy('build')
     setError(null)
     setNotice(null)
     try {
-      const body = await build(id)
+      const body = await build(id, person)
       // Wrapped once, here, so the preview and the shared PDF are the same
       // document rather than two renderings that can disagree.
       setDoc(await buildPrintDocument(body, title(id)))
@@ -384,43 +419,76 @@ export function ReportsScreen() {
           </div>
         </div>
 
-        {/* The worker picker sits above the list once that report is chosen,
-            so the thing it is missing is the next thing on screen rather than
-            something below the menu it was tapped from. */}
-        {selected === 'labour-statement' ? (
-          <div className="card p-3">
-            <Field label={t('labour.labourer')}>
-              <Select
-                value={labourerId}
-                onChange={(v) => {
-                  setLabourerId(v)
-                  void preview('labour-statement')
-                }}
-                placeholder={t('common.select')}
-                options={(labourers ?? []).map((l) => ({
-                  value: l.labourer_id,
-                  label: l.code ? `${l.code} · ${nameOf(l)}` : nameOf(l),
-                }))}
-              />
-            </Field>
-          </div>
-        ) : null}
+        {/*
+          One tap, not three.
 
-        <div>
-          <SectionHeader>{t('report.title')}</SectionHeader>
-          <Card>
-            {REPORTS.map((r) => (
-              <ListRow
-                key={r.id}
-                title={lang === 'kn' ? r.kn : r.en}
-                subtitle={r.hint}
-                leading={<r.icon size={19} style={{ color: 'var(--color-brand-600)' }} />}
-                right={<ChevronRight size={16} style={{ color: 'var(--text-faint)' }} />}
-                onClick={() => void preview(r.id)}
-              />
-            ))}
-          </Card>
-        </div>
+          Choosing "Work & Payment Statement" used to select the report, then
+          reveal a worker dropdown somewhere else on the page, then need the
+          report tapping again. Now the report that needs a subject opens the
+          picker itself, and choosing the subject builds the document — which
+          is what tapping the report meant in the first place.
+        */}
+        {GROUPS.map((group) => (
+          <section key={group.title}>
+            <SectionHeader>{group.title}</SectionHeader>
+            <Card>
+              {REPORTS.filter((r) => r.group === group.id).map((r) => (
+                <ListRow
+                  key={r.id}
+                  title={lang === 'kn' ? r.kn : r.en}
+                  subtitle={r.hint}
+                  leading={
+                    <span
+                      className="grid place-items-center rounded-lg shrink-0"
+                      style={{
+                        width: 34,
+                        height: 34,
+                        background: 'var(--color-brand-50)',
+                        color: 'var(--color-brand-600)',
+                      }}
+                    >
+                      <r.icon size={18} />
+                    </span>
+                  }
+                  right={<ChevronRight size={16} style={{ color: 'var(--text-faint)' }} />}
+                  onClick={() => {
+                    if (r.id === 'labour-statement') {
+                      setPickingWorker(true)
+                      return
+                    }
+                    void preview(r.id)
+                  }}
+                />
+              ))}
+            </Card>
+          </section>
+        ))}
+
+        <Sheet
+          open={pickingWorker}
+          onClose={() => setPickingWorker(false)}
+          title={t('labour.labourer')}
+        >
+          <SearchSelect
+            title={t('labour.labourer')}
+            placeholder={t('common.select')}
+            options={(labourers ?? []).map((l) => ({
+              value: l.labourer_id,
+              label: nameOf(l),
+              search: `${l.name_en} ${l.name_kn} ${l.code ?? ''}`,
+              hint: l.code ?? undefined,
+            }))}
+            value={labourerId}
+            onChange={(v) => {
+              setLabourerId(v)
+              setPickingWorker(false)
+              if (v) void preview('labour-statement', v)
+            }}
+          />
+          <p className="text-xs" style={{ color: 'var(--text-faint)' }}>
+            {t('report.workerHint')}
+          </p>
+        </Sheet>
 
         {error ? (
           <div

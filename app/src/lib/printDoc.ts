@@ -124,34 +124,49 @@ const STYLES = `
 
   /* ---------------------------------------------------------- letterhead -
    *
-   * A statement, not a printout. The farm's own name leads at the top of the
-   * page with the mark beside it, its details underneath, then a rule, then
-   * the document title centred below — the shape of a letter from an office
-   * that keeps books, because that is what this is handed over as.
+   * A statement, not a printout: a banded head carrying the mark and the
+   * farm's name, its details under it, an ornament, then the document title
+   * centred below — the shape of a letter from an office that keeps books,
+   * because that is what this is handed over as.
    */
 
-  .lh { display: flex; align-items: center; gap: 14px; }
-  .lh-logo { width: 46px; height: 46px; flex: none; }
+  /* A banded head: the mark and the farm's name reversed out of the brand
+     green, its details on the paper underneath, then the ornament. */
+  .lh-band {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #12502c;
+    color: #fff;
+    padding: 7px 12px;
+    border-radius: 3px;
+  }
+  .lh-logo { width: 40px; height: 40px; flex: none; }
   .lh-main { flex: 1; min-width: 0; }
   .lh-farm {
-    font-size: 17pt;
+    font-size: 16pt;
     font-weight: 600;
-    color: #12502c;
     line-height: 1.15;
     letter-spacing: 0; /* never set tracking: it takes Kannada apart */
   }
-  .lh-owner { font-size: 10.5pt; font-weight: 600; margin-top: 2px; color: #3a3229; }
-  .lh-sub { font-size: 8.5pt; color: #6b6157; font-weight: 400; margin-top: 1px; }
+  .lh-owner { font-size: 9.5pt; margin-top: 1px; color: #cfe4d6; }
   .lh-right {
     text-align: right;
-    font-size: 8.5pt;
-    color: #6b6157;
-    line-height: 1.5;
+    font-size: 8pt;
+    color: #a7cbb5;
+    line-height: 1.45;
     flex: none;
   }
+  .lh-contact {
+    text-align: center;
+    font-size: 8.5pt;
+    color: #6b6157;
+    margin-top: 5px;
+  }
 
-  .rule { border: 0; border-top: 2px solid #12502c; margin: 9px 0 0; }
-  .rule-thin { border: 0; border-top: 0.75px solid #12502c; margin: 1.5px 0 12px; }
+  /* The one piece of decoration in the document. Inline SVG, because a
+     border-image is the first thing a print engine drops. */
+  .orn { display: block; width: 100%; height: 15px; margin: 3px 0 2px; }
 
   .title-block { text-align: center; margin-bottom: 14px; }
   h1.title {
@@ -311,38 +326,26 @@ const STYLES = `
 
   /* -------------------------------------------------------------- close - */
 
-  .sign {
-    margin-top: 22px;
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-    gap: 20px;
-    break-inside: avoid;
-  }
-  .sign .made {
+  /* The close. No signature rule: nobody signs a printout from a phone, and
+     an empty line at the bottom made every report look unfinished. */
+  .close { margin-top: 16px; break-inside: avoid; }
+  .close-made {
+    text-align: center;
     font-size: 8pt;
     color: #8b7f71;
-    max-width: 90mm;
-  }
-  .sign .line {
-    width: 58mm;
-    border-top: 0.75px solid #6b6157;
-    padding-top: 4px;
-    text-align: center;
-    font-size: 8.5pt;
-    color: #3a3229;
+    margin-top: 2px;
   }
 
   .foot {
-    margin-top: 14px;
-    padding-top: 6px;
-    border-top: 0.75px solid #ece4d8;
+    margin-top: 8px;
     font-size: 7.5pt;
     color: #a2968a;
     display: flex;
     justify-content: space-between;
     gap: 12px;
   }
+  .foot span:nth-child(2) { text-align: center; flex: 1; }
+  .foot span:last-child { text-align: right; }
 `
 
 /** Wrap rendered report markup into a complete, self-contained document. */

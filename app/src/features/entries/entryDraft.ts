@@ -8,21 +8,21 @@ import type { MissingKey } from './entryRules'
 import type { HeadCategory, SubHead } from '@/db/types'
 import type { StringKey } from '@/i18n/strings'
 
+import { useI18n } from '@/i18n'
+import { lineTotalPaise } from '@/lib/quantity'
+import { todayISO } from '@/lib/date'
+import type { EntryKind, ISODate } from '@/db/types'
+
 /** The rule returns stable keys; the interface needs words in two languages. */
 const MISSING_LABEL: Record<MissingKey, StringKey> = {
   amount: 'common.amount',
   head: 'entry.head',
   subHead: 'entry.subHead',
   variety: 'entry.variety',
-  grade: 'entry.grade',
   plot: 'entry.plot',
   account: 'entry.account',
   toAccount: 'entry.to',
 }
-import { useI18n } from '@/i18n'
-import { lineTotalPaise } from '@/lib/quantity'
-import { todayISO } from '@/lib/date'
-import type { EntryKind, ISODate } from '@/db/types'
 
 /**
  * One entry being edited, shared by the add screen and the edit screen.

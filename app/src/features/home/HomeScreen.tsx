@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart,
-  ResponsiveContainer, Tooltip, XAxis, YAxis,
+  Bar, BarChart, CartesianGrid, LabelList, Legend, ResponsiveContainer, Tooltip,
+  XAxis, YAxis,
 } from 'recharts'
 import {
   Plus, CalendarPlus, Wallet, CloudUpload, Download, MapPin,
@@ -11,14 +11,13 @@ import { Page, Shell } from '@/components/Shell'
 import { Card, EmptyState, QuickLink, SectionHeader, StatTile } from '@/components/ui'
 import { useQuery } from '@/hooks/useQuery'
 import {
-  accountBalances, expenseTotalsBySubHead, monthlyTotals, priceHistory, totalsByHead,
-  totalsByKind,
+  accountBalances, expenseTotalsBySubHead, monthlyTotals, totalsByKind,
 } from '@/data/entries'
+import { cropProfitability } from '@/data/reports'
 import { labourBalances, totalOutstandingWages } from '@/data/labour'
 import { backupIsDue, lastBackupAt } from '@/data/backup'
 import { useI18n } from '@/i18n'
 import { formatCompactINR, formatRupees } from '@/lib/money'
-import { impliedRatePaise } from '@/lib/quantity'
 import { addMonths, formatMonth, monthEnd, monthStart, todayISO } from '@/lib/date'
 import { navigate } from '@/router'
 import { checkForUpdate } from '@/lib/updates'
@@ -28,25 +27,15 @@ import type { Lang } from '@/i18n/strings'
 /**
  * The dashboard.
  *
- * Charts here answer questions a farmer actually asks — which crop brought
- * money in, where it went out, who is owed — rather than showing every figure
- * the database holds. Everything is scoped to the current month except the
- * trend, because a month is the unit a farm's cash actually moves in.
- */
-
-const SWATCH: Record<string, string> = {
-  amber: '#f59e0b', rose: '#f43f5e', orange: '#f97316', yellow: '#eab308',
-  lime: '#84cc16', emerald: '#10b981', sky: '#0ea5e9', violet: '#8b5cf6', slate: '#64748b',
-}
-
-/**
- * Colours for crops the farmer has not picked one for.
+ * THREE charts, and each answers one question a farmer actually asks: how is
+ * the year going, where is the money going, and which crop is worth growing.
  *
- * Chosen to sit on the app's cream page and to stay apart from each other at
- * the size a pie slice actually gets on a phone. Deliberately not the money
- * colours: a crop slice in expense-red would read as a loss.
+ * There were five. A donut of crop income beside a bar of crop income beside
+ * a line of monthly income is the same money drawn three ways, and a screen
+ * that shows the same money three ways teaches people to scroll past all of
+ * it. The tiles above are this month; the charts are the last twelve, because
+ * one month of anything has no shape to see.
  */
-const FALLBACK = ['#04796b', '#e35b0d', '#2563eb', '#c026d3', '#65a30d', '#0891b2']
 
 async function load() {
   const today = todayISO()
@@ -55,10 +44,13 @@ async function load() {
   const trendFrom = monthStart(addMonths(today, -11))
 
   const [
-    kinds, byCrop, bySubHead, balances, trend, labour, outstanding, backupDue, lastBackup, prices,
+    kinds, crops, bySubHead, balances, trend, labour, outstanding, backupDue, lastBackup,
   ] = await Promise.all([
     totalsByKind(from, to),
-    totalsByHead('income', from, to),
+    // Income against real cost per crop — the crop chart needs both halves,
+    // and only cropProfitability knows the labour side, which arrives through
+    // payment allocations rather than through the expense rows.
+    cropProfitability({ from: trendFrom, to }),
     expenseTotalsBySubHead(from, to),
     accountBalances(),
     monthlyTotals(trendFrom, to),
@@ -66,14 +58,13 @@ async function load() {
     totalOutstandingWages(),
     backupIsDue(),
     lastBackupAt(),
-    priceHistory(trendFrom, to),
   ])
 
   const of = (k: string) => kinds.find((x) => x.kind === k)?.total ?? 0
   return {
     income: of('income'),
     expense: of('expense'),
-    byCrop,
+    crops,
     bySubHead,
     balances,
     trend,
@@ -81,7 +72,6 @@ async function load() {
     outstanding,
     backupDue,
     lastBackup,
-    prices,
   }
 }
 
@@ -89,6 +79,12 @@ const axisStyle = { fontSize: 11, fill: 'var(--text-faint)' }
 
 /** Rupees on a chart axis are unreadable in full; lakhs and thousands are not. */
 const compactAxis = (v: number) => formatCompactINR(v).replace('₹', '')
+
+/** The figure at the end of a bar, where an axis would be noise. */
+const compactLabel = (v: unknown): string => {
+  const n = Number(v)
+  return Number.isFinite(n) && n !== 0 ? formatCompactINR(n) : ''
+}
 
 /**
  * Recharts hands a tooltip formatter a loosely-typed value that may be an
@@ -123,23 +119,11 @@ export function HomeScreen() {
   const owed = (data?.labour ?? []).reduce((s, r) => s + Math.max(0, r.balance_paise), 0)
   const daysThisMonth = (data?.labour ?? []).reduce((s, r) => s + r.days, 0)
 
-  const cropData = useMemo(
-    () =>
-      (data?.byCrop ?? [])
-        .filter((c) => c.total > 0)
-        .map((c, i) => ({
-          name: c.name_en ? nameOf({ name_en: c.name_en, name_kn: c.name_kn ?? c.name_en }) : '—',
-          value: c.total,
-          fill: (c.color && SWATCH[c.color]) || FALLBACK[i % FALLBACK.length],
-        })),
-    [data?.byCrop, nameOf],
-  )
-
   const spendData = useMemo(
     () =>
       (data?.bySubHead ?? [])
         .filter((s) => s.total > 0)
-        .slice(0, 6)
+        .slice(0, 7)
         .map((s) => ({
           name: s.name_en ? nameOf({ name_en: s.name_en, name_kn: s.name_kn ?? s.name_en }) : '—',
           value: s.total,
@@ -148,47 +132,24 @@ export function HomeScreen() {
   )
 
   /**
-   * One line per crop, plotting realised price per unit.
+   * Income against cost, per crop.
    *
-   * Each crop becomes its own key on a shared month axis so Recharts can draw
-   * them together; months where a crop was not sold are simply absent, and
-   * connectNulls bridges the gap rather than dropping the line to zero — a
-   * crop that was not harvested did not become worthless.
+   * Only crops that actually moved money appear, and only the six biggest:
+   * a chart with a row for every head the farm has ever named is a chart
+   * nobody reads to the bottom of.
    */
-  const priceSeries = useMemo(() => {
-    const rows = data?.prices ?? []
-    if (!rows.length) return { data: [], lines: [] }
-
-    const months = [...new Set(rows.map((r) => r.month))].sort()
-    const heads = new Map<string, { label: string; color: string }>()
-
-    rows.forEach((r, i) => {
-      const key = r.head_id ?? 'none'
-      if (heads.has(key)) return
-      const unit = (lang === 'en' ? r.unit_short_en : r.unit_short_kn) ?? ''
-      const name = r.name_en
-        ? nameOf({ name_en: r.name_en, name_kn: r.name_kn ?? r.name_en })
-        : '—'
-      heads.set(key, {
-        label: unit ? `${name} /${unit}` : name,
-        color: (r.color && SWATCH[r.color]) || FALLBACK[i % FALLBACK.length],
-      })
-    })
-
-    const points = months.map((m) => {
-      const point: Record<string, string | number> = { month: shortMonth(m, lang) }
-      for (const r of rows.filter((x) => x.month === m)) {
-        const rate = impliedRatePaise(r.quantity_milli, r.total_paise)
-        if (rate != null) point[r.head_id ?? 'none'] = rate
-      }
-      return point
-    })
-
-    return {
-      data: points,
-      lines: [...heads.entries()].map(([key, v]) => ({ key, ...v })),
-    }
-  }, [data?.prices, lang, nameOf])
+  const cropCompare = useMemo(
+    () =>
+      (data?.crops ?? [])
+        .filter((c) => c.income_paise > 0 || c.total_cost_paise > 0)
+        .slice(0, 6)
+        .map((c) => ({
+          name: nameOf(c),
+          income: c.income_paise,
+          cost: c.total_cost_paise,
+        })),
+    [data?.crops, nameOf],
+  )
 
   const trendData = useMemo(
     () =>
@@ -359,127 +320,159 @@ export function HomeScreen() {
           </div>
         </section>
 
-        <div>
-          <SectionHeader>{t('dash.byCrop')}</SectionHeader>
-          {cropData.length === 0 ? (
-            <EmptyState>{t('common.empty')}</EmptyState>
-          ) : (
-            <div className="card p-3">
-              <ResponsiveContainer width="100%" height={210}>
-                <PieChart>
-                  <Pie
-                    data={cropData}
-                    dataKey="value"
-                    nameKey="name"
-                    innerRadius={48}
-                    outerRadius={78}
-                    paddingAngle={2}
-                    stroke="none"
-                  >
-                    {cropData.map((c) => (
-                      <Cell key={c.name} fill={c.fill} />
-                    ))}
-                  </Pie>
-                  <Tooltip contentStyle={TOOLTIP_STYLE} formatter={moneyTip} />
-                  <Legend verticalAlign="bottom" iconType="circle" wrapperStyle={{ fontSize: 12 }} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </div>
+        {/*
+          THREE CHARTS, AND EACH ANSWERS ONE QUESTION.
+          
+          There were five, and together they said less than these three do.
+          A donut of crop income next to a bar of crop income next to a line
+          of monthly income is the same money drawn three ways, and a screen
+          that shows the same money three ways teaches the farmer to scroll
+          past all of it.
+          
+          What is left: how the year is going, where the money goes, and which
+          crop is actually worth growing.
+        */}
 
-        <div>
-          <SectionHeader>{t('dash.bySubHead')}</SectionHeader>
-          {spendData.length === 0 ? (
+        <section>
+          <SectionHeader>{t('dash.trend')}</SectionHeader>
+          {trendData.length < 2 ? (
             <EmptyState>{t('common.empty')}</EmptyState>
           ) : (
-            <div className="card p-3">
-              <ResponsiveContainer width="100%" height={40 + spendData.length * 34}>
-                <BarChart data={spendData} layout="vertical" margin={{ left: 4, right: 12 }}>
-                  <CartesianGrid horizontal={false} stroke="var(--border)" />
-                  <XAxis type="number" tickFormatter={compactAxis} tick={axisStyle} />
-                  <YAxis type="category" dataKey="name" width={92} tick={axisStyle} interval={0} />
+            <div className="card p-3 pt-4">
+              {/* Paired bars rather than lines: a farmer reads "did more come
+                  in than went out this month" by comparing two heights side by
+                  side, which is one glance. Two crossing lines is a puzzle. */}
+              <ResponsiveContainer width="100%" height={210}>
+                <BarChart data={trendData} margin={{ left: 0, right: 8, top: 4 }} barGap={2}>
+                  <CartesianGrid stroke="var(--border)" vertical={false} />
+                  <XAxis dataKey="month" tick={axisStyle} tickLine={false} axisLine={false} />
+                  <YAxis
+                    tickFormatter={compactAxis}
+                    tick={axisStyle}
+                    width={42}
+                    tickLine={false}
+                    axisLine={false}
+                  />
                   <Tooltip
                     contentStyle={TOOLTIP_STYLE}
                     cursor={{ fill: 'var(--surface-sunken)' }}
                     formatter={moneyTip}
                   />
-                  <Bar dataKey="value" fill="var(--color-expense)" radius={[0, 5, 5, 0]} />
+                  <Legend wrapperStyle={{ fontSize: 12, paddingTop: 4 }} iconType="circle" />
+                  <Bar
+                    dataKey="income"
+                    name={t('dash.income')}
+                    fill="var(--color-income)"
+                    radius={[3, 3, 0, 0]}
+                  />
+                  <Bar
+                    dataKey="expense"
+                    name={t('dash.expense')}
+                    fill="var(--color-brand-500)"
+                    radius={[3, 3, 0, 0]}
+                  />
                 </BarChart>
               </ResponsiveContainer>
             </div>
           )}
-        </div>
+        </section>
 
-        <div>
-          <SectionHeader>{t('dash.trend')}</SectionHeader>
-          {trendData.length < 2 ? (
+        <section>
+          <SectionHeader>{t('dash.bySubHead')}</SectionHeader>
+          {spendData.length === 0 ? (
             <EmptyState>{t('common.empty')}</EmptyState>
           ) : (
             <div className="card p-3">
-              <ResponsiveContainer width="100%" height={200}>
-                <LineChart data={trendData} margin={{ left: 4, right: 12, top: 8 }}>
-                  <CartesianGrid stroke="var(--border)" vertical={false} />
-                  <XAxis dataKey="month" tick={axisStyle} />
-                  <YAxis tickFormatter={compactAxis} tick={axisStyle} width={44} />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} formatter={moneyTip} />
-                  <Line
-                    type="monotone"
-                    dataKey="income"
-                    name={t('dash.income')}
-                    stroke="var(--color-income)"
-                    strokeWidth={2.5}
-                    dot={false}
+              {/* Horizontal, because these labels are Kannada words of very
+                  different lengths and a vertical axis of them is unreadable
+                  at any phone width. Ranked, because the question is always
+                  "what is the biggest one". */}
+              <ResponsiveContainer width="100%" height={30 + spendData.length * 36}>
+                <BarChart
+                  data={spendData}
+                  layout="vertical"
+                  margin={{ left: 4, right: 46, top: 4 }}
+                >
+                  <XAxis type="number" hide />
+                  <YAxis
+                    type="category"
+                    dataKey="name"
+                    width={104}
+                    tick={axisStyle}
+                    interval={0}
+                    tickLine={false}
+                    axisLine={false}
                   />
-                  <Line
-                    type="monotone"
-                    dataKey="expense"
-                    name={t('dash.expense')}
-                    stroke="var(--color-expense)"
-                    strokeWidth={2.5}
-                    dot={false}
+                  <Tooltip
+                    contentStyle={TOOLTIP_STYLE}
+                    cursor={{ fill: 'var(--surface-sunken)' }}
+                    formatter={moneyTip}
                   />
-                  <Legend wrapperStyle={{ fontSize: 12 }} />
-                </LineChart>
+                  <Bar dataKey="value" fill="var(--color-brand-500)" radius={[0, 5, 5, 0]}>
+                    <LabelList
+                      dataKey="value"
+                      position="right"
+                      formatter={compactLabel}
+                      style={{ fontSize: 11, fill: 'var(--text-soft)', fontWeight: 600 }}
+                    />
+                  </Bar>
+                </BarChart>
               </ResponsiveContainer>
             </div>
           )}
-        </div>
+        </section>
 
-        {/* What the crop actually fetched, month by month. This is the number
-            a farmer argues with a trader about, and until now it lived only
-            inside individual entries. */}
-        {priceSeries.lines.length > 0 ? (
-          <section>
-            <SectionHeader>{t('dash.priceTrend')}</SectionHeader>
-            <div className="card p-3">
-              <ResponsiveContainer width="100%" height={200}>
-                <LineChart data={priceSeries.data} margin={{ left: 4, right: 12, top: 8 }}>
-                  <CartesianGrid stroke="var(--border)" vertical={false} />
-                  <XAxis dataKey="month" tick={axisStyle} />
-                  <YAxis tickFormatter={compactAxis} tick={axisStyle} width={44} />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} formatter={moneyTip} />
-                  <Legend wrapperStyle={{ fontSize: 12 }} />
-                  {priceSeries.lines.map((l) => (
-                    <Line
-                      key={l.key}
-                      type="monotone"
-                      dataKey={l.key}
-                      name={l.label}
-                      stroke={l.color}
-                      strokeWidth={2.5}
-                      dot={{ r: 3 }}
-                      connectNulls
-                    />
-                  ))}
-                </LineChart>
+        <section>
+          <SectionHeader>{t('dash.cropCompare')}</SectionHeader>
+          {cropCompare.length === 0 ? (
+            <EmptyState>{t('common.empty')}</EmptyState>
+          ) : (
+            <div className="card p-3 pt-4">
+              {/* Income and cost as two bars per crop, side by side. This is
+                  the one chart that answers the question the whole app exists
+                  for — whether a crop is worth growing — and it only answers
+                  it if both halves are visible at once. */}
+              <ResponsiveContainer width="100%" height={40 + cropCompare.length * 52}>
+                <BarChart
+                  data={cropCompare}
+                  layout="vertical"
+                  margin={{ left: 4, right: 12, top: 4 }}
+                  barGap={2}
+                >
+                  <CartesianGrid horizontal={false} stroke="var(--border)" />
+                  <XAxis type="number" tickFormatter={compactAxis} tick={axisStyle} />
+                  <YAxis
+                    type="category"
+                    dataKey="name"
+                    width={90}
+                    tick={axisStyle}
+                    interval={0}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <Tooltip
+                    contentStyle={TOOLTIP_STYLE}
+                    cursor={{ fill: 'var(--surface-sunken)' }}
+                    formatter={moneyTip}
+                  />
+                  <Legend wrapperStyle={{ fontSize: 12, paddingTop: 4 }} iconType="circle" />
+                  <Bar
+                    dataKey="income"
+                    name={t('dash.income')}
+                    fill="var(--color-income)"
+                    radius={[0, 3, 3, 0]}
+                  />
+                  <Bar
+                    dataKey="cost"
+                    name={t('dash.expense')}
+                    fill="var(--color-brand-500)"
+                    radius={[0, 3, 3, 0]}
+                  />
+                </BarChart>
               </ResponsiveContainer>
-              <p className="text-[11px] mt-1 px-1" style={{ color: 'var(--text-faint)' }}>
-                {t('dash.priceHint')}
-              </p>
             </div>
-          </section>
-        ) : null}
+          )}
+        </section>
 
       </Page>
     </Shell>

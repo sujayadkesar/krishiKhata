@@ -168,6 +168,10 @@ export const STRINGS = {
   // afterwards; plucking is whatever was asked; a fixed hand draws a month.
   'labour.basis': { kn: 'ಹೇಗೆ ಕೂಲಿ', en: 'How they are paid' },
   'labour.basisDay': { kn: 'ದಿನದ ಲೆಕ್ಕ', en: 'By the day' },
+  'labour.basisHour': { kn: 'ಗಂಟೆ ಲೆಕ್ಕ', en: 'By the hour' },
+  'labour.hoursPerDay': { kn: 'ದಿನಕ್ಕೆ ಎಷ್ಟು ಗಂಟೆ', en: 'Hours per day' },
+  'labour.hours': { kn: 'ಗಂಟೆ', en: 'hr' },
+  'labour.hourRate': { kn: 'ಗಂಟೆಗೆ ದರ', en: 'Rate per hour' },
   'labour.basisPiece': { kn: 'ಅಳತೆ ಲೆಕ್ಕ', en: 'By quantity' },
   'labour.basisLump': { kn: 'ಗುತ್ತಿಗೆ', en: 'Agreed amount' },
   'labour.basisSalary': { kn: 'ಮಾಸಿಕ ಸಂಬಳ', en: 'Monthly salary' },
@@ -185,6 +189,9 @@ export const STRINGS = {
     kn: 'ಕೆಲಸ ಮುಗಿದ ಮೇಲೆ ದರ ಒಪ್ಪಿದಾಗ ಇಲ್ಲಿ ಹಾಕಿ. ಮುಂಗಡ ತಾನಾಗಿ ಹೊಂದಾಣಿಕೆ ಆಗುತ್ತದೆ.',
     en: 'Enter the rate once the job is done. Any advance already paid settles itself against it.',
   },
+  'labour.settleFor': { kn: 'ಯಾವ ಅವಧಿಗೆ', en: 'Statement period' },
+  'labour.lastMonth': { kn: 'ಕಳೆದ ತಿಂಗಳು', en: 'Last month' },
+  'labour.payments': { kn: 'ಪಾವತಿ', en: 'payments' },
   'labour.employment': { kn: 'ಯಾವ ಬಗೆಯ ಕೆಲಸಗಾರ', en: 'Kind of worker' },
   'labour.casual': { kn: 'ದಿನಗೂಲಿ', en: 'Paid per job' },
   'labour.monthly': { kn: 'ಮಾಸಿಕ ಸಂಬಳ', en: 'Monthly salary' },
@@ -270,7 +277,8 @@ export const STRINGS = {
   'dash.balances': { kn: 'ಖಾತೆ ಶಿಲ್ಕು', en: 'Balances' },
   'dash.byCrop': { kn: 'ಬೆಳೆವಾರು', en: 'By crop' },
   'dash.bySubHead': { kn: 'ಖರ್ಚಿನ ವಿಧ', en: 'Spend by type' },
-  'dash.trend': { kn: '12 ತಿಂಗಳ ಬೆಳವಣಿಗೆ', en: '12-month trend' },
+  'dash.trend': { kn: 'ತಿಂಗಳವಾರು ಆದಾಯ ಮತ್ತು ಖರ್ಚು', en: 'Income against expense' },
+  'dash.cropCompare': { kn: 'ಬೆಳೆವಾರು ಆದಾಯ ಮತ್ತು ಖರ್ಚು', en: 'Which crop is paying' },
   'dash.quickAdd': { kn: 'ಬೇಗ ಸೇರಿಸಿ', en: 'Quick add' },
   'dash.goTo': { kn: 'ಇನ್ನಷ್ಟು', en: 'Go to' },
   'dash.priceTrend': { kn: 'ಸಿಕ್ಕ ದರ', en: 'Price you got' },
@@ -291,6 +299,10 @@ export const STRINGS = {
   'report.cashBook': { kn: 'ನಗದು ಪುಸ್ತಕ', en: 'Cash book' },
   'report.period': { kn: 'ಅವಧಿ', en: 'Period' },
   'report.download': { kn: 'PDF ಪಡೆಯಿರಿ', en: 'Get PDF' },
+  'report.workerHint': {
+    kn: 'ಆಯ್ಕೆ ಮಾಡಿದ ತಕ್ಷಣ ವರದಿ ತಯಾರಾಗುತ್ತದೆ',
+    en: 'The statement is built as soon as you choose',
+  },
   'report.share': { kn: 'ವರದಿ ಹಂಚಿಕೊಳ್ಳಿ', en: 'Share report' },
 
   /* settings */
@@ -304,6 +316,11 @@ export const STRINGS = {
   'set.expenseHeads': { kn: 'ಖರ್ಚಿನ ಶೀರ್ಷಿಕೆ', en: 'What you spend on' },
   'set.subHeads': { kn: 'ಉಪ ಶೀರ್ಷಿಕೆ', en: 'Sub-heads' },
   'set.varietiesGrades': { kn: 'ತಳಿ ಮತ್ತು ದರ್ಜೆ', en: 'Varieties & grades' },
+  'set.varieties': { kn: 'ತಳಿಗಳು', en: 'Varieties' },
+  'set.varietiesHint': {
+    kn: 'ಬೇರೆ ಬೇರೆ ದರ ಇರುವ ತಳಿಗಳಿದ್ದರೆ ಮಾತ್ರ. ಇಲ್ಲದಿದ್ದರೆ ಖಾಲಿ ಬಿಡಿ.',
+    en: 'Only if different kinds fetch different prices. Leave empty otherwise.',
+  },
   'set.addVariety': { kn: 'ತಳಿ ಸೇರಿಸಿ', en: 'Add variety' },
   'set.addGrade': { kn: 'ದರ್ಜೆ ಸೇರಿಸಿ', en: 'Add grade' },
   'set.globalSpend': { kn: 'ಎಲ್ಲಾ ಬೆಳೆಗೂ', en: 'Used on every crop' },

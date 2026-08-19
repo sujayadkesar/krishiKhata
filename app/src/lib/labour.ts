@@ -216,6 +216,8 @@ export function splitByHead(
  * Pure and here rather than beside the SQL, because it is the single decision
  * that turns work into money and every basis gets it wrong differently:
  *
+ *   hour   Hours times an hourly rate, known up front — machinery is hired at
+ *          an agreed rate rather than negotiated afterwards.
  *   piece  Returns 0 while the rate is unknown, and that zero is CORRECT
  *          rather than missing. Spraying is priced when the job finishes, so
  *          until then nothing has been earned that anybody could argue about,
@@ -239,7 +241,7 @@ export interface WageInput {
 }
 
 export function wagePaise(
-  basis: 'day' | 'piece' | 'lump' | 'salary',
+  basis: 'day' | 'hour' | 'piece' | 'lump' | 'salary',
   d: WageInput,
   sessionRate: number | null,
   /** Injected so this file stays free of the quantity module's rounding. */
@@ -249,7 +251,14 @@ export function wagePaise(
     return Math.abs(Math.round(d.amount_paise ?? 0))
   }
 
-  if (basis === 'piece') {
+  /*
+   * Hours and litres are the same arithmetic and differ only in when the rate
+   * is known. A tractor's hourly hire is agreed before it starts, so an hourly
+   * job normally carries its rate from the moment it is recorded; spraying
+   * does not, and returns 0 until it is priced. Both go through one branch so
+   * the rounding cannot drift between them.
+   */
+  if (basis === 'piece' || basis === 'hour') {
     if (sessionRate == null || d.quantity_milli == null) return 0
     return multiply(d.quantity_milli, sessionRate)
   }

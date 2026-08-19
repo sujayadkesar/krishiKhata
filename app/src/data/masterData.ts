@@ -14,6 +14,7 @@ import type {
   Plot,
   SubHead,
   Unit,
+  WorkBasis,
 } from '@/db/types'
 
 /**
@@ -345,19 +346,76 @@ export async function saveSubHead(input: SubHeadInput): Promise<string> {
   return id
 }
 
+/**
+ * Replace the varieties under a head, in one call.
+ *
+ * The head editor sends the whole list every time, because that is what the
+ * farmer sees and edits. Diffing it here rather than in the screen keeps the
+ * one rule that matters in one place: a variety that has been USED is retired,
+ * never deleted, or every sale filed under it loses its name.
+ */
+export async function saveVarieties(
+  headId: string,
+  varieties: { id?: string; name_en: string; name_kn: string }[],
+): Promise<void> {
+  const ts = nowISO()
+  const existing = await all<SubHead>(
+    `SELECT * FROM sub_heads WHERE head_id = ? AND used_for IN ('income','both') AND parent_id IS NULL;`,
+    [headId],
+  )
+  const keep = new Set(varieties.map((v) => v.id).filter(Boolean) as string[])
+
+  for (const row of existing) {
+    if (keep.has(row.id)) continue
+    // Gone from the list: delete it if nothing points at it, retire it if
+    // anything does. `remove` already knows the difference.
+    await remove('sub_heads', row.id, row.name_en)
+  }
+
+  for (let i = 0; i < varieties.length; i++) {
+    const v = varieties[i]
+    const name = v.name_kn.trim() || v.name_en.trim()
+    if (!name) continue
+    if (v.id) {
+      await run(
+        'UPDATE sub_heads SET name_en=?, name_kn=?, sort_order=?, is_active=1, updated_at=? WHERE id=?;',
+        [v.name_en.trim() || name, v.name_kn.trim() || name, i, ts, v.id],
+      )
+    } else {
+      await run(
+        `INSERT INTO sub_heads
+           (id, name_en, name_kn, is_labour, head_id, used_for, parent_id,
+            is_active, sort_order, created_at, updated_at)
+         VALUES (?, ?, ?, 0, ?, 'income', NULL, 1, ?, ?, ?);`,
+        [newId(), v.name_en.trim() || name, v.name_kn.trim() || name, headId, i, ts, ts],
+      )
+    }
+  }
+  notifyDataChanged()
+}
+
 export interface ActivityInput {
   id?: string
   name_en: string
   name_kn: string
   sub_head_id: string | null
+  /** How this kind of work is normally paid for. */
+  default_basis?: WorkBasis
+  default_rate_paise?: number | null
+  default_unit_id?: string | null
 }
 
 export async function saveActivity(input: ActivityInput): Promise<string> {
   const ts = nowISO()
   if (input.id) {
     await run(
-      'UPDATE activities SET name_en=?, name_kn=?, sub_head_id=?, updated_at=? WHERE id=?;',
-      [input.name_en, input.name_kn, input.sub_head_id, ts, input.id],
+      `UPDATE activities SET name_en=?, name_kn=?, sub_head_id=?, default_basis=?,
+              default_rate_paise=?, default_unit_id=?, updated_at=?
+       WHERE id=?;`,
+      [
+        input.name_en, input.name_kn, input.sub_head_id, input.default_basis ?? 'day',
+        input.default_rate_paise ?? null, input.default_unit_id ?? null, ts, input.id,
+      ],
     )
     await logChange('activities', input.id, 'update', input.name_en)
     notifyDataChanged()
@@ -366,9 +424,15 @@ export async function saveActivity(input: ActivityInput): Promise<string> {
 
   const id = newId()
   await run(
-    `INSERT INTO activities (id, name_en, name_kn, sub_head_id, is_active, sort_order, created_at, updated_at)
-     VALUES (?, ?, ?, ?, 1, ?, ?, ?);`,
-    [id, input.name_en, input.name_kn, input.sub_head_id, await nextOrder('activities'), ts, ts],
+    `INSERT INTO activities
+       (id, name_en, name_kn, sub_head_id, default_basis, default_rate_paise,
+        default_unit_id, is_active, sort_order, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?);`,
+    [
+      id, input.name_en, input.name_kn, input.sub_head_id, input.default_basis ?? 'day',
+      input.default_rate_paise ?? null, input.default_unit_id ?? null,
+      await nextOrder('activities'), ts, ts,
+    ],
   )
   await logChange('activities', id, 'create', input.name_en)
   notifyDataChanged()

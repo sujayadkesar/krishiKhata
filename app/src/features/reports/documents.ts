@@ -66,11 +66,47 @@ const L = (lang: Lang, kn: string, en: string) =>
  * ------------------------------------------------------------------ */
 
 /**
+ * The ornament that separates the letterhead from the page, and closes it.
+ *
+ * A rule with three diamonds at its centre, drawn as inline SVG so it survives
+ * whatever print engine the phone has — a border-image or a background would
+ * be the first thing dropped when the browser decides not to print
+ * decoration. Two hairlines fading out from the middle, which is what stops it
+ * looking like a table border.
+ *
+ * It is the one piece of decoration in the whole document, and it earns its
+ * place: a statement handed to a bank or a landlord should look like it came
+ * from somewhere that keeps books.
+ */
+function ornament(): string {
+  return `<svg class="orn" viewBox="0 0 720 22" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <linearGradient id="ornL" x1="0" x2="1">
+    <stop offset="0" stop-color="#e35b0d" stop-opacity="0"/>
+    <stop offset="1" stop-color="#e35b0d" stop-opacity=".95"/>
+  </linearGradient>
+  <linearGradient id="ornR" x1="0" x2="1">
+    <stop offset="0" stop-color="#e35b0d" stop-opacity=".95"/>
+    <stop offset="1" stop-color="#e35b0d" stop-opacity="0"/>
+  </linearGradient>
+</defs>
+<rect x="20" y="10.4" width="300" height="1.2" fill="url(#ornL)"/>
+<rect x="400" y="10.4" width="300" height="1.2" fill="url(#ornR)"/>
+<path d="M340 11 L346.5 4.5 L353 11 L346.5 17.5 Z" fill="#e35b0d"/>
+<path d="M357 11 L360 8 L363 11 L360 14 Z" fill="#f4a26c"/>
+<path d="M367 11 L373.5 4.5 L380 11 L373.5 17.5 Z" fill="#e35b0d"/>
+</svg>`
+}
+
+/**
  * The letterhead.
  *
- * The farm's own name leads. Krishi Khata made the document, but it is the
- * farmer's statement, not the app's advertisement — so the app's name sits
- * small on the right, where a printer's imprint would go.
+ * A banded head rather than a name over a line. The band carries the mark and
+ * the farm's own name reversed out of the brand green, its details underneath
+ * on the paper — the shape of a letter from an office that keeps books, which
+ * is exactly what this is handed over as. Krishi Khata made the document but
+ * it is the farmer's statement, so the app's name sits small on the right
+ * where a printer's imprint would go.
  */
 function letterhead(ctx: DocContext, title: string, subject?: string): string {
   const { profile, period, lang } = ctx
@@ -79,17 +115,16 @@ function letterhead(ctx: DocContext, title: string, subject?: string): string {
   const contact = [profile.village, profile.phone].filter(Boolean).map(escapeHtml).join(' · ')
 
   return `
-  <div class="lh">
+  <div class="lh-band">
     ${LOGO}
     <div class="lh-main">
       <div class="lh-farm">${escapeHtml(farm)}</div>
       ${profile.owner_name ? `<div class="lh-owner">${escapeHtml(profile.owner_name)}</div>` : ''}
-      ${contact ? `<div class="lh-sub">${contact}</div>` : ''}
     </div>
     <div class="lh-right">ಕೃಷಿ ಖಾತೆ<br>Krishi Khata</div>
   </div>
-  <hr class="rule">
-  <hr class="rule-thin">
+  ${contact ? `<div class="lh-contact">${contact}</div>` : ''}
+  ${ornament()}
   <div class="title-block">
     <h1 class="title">${escapeHtml(title)}</h1>
     ${subject ? `<div class="subject">${subject}</div>` : ''}
@@ -149,31 +184,34 @@ function chart(svg: string): string {
 /**
  * The close of the document.
  *
- * A signature line, because these are handed over: to a bank asking for proof
- * of income, to a landlord, or to the worker whose wages are on it. The line
- * about how it was made sits opposite, so nobody has to wonder whether an
- * unsigned copy is valid.
+ * NO SIGNATURE LINE. It was there so a bank or a landlord could see the
+ * document had been signed, and it was wrong: nobody signs a printout from a
+ * phone, so every report went out with an empty rule at the bottom that made
+ * it look unfinished rather than official. What actually establishes the
+ * document is where the figures came from and when, which is what this says.
+ *
+ * The same ornament as the head closes it, so the page is visibly bounded top
+ * and bottom rather than just stopping.
  */
-function signOff(ctx: DocContext, signatory: string): string {
+function signOff(ctx: DocContext, _signatory?: string): string {
   const { lang, profile } = ctx
   const made = L(
     lang,
-    'ಇದು ಕಂಪ್ಯೂಟರ್‌ನಿಂದ ತಯಾರಾದ ವರದಿ.',
-    'Computer generated from the farm’s own records.',
+    'ಇದು ಕಂಪ್ಯೂಟರ್‌ನಿಂದ ತಯಾರಾದ ವರದಿ. ಸಹಿ ಅಗತ್ಯವಿಲ್ಲ.',
+    'Computer generated from the farm’s own records. No signature required.',
   )
   const generated = L(lang, 'ತಯಾರಿಸಿದ ದಿನಾಂಕ', 'Generated')
   const today = formatDate(new Date().toISOString().slice(0, 10), lang)
 
   return `
-  <div class="sign">
-    <div class="made">${escapeHtml(made)}</div>
-    <div class="line">${escapeHtml(signatory)}${
-      profile.owner_name ? `<br>${escapeHtml(profile.owner_name)}` : ''
-    }</div>
-  </div>
-  <div class="foot">
-    <span>${escapeHtml(generated)}: ${escapeHtml(today)}</span>
-    <span>ಕೃಷಿ ಖಾತೆ · Krishi Khata</span>
+  <div class="close">
+    ${ornament()}
+    <div class="close-made">${escapeHtml(made)}</div>
+    <div class="foot">
+      <span>${escapeHtml(generated)}: ${escapeHtml(today)}</span>
+      <span>${escapeHtml(profile.farm_name || '')}</span>
+      <span>ಕೃಷಿ ಖಾತೆ · Krishi Khata</span>
+    </div>
   </div>`
 }
 

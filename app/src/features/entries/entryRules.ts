@@ -19,7 +19,6 @@ export type MissingKey =
   | 'head'
   | 'subHead'
   | 'variety'
-  | 'grade'
   | 'plot'
   | 'account'
   | 'toAccount'
@@ -55,20 +54,6 @@ export function missingFor(draft: RuleDraft, ctx: RuleContext): MissingKey[] {
   // Categorising is not optional where a category exists to choose.
   if (!isTransfer && draft.head_id && ctx.topLevelCount > 0 && !draft.sub_head_id) {
     missing.push(draft.kind === 'income' ? 'variety' : 'subHead')
-  }
-
-  // A variety that HAS grades must be taken down to one of them: "G9" alone is
-  // not a price, and first and second class fetch different money.
-  //
-  // The null check is load-bearing. With nothing chosen at all both sides are
-  // null and compare equal, which asked a transfer — which has no crop, so no
-  // variety and no grade — for a grade it could never be given.
-  if (
-    ctx.childCount > 0 &&
-    draft.sub_head_id != null &&
-    draft.sub_head_id === ctx.parentSubHeadId
-  ) {
-    missing.push('grade')
   }
 
   // A transfer moves money between the farm's own accounts and never touches a

@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Sprout, Tags, ChevronRight } from 'lucide-react'
+import { Sprout, Tags, ChevronRight, Plus, X } from 'lucide-react'
 import { useQuery } from '@/hooks/useQuery'
-import { getHeadUnits, listHeadsFor, listUnits, saveHead } from '@/data/masterData'
+import {
+  getHeadUnits, listHeadsFor, listSubHeadsFor, listUnits, saveHead, saveVarieties,
+} from '@/data/masterData'
 import { useI18n } from '@/i18n'
 import { Button, ChipMulti, Field, Input, Select, Sheet, Switch } from '@/components/ui'
 import { navigate } from '@/router'
@@ -42,6 +44,15 @@ interface Draft {
   category: HeadCategory
   color: string
   unitIds: string[]
+  /**
+   * The varieties this is sold as, edited right here.
+   *
+   * They used to live on their own Settings screen, which meant setting up a
+   * crop was two journeys and most people only made the first. Everything
+   * about a head — what it is, what it is sold by, and what kinds of it there
+   * are — is now one sheet, so the entry form can stay short.
+   */
+  varieties: { id?: string; name_en: string; name_kn: string }[]
 }
 
 /**
@@ -58,6 +69,7 @@ const blank = (side: Side): Draft => ({
   category: side === 'income' ? 'crop' : 'general',
   color: 'emerald',
   unitIds: [],
+  varieties: [],
 })
 
 export type Side = 'income' | 'expense'
@@ -81,9 +93,25 @@ export function HeadsScreen({ side }: { side: Side }) {
   useEffect(() => {
     if (!editing) return
     let cancelled = false
-    void getHeadUnits(editing.id).then((rows) => {
+    void Promise.all([
+      getHeadUnits(editing.id),
+      listSubHeadsFor(editing.id, 'income'),
+    ]).then(([units, varieties]) => {
       if (cancelled) return
-      setDraft((d) => (d && d.id === editing.id ? { ...d, unitIds: rows.map((r) => r.unit_id) } : d))
+      setDraft((d) =>
+        d && d.id === editing.id
+          ? {
+              ...d,
+              unitIds: units.map((r) => r.unit_id),
+              // Only the head's OWN rows: listSubHeadsFor falls back to the
+              // global list for a head with none, and those are not varieties
+              // of anything.
+              varieties: varieties
+                .filter((v) => v.head_id === editing.id && !v.parent_id)
+                .map((v) => ({ id: v.id, name_en: v.name_en, name_kn: v.name_kn })),
+            }
+          : d,
+      )
     })
     return () => {
       cancelled = true
@@ -95,7 +123,7 @@ export function HeadsScreen({ side }: { side: Side }) {
   async function submit() {
     if (!draft) return
     const name = draft.name_kn.trim() || draft.name_en.trim()
-    await saveHead({
+    const headId = await saveHead({
       id: draft.id,
       name_en: draft.name_en.trim() || name,
       name_kn: draft.name_kn.trim() || name,
@@ -105,8 +133,19 @@ export function HeadsScreen({ side }: { side: Side }) {
       // Units describe how something is SOLD BY. A general head has no yield.
       unitIds: draft.category === 'crop' ? draft.unitIds : [],
     })
+    // After the head, because a brand-new one has no id until it exists.
+    if (side === 'income' && draft.category === 'crop') {
+      await saveVarieties(headId, draft.varieties)
+    }
     setDraft(null)
     setEditing(null)
+  }
+
+  function setVariety(i: number, name: string) {
+    if (!draft) return
+    const next = [...draft.varieties]
+    next[i] = { ...next[i], name_kn: name, name_en: next[i].name_en || name }
+    setDraft({ ...draft, varieties: next })
   }
 
   function toggleUnit(id: string) {
@@ -163,6 +202,7 @@ export function HeadsScreen({ side }: { side: Side }) {
           category: h.category,
           color: h.color,
           unitIds: [],
+          varieties: [],
         })
       }}
     >
@@ -243,6 +283,62 @@ export function HeadsScreen({ side }: { side: Side }) {
                   selected={new Set(draft.unitIds)}
                   onToggle={toggleUnit}
                 />
+              </Field>
+            ) : null}
+
+            {/*
+              Varieties, here rather than on their own screen.
+              Banana comes as G9, Mitka and Karibale and each fetches a
+              different price; honey is just honey. Saying which is true is
+              part of describing the crop, so it belongs in the same sheet —
+              and doing it here is what lets the entry form stay short.
+            */}
+            {side === 'income' && draft.category === 'crop' ? (
+              <Field
+                label={t('set.varieties')}
+                hint={t('set.varietiesHint')}
+              >
+                <div className="space-y-2">
+                  {draft.varieties.map((v, i) => (
+                    <div key={v.id ?? `new-${i}`} className="flex gap-2">
+                      <Input
+                        value={v.name_kn}
+                        onChange={(val) => setVariety(i, val)}
+                        placeholder="ಜಿ೯"
+                      />
+                      <button
+                        onClick={() =>
+                          setDraft({
+                            ...draft,
+                            varieties: draft.varieties.filter((_, j) => j !== i),
+                          })
+                        }
+                        aria-label={t('common.delete')}
+                        className="px-3 rounded-lg shrink-0"
+                        style={{
+                          border: '1.5px solid var(--border-strong)',
+                          color: 'var(--text-faint)',
+                        }}
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  ))}
+                  <Button
+                    variant="soft"
+                    full
+                    onClick={() =>
+                      setDraft({
+                        ...draft,
+                        varieties: [...draft.varieties, { name_en: '', name_kn: '' }],
+                      })
+                    }
+                  >
+                    <span className="inline-flex items-center gap-2 justify-center">
+                      <Plus size={16} /> {t('set.addVariety')}
+                    </span>
+                  </Button>
+                </div>
               </Field>
             ) : null}
 

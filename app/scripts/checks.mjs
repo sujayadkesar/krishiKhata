@@ -353,17 +353,12 @@ ok(isNewer('1.0', '0.9.9'), 'update: short version still compares')
     'entry: a variety with no grades under it is enough on its own',
   )
 
-  // G9 has first and second class, which fetch different money.
-  const g9 = { topLevelCount: 3, childCount: 2, parentSubHeadId: 'g9', hasPlots: false }
+  // Grades under a variety were removed: the variety IS the answer.
+  const g9 = { topLevelCount: 3, childCount: 0, parentSubHeadId: 'g9', hasPlots: false }
   eq(
     missingFor(sale({ sub_head_id: 'g9' }), g9),
-    ['grade'],
-    'entry: stopping at the variety is not enough when it has grades',
-  )
-  eq(
-    missingFor(sale({ sub_head_id: 'g9-first' }), g9),
     [],
-    'entry: taking it down to a grade completes it',
+    'entry: the variety alone completes a sale — grades no longer exist',
   )
 
   // Plots are required once the farm has entered any — but never on a transfer.
@@ -383,10 +378,10 @@ ok(isNewer('1.0', '0.9.9'), 'update: short version still compares')
         to_account_id: 'bank',
         amount_paise: 50000,
       },
-      { topLevelCount: 3, childCount: 2, parentSubHeadId: null, hasPlots: true },
+      { topLevelCount: 3, childCount: 0, parentSubHeadId: null, hasPlots: true },
     ),
     [],
-    'entry: a transfer needs no crop, no grade and no plot',
+    'entry: a transfer needs no crop, no variety and no plot',
   )
   eq(
     missingFor(

@@ -5,6 +5,7 @@ import {
   Button, ChipSingle, Field, Input, MoneyInput, QuantityInput, Select, TextArea,
 } from '@/components/ui'
 import { MonthCalendar, type DaySelection } from '@/components/MonthCalendar'
+import { SearchMultiSelect } from '@/components/SearchPicker'
 import { MissingHint } from '@/features/entries/EntryForm'
 import { useQuery } from '@/hooks/useQuery'
 import {
@@ -14,6 +15,7 @@ import { attendanceInMonth, saveWorkSession } from '@/data/labour'
 import { useI18n } from '@/i18n'
 import { formatRupees } from '@/lib/money'
 import { attendanceAmountPaise, crewWagePaise } from '@/lib/labour'
+import { lineTotalPaise } from '@/lib/quantity'
 import { FULL_DAY, HALF_DAY } from '@/db/types'
 import { monthEnd, monthStart } from '@/lib/date'
 import { back, navigate } from '@/router'
@@ -22,6 +24,7 @@ import type { ISODate, WorkBasis } from '@/db/types'
 /** What each way of being paid means, in the farmer's own terms. */
 const BASIS_HINT: Record<WorkBasis, string> = {
   day: 'A day rate, times the days they came.',
+  hour: 'Machinery and its operator, by the hour at an agreed rate.',
   piece: 'Paid per litre or per bag. The price is agreed when the job finishes.',
   lump: 'One agreed figure for the whole job.',
   salary: 'A fixed worker, paid by the month.',
@@ -68,6 +71,8 @@ export function AddWorkScreen() {
   const [unitId, setUnitId] = useState<string | null>(null)
   /** Lump-sum work: the figure agreed for the job. */
   const [lumpAmount, setLumpAmount] = useState<number | null>(null)
+  /** Hourly work: what the machine and its operator cost per hour. */
+  const [hourRate, setHourRate] = useState<number | null>(null)
 
   /**
    * Crew composition, shown as plain fields.
@@ -107,6 +112,25 @@ export function AddWorkScreen() {
     setFemaleRate((r) => r ?? lead.female_rate_paise ?? lead.daily_rate_paise)
     setMales((m) => m || String(lead.typical_group_size ?? ''))
   }, [lead])
+
+  /**
+   * Choosing the work sets how it is paid for.
+   *
+   * "Tractor ploughing" is hourly at a rate that barely moves; restating that
+   * every time is how the wrong basis gets picked and a day's hire lands in
+   * the books as a day's wage. Everything it sets stays editable below.
+   */
+  const activity = (activities ?? []).find((a) => a.id === activityId) ?? null
+  useEffect(() => {
+    if (!activity) return
+    setBasis(activity.default_basis)
+    if (activity.default_unit_id) setUnitId(activity.default_unit_id)
+    if (activity.default_rate_paise != null) {
+      if (activity.default_basis === 'hour') setHourRate(activity.default_rate_paise)
+      if (activity.default_basis === 'lump') setLumpAmount(activity.default_rate_paise)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activityId, activities])
 
   const chosenUnit = (units ?? []).find((u) => u.id === unitId)
   const unitShort = chosenUnit ? nameOf(chosenUnit) : ''
@@ -168,6 +192,16 @@ export function AddWorkScreen() {
       }
     }
 
+    // Hours are known and so is the rate, so the figure is real right away.
+    if (basis === 'hour') {
+      const perPerson = lineTotalPaise(quantity ?? 0, hourRate ?? 0)
+      return {
+        total: perPerson * selected.length * selection.size,
+        days: selection.size,
+        personDays: selection.size * selected.length,
+      }
+    }
+
     if (basis === 'lump') {
       return {
         total: (lumpAmount ?? 0) * selected.length,
@@ -200,14 +234,18 @@ export function AddWorkScreen() {
       days += sel.fraction / FULL_DAY
     }
     return { total: total as number | null, days, personDays }
-  }, [selection, selected, maleCount, femaleCount, maleRate, femaleRate, basis, lumpAmount])
+  }, [
+    selection, selected, maleCount, femaleCount, maleRate, femaleRate,
+    basis, lumpAmount, quantity, hourRate,
+  ])
 
   // A plot is required once the farm has entered any, matching the entry form:
   // labour recorded against no land leaves a hole in every plot report, and
   // wages are usually the largest thing in it.
   const needsPlot = (plots ?? []).length > 0 && !plotId
-  const needsQuantity = basis === 'piece' && (!quantity || quantity <= 0)
+  const needsQuantity = (basis === 'piece' || basis === 'hour') && (!quantity || quantity <= 0)
   const needsUnit = basis === 'piece' && !unitId
+  const needsHourRate = basis === 'hour' && (!hourRate || hourRate <= 0)
   const needsLump = basis === 'lump' && (!lumpAmount || lumpAmount <= 0)
   const valid =
     selectedIds.length > 0 &&
@@ -215,6 +253,7 @@ export function AddWorkScreen() {
     !needsPlot &&
     !needsQuantity &&
     !needsUnit &&
+    !needsHourRate &&
     !needsLump
 
   async function submit() {
@@ -241,7 +280,7 @@ export function AddWorkScreen() {
           female_rate_paise: isCrew ? (femaleRate ?? l.daily_rate_paise) : 0,
           // The quantity is per person per day: two people spraying 100 litres
           // each is 200 litres of work, and the price is per litre sprayed.
-          quantity_milli: basis === 'piece' ? quantity : null,
+          quantity_milli: basis === 'piece' || basis === 'hour' ? quantity : null,
           amount_paise: basis === 'lump' ? lumpAmount : null,
         })
       }
@@ -255,9 +294,9 @@ export function AddWorkScreen() {
         plot_id: plotId,
         basis,
         unit_id: basis === 'piece' ? unitId : null,
-        // Deliberately never priced here. Piece work is priced when the job is
-        // finished, from the Team screen.
-        rate_paise: null,
+        // Hourly work knows its rate now. Piece work deliberately does not —
+        // it is priced when the job finishes, from the Team screen.
+        rate_paise: basis === 'hour' ? hourRate : null,
         note: note.trim() || null,
         days,
       })
@@ -270,6 +309,7 @@ export function AddWorkScreen() {
     setNote('')
     setQuantity(null)
     setLumpAmount(null)
+    setHourRate(null)
     setError(null)
     setSaved(true)
     setTimeout(() => setSaved(false), 1800)
@@ -294,32 +334,27 @@ export function AddWorkScreen() {
   return (
     <Shell title={t('labour.addWork')} onBack={back} right={<span />}>
       <Page>
-        <Field label={t('labour.labourers')} hint="Pick everyone who did the same job on the same days.">
-          <div className="flex flex-wrap gap-2">
-            {(labourers ?? []).map((l) => {
-              const on = selectedIds.includes(l.id)
-              return (
-                <button
-                  key={l.id}
-                  onClick={() =>
-                    setSelectedIds((prev) =>
-                      prev.includes(l.id) ? prev.filter((x) => x !== l.id) : [...prev, l.id],
-                    )
-                  }
-                  className="rounded-full px-3.5 py-2 text-sm font-medium border"
-                  style={{
-                    minHeight: 42,
-                    borderColor: on ? 'var(--color-brand-500)' : 'var(--border)',
-                    background: on ? 'var(--color-brand-500)' : 'var(--surface)',
-                    color: on ? '#fff' : 'var(--text-soft)',
-                  }}
-                >
-                  {l.is_group_lead ? <Users size={13} className="inline mr-1 -mt-0.5" /> : null}
-                  {nameOf(l)}
-                </button>
-              )
-            })}
-          </div>
+        <Field label={t('labour.labourers')} hint="Pick everyone who did the same job on the same days." required>
+          <SearchMultiSelect
+            title={t('labour.labourers')}
+            placeholder={t('common.select')}
+            options={(labourers ?? []).map((l) => ({
+              value: l.id,
+              label: nameOf(l),
+              // Searchable by both names and by code, because the keyboard in
+              // the farmer's hand is usually the English one either way.
+              search: `${l.name_en} ${l.name_kn} ${l.code ?? ''}`,
+              hint: [
+                l.is_group_lead ? t('labour.groupLead') : null,
+                l.employment === 'monthly' ? t('labour.monthly') : null,
+                l.village,
+              ]
+                .filter(Boolean)
+                .join(' · '),
+            }))}
+            selected={selectedIds}
+            onChange={setSelectedIds}
+          />
         </Field>
 
         {/*
@@ -332,6 +367,7 @@ export function AddWorkScreen() {
           <ChipSingle
             options={[
               { value: 'day', label: t('labour.basisDay') },
+              { value: 'hour', label: t('labour.basisHour') },
               { value: 'piece', label: t('labour.basisPiece') },
               { value: 'lump', label: t('labour.basisLump') },
             ]}
@@ -339,6 +375,17 @@ export function AddWorkScreen() {
             onChange={(v) => setBasis((v as WorkBasis) ?? 'day')}
           />
         </Field>
+
+        {basis === 'hour' ? (
+          <div className="grid grid-cols-2 gap-3">
+            <Field label={t('labour.hoursPerDay')} required>
+              <QuantityInput milli={quantity} onChange={setQuantity} suffix={t('labour.hours')} />
+            </Field>
+            <Field label={t('labour.hourRate')} required>
+              <MoneyInput paise={hourRate} onChange={setHourRate} />
+            </Field>
+          </div>
+        ) : null}
 
         {basis === 'piece' ? (
           <div className="grid grid-cols-2 gap-3">

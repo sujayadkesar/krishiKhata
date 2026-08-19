@@ -5,7 +5,7 @@ import {
 } from 'recharts'
 import { Phone, IndianRupee, Trash2, Share2, Clock } from 'lucide-react'
 import { Page, Shell } from '@/components/Shell'
-import { Button, Card, Confirm, EmptyState, SectionHeader } from '@/components/ui'
+import { Button, Card, Confirm, DateInput, EmptyState, Field, SectionHeader } from '@/components/ui'
 import { useQuery } from '@/hooks/useQuery'
 import {
   attendanceFor, deleteAttendance, deletePayment, labourBalances, labourLedger,
@@ -17,7 +17,7 @@ import { printReport, reportFileName, shareReport } from '@/lib/print'
 import { useI18n } from '@/i18n'
 import { formatCompactINR, formatRupees } from '@/lib/money'
 import { balanceState } from '@/lib/labour'
-import { formatDate, formatMonth, todayISO } from '@/lib/date'
+import { addMonths, formatDate, formatMonth, monthEnd, monthStart, todayISO } from '@/lib/date'
 import { FULL_DAY } from '@/db/types'
 import { back } from '@/router'
 
@@ -54,8 +54,26 @@ export function LabourerDetailScreen({ id }: { id: string }) {
   const { t, nameOf, lang } = useI18n()
 
   const { data: balances } = useQuery(() => labourBalances(true), [])
-  const { data: work } = useQuery(() => attendanceFor(id), [id])
-  const { data: payments } = useQuery(() => paymentsFor(id), [id])
+  /**
+   * The stretch being settled up for.
+   *
+   * A statement of somebody's entire history is the wrong document to hand a
+   * man who worked three weeks. This defaults to the current month — the unit
+   * people actually settle in — and the statement, the totals and the lists
+   * below all follow it.
+   */
+  const [from, setFrom] = useState(() => monthStart(todayISO()))
+  const [to, setTo] = useState(() => monthEnd(todayISO()))
+  const range = useMemo(() => ({ from, to }), [from, to])
+
+  const { data: rangeWork } = useQuery(
+    () => attendanceFor(id, 2000, range),
+    [id, range.from, range.to],
+  )
+  const { data: rangePayments } = useQuery(
+    () => paymentsFor(id, 2000, range),
+    [id, range.from, range.to],
+  )
   const { data: ledger } = useQuery(() => labourLedger(id), [id])
   const { data: byCrop } = useQuery(() => workByCropFor(id), [id])
   const { data: monthly } = useQuery(() => monthlyFor(id), [id])
@@ -102,21 +120,21 @@ export function LabourerDetailScreen({ id }: { id: string }) {
   )
 
   async function output(mode: 'print' | 'share') {
-    if (!me || !profile || !work || !payments) return
+    if (!me || !profile || !rangeWork || !rangePayments) return
     setBusy(mode)
     setError(null)
     try {
       const html = labourStatementDoc(
         {
           profile,
-          period: { from: work.at(-1)?.date ?? todayISO(), to: todayISO() },
+          period: range,
           lang,
           name: (row) =>
             row ? nameOf({ name_en: row.name_en ?? '', name_kn: row.name_kn ?? '' }) : '',
         },
         me,
-        work,
-        payments,
+        rangeWork,
+        rangePayments,
         me.balance_paise,
         { byCrop: byCrop ?? [], monthly: monthly ?? [] },
       )
@@ -124,7 +142,7 @@ export function LabourerDetailScreen({ id }: { id: string }) {
       await run(
         html,
         `${nameOf(me)} — ${t('report.labourStatement')}`,
-        reportFileName(me.code ?? nameOf(me), '', ''),
+        reportFileName(me.code ?? nameOf(me), from, to),
       )
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -362,11 +380,63 @@ export function LabourerDetailScreen({ id }: { id: string }) {
           </div>
         ) : null}
 
-        <Button variant="soft" full onClick={() => void output('share')} disabled={!!busy}>
-          <span className="inline-flex items-center gap-2 justify-center">
-            <Share2 size={17} /> {busy === 'share' ? t('common.loading') : t('report.share')}
-          </span>
-        </Button>
+        {/*
+          Settle up for a stretch.
+
+          The balance above is the whole relationship and always will be — that
+          is what somebody standing in the yard is asking about. But the
+          document handed over is for a period, and this is where it is chosen.
+          The counts underneath are what will be ON it, so nobody shares a
+          statement and then discovers it covered the wrong fortnight.
+        */}
+        <div className="card p-3 space-y-3">
+          <SectionHeader>{t('labour.settleFor')}</SectionHeader>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label={t('entry.from')}>
+              <DateInput value={from} onChange={setFrom} />
+            </Field>
+            <Field label={t('entry.to')}>
+              <DateInput value={to} onChange={setTo} />
+            </Field>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="soft"
+              onClick={() => {
+                setFrom(monthStart(todayISO()))
+                setTo(monthEnd(todayISO()))
+              }}
+            >
+              {t('dash.thisMonth')}
+            </Button>
+            <Button
+              variant="soft"
+              onClick={() => {
+                const prev = addMonths(todayISO(), -1)
+                setFrom(monthStart(prev))
+                setTo(monthEnd(prev))
+              }}
+            >
+              {t('labour.lastMonth')}
+            </Button>
+          </div>
+
+          <div className="flex items-center justify-between text-sm pt-1">
+            <span style={{ color: 'var(--text-soft)' }}>
+              {rangeWork?.length ?? 0} {t('labour.daysWorked')} ·{' '}
+              {rangePayments?.length ?? 0} {t('labour.payments')}
+            </span>
+            <span className="tnum font-semibold">
+              {formatRupees((rangeWork ?? []).reduce((s, w) => s + w.amount_paise, 0))}
+            </span>
+          </div>
+
+          <Button full onClick={() => void output('share')} disabled={!!busy}>
+            <span className="inline-flex items-center gap-2 justify-center">
+              <Share2 size={17} /> {busy === 'share' ? t('common.loading') : t('report.share')}
+            </span>
+          </Button>
+        </div>
 
         <Confirm
           open={!!removeWork}
