@@ -174,5 +174,10 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: out/*.apk
+          # The APK is for sideloading and testers; the AAB is what gets
+          # uploaded to Play. Attaching both means the bundle can be fetched
+          # from the release page rather than dug out of a run's artifacts.
+          files: |
+            out/*.apk
+            out/*.aab
           generate_release_notes: true
