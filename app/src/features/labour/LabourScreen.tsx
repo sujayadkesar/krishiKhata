@@ -103,7 +103,7 @@ export function LabourScreen() {
             <span className="flex-1 min-w-0">
               <span className="block text-sm font-semibold">{t('labour.openJobs')}</span>
               <span className="block text-xs">
-                {jobs?.length} {jobs?.length === 1 ? 'job' : 'jobs'} · {t('labour.setPrice')}
+                {jobs?.length} {t('labour.jobs')} · {t('labour.setPrice')}
               </span>
             </span>
             <ChevronRight size={16} />

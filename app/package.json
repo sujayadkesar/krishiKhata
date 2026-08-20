@@ -17,7 +17,9 @@
     "apk:release": "npm run sync && cd android && gradlew assembleRelease",
     "aab": "npm run sync && cd android && gradlew bundleRelease",
     "play-icon": "vite-node scripts/play-icon.mjs",
-    "store-assets": "vite-node scripts/store-assets.mjs"
+    "capture": "node scripts/capture.mjs",
+    "frames": "node scripts/frames.mjs",
+    "listing": "npm run capture && npm run frames"
   },
   "dependencies": {
     "@capacitor-community/sqlite": "^8.1.1",
@@ -45,6 +47,7 @@
     "@types/sql.js": "^1.4.11",
     "@vitejs/plugin-react": "^6.0.4",
     "oxlint": "^1.77.0",
+    "puppeteer-core": "^25.8.0",
     "tailwindcss": "^4.3.3",
     "typescript": "~6.0.2",
     "vite": "^8.2.0",

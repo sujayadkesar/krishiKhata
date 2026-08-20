@@ -163,6 +163,10 @@ export const STRINGS = {
     en: 'Per person, for the whole job',
   },
   'labour.notPricedYet': { kn: 'ದರ ಇನ್ನೂ ನಿಗದಿ ಆಗಿಲ್ಲ', en: 'Price not agreed yet' },
+  // Kannada does not inflect this for number the way English does, so one
+  // word serves both — which is also why hard-coding "job"/"jobs" leaked
+  // English onto a Kannada screen.
+  'labour.jobs': { kn: 'ಕೆಲಸ', en: 'jobs' },
   'labour.openJobs': { kn: 'ದರ ನಿಗದಿ ಬಾಕಿ', en: 'Waiting to be priced' },
   'labour.setPrice': { kn: 'ದರ ನಿಗದಿ ಮಾಡಿ', en: 'Set the price' },
   'labour.perUnit': { kn: 'ಪ್ರತಿ ಅಳತೆಗೆ ದರ', en: 'Rate per unit' },
