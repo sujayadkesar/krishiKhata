@@ -16,7 +16,8 @@
     "apk": "npm run sync && cd android && gradlew assembleDebug",
     "apk:release": "npm run sync && cd android && gradlew assembleRelease",
     "aab": "npm run sync && cd android && gradlew bundleRelease",
-    "play-icon": "vite-node scripts/play-icon.mjs"
+    "play-icon": "vite-node scripts/play-icon.mjs",
+    "store-assets": "vite-node scripts/store-assets.mjs"
   },
   "dependencies": {
     "@capacitor-community/sqlite": "^8.1.1",
