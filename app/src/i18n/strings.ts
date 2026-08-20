@@ -311,6 +311,8 @@ export const STRINGS = {
   'set.heads': { kn: 'ಬೆಳೆ / ಶೀರ್ಷಿಕೆ', en: 'Crops & Heads' },
   'set.incomeHeads': { kn: 'ಮಾರಾಟದ ಬೆಳೆ', en: 'What you sell' },
   'set.expenseHeads': { kn: 'ಖರ್ಚಿನ ಶೀರ್ಷಿಕೆ', en: 'What you spend on' },
+  'dash.addHint': { kn: 'ಆದಾಯ ಅಥವಾ ಖರ್ಚು', en: 'Money in or out' },
+  'dash.workHint': { kn: 'ಆಳುಗಳ ಹಾಜರಿ', en: 'Attendance for the day' },
   'set.subHeads': { kn: 'ಉಪ ಶೀರ್ಷಿಕೆ', en: 'Sub-heads' },
   'set.spendTypes': { kn: 'ಖರ್ಚಿನ ಬಗೆ', en: 'Kinds of spending' },
   /* Settings groups. Four questions, in the order a farm is set up. */

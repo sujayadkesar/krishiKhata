@@ -22,10 +22,13 @@ const name = (row) => (row ? (row.name_kn ?? row.name_en ?? '') : '')
 
 const ctx = {
   profile: {
-    farm_name: 'ಶ್ರೀ ಗಣಪತಿ ತೋಟ',
-    owner_name: 'Ganapati Bhat',
-    village: 'Karadolli, Yellapur',
-    phone: '8762759240',
+    /* Invented, like every other figure in this file. A sample report is
+       shown around and screenshotted, so it must not carry a real farmer's
+       name, village or phone number. */
+    farm_name: 'ಹೊಸತೋಟ ಫಾರ್ಮ್',
+    owner_name: 'Hosatota Farm',
+    village: 'Uttara Kannada',
+    phone: '90000 00000',
   },
   period: { from: '2026-04-01', to: '2027-03-31' },
   lang: 'both',

@@ -53,7 +53,7 @@ export function groupedBars({
 
   const padL = 92
   const padR = 14
-  const padT = 16
+  const padT = 30
   const padB = series.length > 1 ? 62 : 44
 
   const plotW = W - padL - padR
@@ -64,13 +64,22 @@ export function groupedBars({
 
   const bandW = plotW / categories.length
   // A gap either side of each group, then the bars packed inside it.
-  const groupW = bandW * 0.66
+  const groupW = bandW * 0.72
   const barW = Math.max(3, groupW / series.length)
 
-  const gridLines = [0, 0.25, 0.5, 0.75, 1]
+  /*
+   * THREE GRIDLINES, NOT FIVE.
+   *
+   * Five ruled lines behind six pairs of bars is more line than chart — the
+   * grid was competing with the data it was supposed to measure. Bottom,
+   * middle and top is enough to judge a height against, and the middle one is
+   * dashed so it reads as a guide rather than as part of the drawing.
+   */
+  const gridLines = [0, 0.5, 1]
     .map((f) => {
       const gy = padT + plotH - f * plotH
-      return `<line x1="${padL}" y1="${gy}" x2="${W - padR}" y2="${gy}" class="grid"/>
+      const dash = f === 0.5 ? ' stroke-dasharray="5 6"' : ''
+      return `<line x1="${padL}" y1="${gy}" x2="${W - padR}" y2="${gy}" class="grid"${dash}/>
         <text x="${padL - 10}" y="${gy + 5}" class="axis" text-anchor="end">${escapeHtml(
           axisFormat(max * f),
         )}</text>`
@@ -87,8 +96,19 @@ export function groupedBars({
           // Zero-height rects vanish; a hairline says "recorded, but nothing".
           const drawn = v > 0 ? Math.max(h, 1.5) : 0
           if (drawn === 0) return ''
-          return `<rect x="${(groupX + j * barW).toFixed(1)}" y="${(padT + plotH - drawn).toFixed(1)}"
-            width="${(barW - 2).toFixed(1)}" height="${drawn.toFixed(1)}" rx="2" fill="${s.color}"/>`
+          const x = groupX + j * barW
+          const y = padT + plotH - drawn
+          /* The figure above the bar, when there are few enough bars for it to
+             fit. It is what turns the chart from a shape into a reading: a
+             farmer can then take the number off it without going back to the
+             table underneath. */
+          const label =
+            categories.length <= 7
+              ? `<text x="${(x + (barW - 2) / 2).toFixed(1)}" y="${(y - 7).toFixed(1)}"
+                  class="axis bar-value" text-anchor="middle">${escapeHtml(axisFormat(v))}</text>`
+              : ''
+          return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}"
+            width="${(barW - 2).toFixed(1)}" height="${drawn.toFixed(1)}" rx="3" fill="${s.color}"/>${label}`
         })
         .join('')
     })
@@ -151,7 +171,9 @@ export function donut({
   if (total <= 0) return ''
 
   const cx = 175
-  const cy = height / 2
+  // Lifted when there is a caption, so the caption has clear paper under the
+  // ring rather than sitting on its bottom edge.
+  const cy = height / 2 - (centreLabel ? 12 : 0)
   const r = Math.min(105, cy - 18)
   const circumference = 2 * Math.PI * r
   const stroke = 42
@@ -171,16 +193,25 @@ export function donut({
     })
     .join('')
 
+  /*
+   * The figure goes in the hole; the words go UNDER the ring.
+   *
+   * Both used to sit in the middle, and the hole is 168 units across while
+   * "ಒಟ್ಟು ಗಳಿಕೆ · Total earned" is half as wide again — so the caption ran
+   * out through the doughnut on both sides and printed over the slices. The
+   * number is short enough to fit anywhere; the label is not, and below the
+   * ring it has the whole width.
+   */
   const centre = centreValue
-    ? `<text x="${cx}" y="${cy - 2}" class="donut-value" text-anchor="middle">${escapeHtml(
+    ? `<text x="${cx}" y="${cy + 9}" class="donut-value" text-anchor="middle">${escapeHtml(
         centreValue,
       )}</text>
-       ${centreLabel ? `<text x="${cx}" y="${cy + 18}" class="axis" text-anchor="middle">${escapeHtml(centreLabel)}</text>` : ''}`
+       ${centreLabel ? `<text x="${cx}" y="${(cy + r + stroke / 2 + 20).toFixed(1)}" class="axis" text-anchor="middle">${escapeHtml(centreLabel)}</text>` : ''}`
     : ''
 
   // The key sits to the right as a list, because slice labels on a donut this
   // size collide the moment two crops are close in value.
-  const keyX = 340
+  const keyX = 400
   const rowH = 26
   const keyTop = cy - (positive.length * rowH) / 2 + rowH / 2
   const key = positive
@@ -189,7 +220,7 @@ export function donut({
       const pct = Math.round((s.value / total) * 100)
       return `<rect x="${keyX}" y="${y - 10}" width="12" height="12" rx="3" fill="${s.color}"/>
         <text x="${keyX + 20}" y="${y}" class="key">${escapeHtml(s.label)}</text>
-        <text x="${W - 14}" y="${y}" class="key num" text-anchor="end">${pct}%</text>`
+        <text x="860" y="${y}" class="key num" text-anchor="end">${pct}%</text>`
     })
     .join('')
 

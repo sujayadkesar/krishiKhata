@@ -124,51 +124,75 @@ const STYLES = `
 
   /* ---------------------------------------------------------- letterhead -
    *
-   * A statement, not a printout: a banded head carrying the mark and the
-   * farm's name, its details under it, an ornament, then the document title
-   * centred below — the shape of a letter from an office that keeps books,
-   * because that is what this is handed over as.
+   * A statement, not a printout: the mark and the farm's name on a light
+   * panel, its details under them, then space, then an ornament, then space,
+   * then the title. The shape of a letter from an office that keeps books,
+   * because that is what this gets handed over as.
+   *
+   * IT USED TO BE A SOLID GREEN BAND. Reversed white out of #12502c across
+   * the full width, it was the loudest thing on a page of figures and it made
+   * every report look like the same template rather than the farm's own
+   * paper. It is now a pale panel with ONE green edge, which leaves the green
+   * to mean something where it is used — the totals rule, the section marks.
+   *
+   * The spacing is deliberate and generous. Head, rule, title and body ran
+   * into each other before, and a letterhead that touches its own title reads
+   * as a mistake rather than a design.
    */
 
-  /* A banded head: the mark and the farm's name reversed out of the brand
-     green, its details on the paper underneath, then the ornament. */
-  .lh-band {
+  .lh {
+    position: relative;
     display: flex;
     align-items: center;
-    gap: 12px;
-    background: #12502c;
-    color: #fff;
-    padding: 7px 12px;
-    border-radius: 3px;
+    gap: 13px;
+    padding: 11px 14px;
+    background: linear-gradient(100deg, #f4f8f3 0%, #fdfbf7 58%, #fffefc 100%);
+    border: 0.75px solid #dfe3d8;
+    border-left: 3.5px solid #12502c;
+    border-radius: 5px;
+    overflow: hidden;
+    margin-bottom: 15px;
   }
-  .lh-logo { width: 40px; height: 40px; flex: none; }
-  .lh-main { flex: 1; min-width: 0; }
+  .lh-logo { width: 42px; height: 42px; flex: none; position: relative; }
+  .lh-main { flex: 1; min-width: 0; position: relative; }
   .lh-farm {
     font-size: 16pt;
     font-weight: 600;
     line-height: 1.15;
+    color: #12502c;
     letter-spacing: 0; /* never set tracking: it takes Kannada apart */
   }
-  .lh-owner { font-size: 9.5pt; margin-top: 1px; color: #cfe4d6; }
+  .lh-owner { font-size: 9.5pt; margin-top: 1px; color: #4a4238; }
+  .lh-contact { font-size: 8.5pt; color: #8b7f71; margin-top: 2px; }
   .lh-right {
+    position: relative;
     text-align: right;
     font-size: 8pt;
-    color: #a7cbb5;
+    color: #6f7f72;
     line-height: 1.45;
     flex: none;
-  }
-  .lh-contact {
-    text-align: center;
-    font-size: 8.5pt;
-    color: #6b6157;
-    margin-top: 5px;
+    padding-left: 12px;
+    border-left: 0.75px solid #dfe3d8;
   }
 
-  /* The one piece of decoration in the document. Inline SVG, because a
-     border-image is the first thing a print engine drops. */
-  .orn { display: block; width: 100%; height: 15px; margin: 3px 0 2px; }
+  /* The artwork. Two leaves and a pair of furrows, at the opacity of a
+     watermark — enough that the paper looks like somebody designed it, not so
+     much that a figure printed over it becomes hard to read. */
+  .lh-art {
+    position: absolute;
+    top: 0;
+    right: 0;
+    height: 100%;
+    width: 190px;
+    pointer-events: none;
+  }
 
-  .title-block { text-align: center; margin-bottom: 14px; }
+  /* The one repeated piece of decoration. Inline SVG, because a border-image
+     is the first thing a print engine drops. It is the DESIGN LINE between
+     the letterhead and the title, so it is given room on both sides. */
+  .orn { display: block; width: 100%; height: 15px; margin: 0 0 11px; }
+
+  .title-block { text-align: center; margin-bottom: 20px; }
   h1.title {
     font-size: 13.5pt;
     margin: 0;
@@ -198,7 +222,15 @@ const STYLES = `
     text-transform: uppercase;
   }
 
-  tbody td { border-bottom: 0.75px solid #ece4d8; font-size: 9.5pt; }
+  /*
+   * BANDED, NOT RULED. Every row used to carry its own hairline, so a work
+   * table of sixteen days was sixteen lines stacked down the page and the
+   * document read as ruled paper rather than as a statement. Alternate rows
+   * are tinted instead: the eye tracks across a row just as well, and the
+   * page loses fifteen lines per table.
+   */
+  tbody td { font-size: 9.5pt; }
+  tbody tr:nth-child(even) td { background: #faf7f1; }
   tbody tr.group td {
     background: #faf6ef;
     font-weight: 600;
@@ -230,14 +262,17 @@ const STYLES = `
   tfoot { display: table-footer-group; }
   .page-break { break-before: page; page-break-before: always; }
 
+  /* A green tick to the left rather than a rule underneath. The rule ran the
+     full width of the page for every section, which was most of the lines in
+     the document and none of the meaning. */
   h2.section {
     font-size: 9.5pt;
-    margin: 16px 0 6px;
-    padding: 0 0 3px 0;
+    margin: 18px 0 7px;
+    padding: 1px 0 1px 9px;
     color: #12502c;
     font-weight: 600;
     text-transform: uppercase;
-    border-bottom: 0.75px solid #cbbfa9;
+    border-left: 3px solid #12502c;
     break-after: avoid;
     page-break-after: avoid;
   }
@@ -271,10 +306,25 @@ const STYLES = `
   }
   .totals .v { font-size: 13pt; font-weight: 600; font-variant-numeric: tabular-nums; }
   .totals .sub { font-size: 7.5pt; color: #8b7f71; margin-top: 1px; }
-  .totals > div.is-income { border-left: 2.5px solid #04796b; }
-  .totals > div.is-expense { border-left: 2.5px solid #c62828; }
+  .totals > div.is-income {
+    border-left: 2.5px solid #04796b;
+    background: #f1f8f6;
+    border-color: #cfe4de;
+    border-left-color: #04796b;
+  }
+  .totals > div.is-expense {
+    border-left: 2.5px solid #c62828;
+    background: #fdf4f3;
+    border-color: #f0d5d3;
+    border-left-color: #c62828;
+  }
   .totals > div.is-neutral { border-left: 2.5px solid #8b7f71; }
-  .totals > div.is-brand { border-left: 2.5px solid #12502c; }
+  .totals > div.is-brand {
+    border-left: 2.5px solid #12502c;
+    background: #f4f8f3;
+    border-color: #d9e3d6;
+    border-left-color: #12502c;
+  }
 
   /* ------------------------------------------------------------- charts -
    *
@@ -295,6 +345,10 @@ const STYLES = `
   svg.chart .axis-line { stroke: #cbbfa9; stroke-width: 1.5; }
   svg.chart text { font-family: inherit; }
   svg.chart .axis { font-size: 15px; fill: #8b7f71; }
+  /* The figure printed over a bar has to hold its own against the colour
+     beneath it, so it is darker and heavier than an axis tick. */
+  svg.chart .bar-value { font-size: 15px; fill: #4a4238; font-weight: 600;
+    font-variant-numeric: tabular-nums; }
   svg.chart .key { font-size: 17px; fill: #3a3229; }
   svg.chart .key.num { font-variant-numeric: tabular-nums; }
   svg.chart .donut-value { font-size: 26px; font-weight: 600; fill: #1a1411; }
@@ -323,6 +377,89 @@ const STYLES = `
   .bar > span { display: block; height: 100%; background: #04796b; }
   .bar.is-expense > span { background: #c62828; }
   .bar.is-brand > span { background: #12502c; }
+
+  /* -------------------------------------------------------- money trail -
+   *
+   * What a worker actually wants to see: every rupee they took, on the left
+   * in red, and every rupee they gave back, on the right in green, each with
+   * its date. It used to be one column with a minus sign in front of the
+   * returns, which is correct bookkeeping and completely unreadable across a
+   * yard gate — the two things that must not be confused looked identical.
+   *
+   * Two fixed columns, never a reflowing row: if the sides swapped on a
+   * narrower device, red-is-taken would stop being true.
+   */
+  .trail {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 11px;
+    margin-bottom: 12px;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .trail-col {
+    border: 0.75px solid #e4dacb;
+    border-radius: 5px;
+    overflow: hidden;
+    background: #fffdfa;
+  }
+  .trail-col.is-out { border-color: #f0d5d3; }
+  .trail-col.is-in { border-color: #cfe4de; }
+  .trail-head {
+    font-size: 8pt;
+    font-weight: 600;
+    text-transform: uppercase;
+    padding: 5px 9px;
+    color: #fff;
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .is-out .trail-head { background: #c62828; }
+  .is-in .trail-head { background: #04796b; }
+  .trail-row {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    padding: 4.5px 9px;
+  }
+  .trail-row:nth-child(odd) { background: #faf7f1; }
+  .trail-row .d { font-size: 8pt; color: #8b7f71; white-space: nowrap; }
+  .trail-row .t { flex: 1; min-width: 0; font-size: 9pt; }
+  .trail-row .a {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    font-size: 9.5pt;
+    white-space: nowrap;
+  }
+  .is-out .trail-row .a { color: #c62828; }
+  .is-in .trail-row .a { color: #04796b; }
+  .trail-none { padding: 12px 9px; text-align: center; font-size: 8.5pt; color: #a2968a; }
+  .trail-sum {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 5.5px 9px;
+    font-size: 9.5pt;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    border-top: 1px solid #e4dacb;
+    background: #fdfbf7;
+  }
+  .trail-net {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 7px 12px;
+    margin-bottom: 14px;
+    border-radius: 4px;
+    background: #f6f1e9;
+    border: 0.75px solid #e4dacb;
+    font-weight: 600;
+    font-size: 10pt;
+    font-variant-numeric: tabular-nums;
+    break-inside: avoid;
+  }
 
   /* -------------------------------------------------------------- close - */
 

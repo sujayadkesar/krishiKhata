@@ -5,10 +5,10 @@ import {
 } from 'recharts'
 import {
   Plus, CalendarPlus, Wallet, CloudUpload, MapPin,
-  IndianRupee, ChartColumn,
+  IndianRupee, ChartColumn, TrendingUp, TrendingDown, HardHat,
 } from 'lucide-react'
 import { Page, Shell } from '@/components/Shell'
-import { Card, EmptyState, QuickLink, SectionHeader, StatTile } from '@/components/ui'
+import { Card, EmptyState, QuickLink, SectionHeader } from '@/components/ui'
 import { useQuery } from '@/hooks/useQuery'
 import {
   accountBalances, expenseTotalsBySubHead, monthlyTotals, totalsByKind,
@@ -176,61 +176,178 @@ export function HomeScreen() {
           </button>
         ) : null}
 
-        {/* Two large actions, first thing: put something in, or look something
-            up. Recording happens standing up with one hand, so it gets the
-            filled button; everything else is reference. */}
+        {/* Two large actions, first thing.
+            The second one used to be Reports. Reading a report is something a
+            farmer does once a month sitting down; recording a day of labour is
+            something they do standing in the field with one hand, most days of
+            the week. The two biggest targets on the screen should be the two
+            things done most often, so it is now money in-or-out and a work
+            day. Reports moved to the row below, still one tap away. */}
         <div className="grid grid-cols-2 gap-3">
           <button
             onClick={() => navigate('/add')}
-            className="flex flex-col items-center justify-center gap-2.5 rounded-2xl px-4 py-8 text-white active:scale-[.98] transition"
-            style={{ background: 'var(--color-brand-500)' }}
+            className="flex flex-col items-start justify-between rounded-2xl px-4 py-4 text-white active:scale-[.98] transition"
+            style={{
+              background: 'linear-gradient(145deg, var(--color-brand-500), var(--color-brand-600))',
+              boxShadow: '0 6px 16px -8px var(--color-brand-600)',
+              minHeight: 116,
+            }}
           >
-            <Plus size={36} strokeWidth={1.8} />
-            <span className="text-lg font-bold">{t('nav.add')}</span>
+            <span
+              className="grid place-items-center rounded-xl"
+              style={{ width: 38, height: 38, background: 'rgba(255,255,255,.22)' }}
+            >
+              <Plus size={22} strokeWidth={2.4} />
+            </span>
+            <span className="text-left leading-tight">
+              <span className="block text-lg font-bold">{t('nav.add')}</span>
+              <span className="block text-xs opacity-85">{t('dash.addHint')}</span>
+            </span>
           </button>
           <button
-            onClick={() => navigate('/reports')}
-            className="card flex flex-col items-center justify-center gap-2.5 rounded-2xl px-4 py-8 active:scale-[.98] transition"
-            style={{ color: 'var(--text)' }}
+            onClick={() => navigate('/labour/work')}
+            className="card flex flex-col items-start justify-between rounded-2xl px-4 py-4 active:scale-[.98] transition"
+            style={{
+              minHeight: 116,
+              background: 'var(--color-brand-50)',
+              borderColor: 'var(--color-brand-200)',
+            }}
           >
-            <ChartColumn size={36} strokeWidth={1.8} />
-            <span className="text-lg font-bold">{t('nav.reports')}</span>
+            <span
+              className="grid place-items-center rounded-xl"
+              style={{
+                width: 38, height: 38,
+                background: 'var(--color-brand-100)',
+                color: 'var(--color-brand-700)',
+              }}
+            >
+              <CalendarPlus size={22} strokeWidth={2.2} />
+            </span>
+            <span className="text-left leading-tight" style={{ color: 'var(--color-brand-800)' }}>
+              <span className="block text-lg font-bold">{t('labour.workShort')}</span>
+              <span className="block text-xs opacity-80">{t('dash.workHint')}</span>
+            </span>
           </button>
         </div>
 
+        {/*
+          The month, as ONE card instead of four identical tiles.
+
+          Four tiles gave income, expense, net and unpaid wages the same weight
+          and the same grey box, so the eye had to read all four to find the
+          one that mattered. What a farmer wants from this screen in two
+          seconds is "am I up or down this month" — so net is the headline, the
+          two halves that make it sit underneath, and the bar shows their
+          proportion without anybody reading a number at all.
+        */}
         <section>
           <SectionHeader>
             {t('dash.thisMonth')} · {formatMonth(todayISO(), lang)}
           </SectionHeader>
-          <div className="grid grid-cols-2 gap-2.5">
-            <StatTile
-              label={t('dash.income')}
-              value={loading ? '—' : formatCompactINR(data?.income ?? 0)}
-              sub={t('dash.sales')}
-              tone="income"
-            />
-            <StatTile
-              label={t('dash.expense')}
-              value={loading ? '—' : formatCompactINR(data?.expense ?? 0)}
-              sub={t('dash.spent')}
-              tone="expense"
-            />
-            <StatTile
-              label={t('dash.net')}
-              value={loading ? '—' : formatCompactINR(net)}
-              tone={net < 0 ? 'expense' : 'income'}
-            />
-            {/* Owed sits beside net deliberately: on a cash basis the books
-                show only what has been paid, so unpaid wages would otherwise
-                be invisible until somebody turns up asking. */}
-            <StatTile
-              label={t('labour.outstanding')}
-              value={loading ? '—' : formatCompactINR(owed)}
-              sub={`${daysThisMonth} ${t('labour.days')}`}
-              tone={owed > 0 ? 'expense' : 'neutral'}
-            />
+          <div className="card p-4">
+            <div className="flex items-end justify-between gap-3">
+              <div>
+                <div
+                  className="text-xs font-semibold uppercase tracking-wide"
+                  style={{ color: 'var(--text-faint)' }}
+                >
+                  {t('dash.net')}
+                </div>
+                <div
+                  className="tnum font-bold leading-none mt-1"
+                  style={{
+                    fontSize: 30,
+                    color: net < 0 ? 'var(--color-expense)' : 'var(--color-income)',
+                  }}
+                >
+                  {loading ? '—' : formatRupees(net)}
+                </div>
+              </div>
+              <span
+                className="grid place-items-center rounded-xl shrink-0"
+                style={{
+                  width: 42,
+                  height: 42,
+                  background: net < 0 ? 'var(--color-expense-soft)' : 'var(--color-income-soft)',
+                  color: net < 0 ? 'var(--color-expense)' : 'var(--color-income)',
+                }}
+              >
+                {net < 0 ? <TrendingDown size={22} /> : <TrendingUp size={22} />}
+              </span>
+            </div>
+
+            {/* The proportion, read without reading. Drawn only when there is
+                something to divide: a zero-width bar looks like a bug. */}
+            {data && data.income + data.expense > 0 ? (
+              <div
+                className="flex mt-3.5 overflow-hidden"
+                style={{ height: 8, borderRadius: 999, background: 'var(--surface-sunken)' }}
+              >
+                <span
+                  style={{
+                    width: (data.income / (data.income + data.expense)) * 100 + '%',
+                    background: 'var(--color-income)',
+                  }}
+                />
+                <span style={{ flex: 1, background: 'var(--color-expense)' }} />
+              </div>
+            ) : null}
+
+            <div className="grid grid-cols-2 gap-3 mt-3.5">
+              <MoneyLeg
+                dot="var(--color-income)"
+                label={t('dash.income')}
+                value={loading ? '—' : formatRupees(data?.income ?? 0)}
+              />
+              <MoneyLeg
+                dot="var(--color-expense)"
+                label={t('dash.expense')}
+                value={loading ? '—' : formatRupees(data?.expense ?? 0)}
+              />
+            </div>
           </div>
         </section>
+
+        {/* Unpaid wages, and only when there are any.
+            On a cash basis the books show what has been PAID, so what is still
+            owed is invisible in every figure above — until somebody turns up
+            at the gate asking for it. It gets its own colour and its own tap
+            straight to the pay screen. */}
+        {owed > 0 ? (
+          <button
+            onClick={() => navigate('/labour/pay')}
+            className="card w-full flex items-center gap-3 px-4 py-3.5 text-left active:scale-[.99] transition"
+            style={{ background: 'var(--color-earth-100)', borderColor: 'var(--color-earth-300)' }}
+          >
+            <span
+              className="grid place-items-center rounded-xl shrink-0"
+              style={{
+                width: 36, height: 36,
+                background: 'var(--color-earth-300)',
+                color: 'var(--color-earth-700)',
+              }}
+            >
+              <HardHat size={19} />
+            </span>
+            <span className="flex-1 leading-tight">
+              <span
+                className="block text-sm font-semibold"
+                style={{ color: 'var(--color-earth-700)' }}
+              >
+                {t('labour.outstanding')}
+              </span>
+              <span
+                className="block text-xs"
+                style={{ color: 'var(--color-earth-700)', opacity: 0.8 }}
+              >
+                {daysThisMonth} {t('labour.days')}
+              </span>
+            </span>
+            <span className="tnum font-bold text-lg" style={{ color: 'var(--color-earth-700)' }}>
+              {formatRupees(owed)}
+            </span>
+          </button>
+        ) : null}
 
         <div>
           <SectionHeader>{t('dash.balances')}</SectionHeader>
@@ -261,16 +378,16 @@ export function HomeScreen() {
           <SectionHeader>{t('dash.goTo')}</SectionHeader>
           <div className="grid grid-cols-4 gap-2.5">
             <QuickLink
-              icon={(p) => <CalendarPlus {...p} />}
-              label={t('labour.workShort')}
-              onClick={() => navigate('/labour/work')}
-              tone="var(--color-brand-600)"
-            />
-            <QuickLink
               icon={(p) => <IndianRupee {...p} />}
               label={t('labour.pay')}
               onClick={() => navigate('/labour/pay')}
               tone="var(--color-expense)"
+            />
+            <QuickLink
+              icon={(p) => <ChartColumn {...p} />}
+              label={t('nav.reports')}
+              onClick={() => navigate('/reports')}
+              tone="var(--color-income)"
             />
             <QuickLink
               icon={(p) => <MapPin {...p} />}
@@ -441,6 +558,23 @@ export function HomeScreen() {
 
       </Page>
     </Shell>
+  )
+}
+
+/** One half of the month card: a coloured dot, a label, a figure. */
+function MoneyLeg({ dot, label, value }: { dot: string; label: string; value: string }) {
+  return (
+    <div>
+      <div className="flex items-center gap-1.5">
+        <span style={{ width: 8, height: 8, borderRadius: 999, background: dot }} />
+        <span className="text-xs font-medium" style={{ color: 'var(--text-soft)' }}>
+          {label}
+        </span>
+      </div>
+      <div className="tnum font-semibold mt-0.5" style={{ fontSize: 17 }}>
+        {value}
+      </div>
+    </div>
   )
 }
 

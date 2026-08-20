@@ -99,14 +99,35 @@ function ornament(): string {
 }
 
 /**
+ * The watermark in the letterhead: two leaves and a pair of furrows.
+ *
+ * At about seven per cent it reads as texture rather than as a picture, which
+ * is the point — it should make the paper look like somebody designed it
+ * without competing with a single figure printed over it. Inline, and in flat
+ * fills only, because a print engine will drop a gradient-heavy background
+ * long before it drops a path.
+ */
+const LH_ART = `<svg class="lh-art" viewBox="0 0 190 120" preserveAspectRatio="xMaxYMid slice"
+  aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+  <g fill="#12502c" opacity=".07">
+    <path d="M112 98C112 62 138 34 178 29c2 37-24 66-66 69z"/>
+    <path d="M86 102c0-28 20-51 50-55 1 29-19 52-50 55z"/>
+  </g>
+  <g fill="none" stroke="#e35b0d" stroke-width="2.4" opacity=".13">
+    <path d="M40 108c34-17 78-22 158-22"/>
+    <path d="M40 119c34-17 78-22 158-22"/>
+  </g>
+</svg>`
+
+/**
  * The letterhead.
  *
- * A banded head rather than a name over a line. The band carries the mark and
- * the farm's own name reversed out of the brand green, its details underneath
- * on the paper — the shape of a letter from an office that keeps books, which
- * is exactly what this is handed over as. Krishi Khata made the document but
- * it is the farmer's statement, so the app's name sits small on the right
- * where a printer's imprint would go.
+ * The mark and the farm's own name on a light panel with one green edge, its
+ * details under them, then an ornament, then the title — the shape of a
+ * letter from an office that keeps books, which is exactly what this is
+ * handed over as. Krishi Khata made the document but it is the farmer's
+ * statement, so the app's name sits small on the right where a printer's
+ * imprint would go.
  */
 function letterhead(ctx: DocContext, title: string, subject?: string): string {
   const { profile, period, lang } = ctx
@@ -115,15 +136,16 @@ function letterhead(ctx: DocContext, title: string, subject?: string): string {
   const contact = [profile.village, profile.phone].filter(Boolean).map(escapeHtml).join(' · ')
 
   return `
-  <div class="lh-band">
+  <div class="lh">
+    ${LH_ART}
     ${LOGO}
     <div class="lh-main">
       <div class="lh-farm">${escapeHtml(farm)}</div>
       ${profile.owner_name ? `<div class="lh-owner">${escapeHtml(profile.owner_name)}</div>` : ''}
+      ${contact ? `<div class="lh-contact">${contact}</div>` : ''}
     </div>
     <div class="lh-right">ಕೃಷಿ ಖಾತೆ<br>Krishi Khata</div>
   </div>
-  ${contact ? `<div class="lh-contact">${contact}</div>` : ''}
   ${ornament()}
   <div class="title-block">
     <h1 class="title">${escapeHtml(title)}</h1>
@@ -659,6 +681,80 @@ export function labourDuesDoc(ctx: DocContext, rows: DuesRow[], effort: EffortRo
     ${signOff(ctx, L(lang, 'ಸಹಿ', 'Signature'))}`
 }
 
+/**
+ * Every rupee taken on the left in red, every rupee returned on the right in
+ * green, each with the date it happened.
+ *
+ * This replaced a single signed column — returns shown as a negative amount,
+ * the way a khata book does it. That is correct and it is unreadable: the two
+ * figures a worker most needs to tell apart looked identical apart from one
+ * small dash, and the argument this document exists to prevent is exactly the
+ * argument about which of the two a number was.
+ *
+ * Sides are fixed by the grid, never reflowed, because red-on-the-left has to
+ * stay true on every device that ever renders this.
+ */
+function moneyTrail(ctx: DocContext, payments: PaymentRow[], net: number): string {
+  const { lang } = ctx
+
+  const detail = (p: PaymentRow) =>
+    escapeHtml(
+      [ctx.name({ name_en: p.account_name_en, name_kn: p.account_name_kn }), p.note ?? '']
+        .filter(Boolean)
+        .join(' · '),
+    )
+
+  const rows = (list: PaymentRow[], kind: (p: PaymentRow) => string) =>
+    list.length
+      ? list
+          .map(
+            (p) => `<div class="trail-row">
+              <span class="d">${escapeHtml(formatDate(p.date, lang))}</span>
+              <span class="t"><span class="strong">${escapeHtml(kind(p))}</span>${
+                detail(p) ? ` <span class="muted">· ${detail(p)}</span>` : ''
+              }</span>
+              <span class="a">${plain(p.amount_paise)}</span>
+            </div>`,
+          )
+          .join('')
+      : `<div class="trail-none">${escapeHtml(L(lang, 'ಏನೂ ಇಲ್ಲ', 'Nothing'))}</div>`
+
+  const out = payments.filter((p) => p.direction !== 'in')
+  const back = payments.filter((p) => p.direction === 'in')
+  const outTotal = out.reduce((s, p) => s + p.amount_paise, 0)
+  const backTotal = back.reduce((s, p) => s + p.amount_paise, 0)
+
+  return `
+  <div class="trail">
+    <div class="trail-col is-out">
+      <div class="trail-head">
+        <span>${escapeHtml(L(lang, 'ಪಡೆದದ್ದು', 'Taken'))}</span>
+        <span>${out.length}</span>
+      </div>
+      ${rows(out, (p) => (p.is_advance ? L(lang, 'ಮುಂಗಡ', 'Advance') : L(lang, 'ಕೂಲಿ', 'Wages')))}
+      <div class="trail-sum">
+        <span>${escapeHtml(L(lang, 'ಒಟ್ಟು', 'Total'))}</span>
+        <span>${plain(outTotal)}</span>
+      </div>
+    </div>
+    <div class="trail-col is-in">
+      <div class="trail-head">
+        <span>${escapeHtml(L(lang, 'ವಾಪಸ್ ಕೊಟ್ಟದ್ದು', 'Returned'))}</span>
+        <span>${back.length}</span>
+      </div>
+      ${rows(back, () => L(lang, 'ವಾಪಸ್', 'Returned'))}
+      <div class="trail-sum">
+        <span>${escapeHtml(L(lang, 'ಒಟ್ಟು', 'Total'))}</span>
+        <span>${plain(backTotal)}</span>
+      </div>
+    </div>
+  </div>
+  <div class="trail-net">
+    <span>${escapeHtml(L(lang, 'ನಿವ್ವಳ ಪಾವತಿ', 'Net paid'))}</span>
+    <span>${rupees(net)}</span>
+  </div>`
+}
+
 export interface WorkerCharts {
   byCrop: {
     name_en: string | null
@@ -773,31 +869,7 @@ export function labourStatementDoc(
     { numeric: [3, 4, 5], foot: [L(lang, 'ಒಟ್ಟು', 'Total'), '', '', '', '', plain(earned)] },
   )
 
-  // Money out and money back are shown in one column with a sign, the way a
-  // khata book does it — two columns invites reading the wrong one.
-  const payTable = table(
-    [L(lang, 'ದಿನಾಂಕ', 'Date'), L(lang, 'ವಿವರ', 'Detail'), L(lang, 'ಮೊತ್ತ', 'Amount')],
-    payments.map((p) => {
-      const isReturn = p.direction === 'in'
-      const label = isReturn
-        ? L(lang, 'ವಾಪಸ್ ಬಂತು', 'Returned')
-        : p.is_advance
-          ? L(lang, 'ಮುಂಗಡ', 'Advance')
-          : L(lang, 'ಕೂಲಿ', 'Wages')
-      return [
-        escapeHtml(formatDate(p.date, lang)),
-        `<span class="strong">${escapeHtml(label)}</span>` +
-          escapeHtml(
-            [ctx.name({ name_en: p.account_name_en, name_kn: p.account_name_kn }), p.note ?? '']
-              .filter(Boolean)
-              .join(' · ')
-              .replace(/^(.)/, ' · $1'),
-          ),
-        `<span class="${isReturn ? 'pos' : ''}">${isReturn ? '−' : ''}${plain(p.amount_paise)}</span>`,
-      ]
-    }),
-    { numeric: [2], foot: [L(lang, 'ನಿವ್ವಳ', 'Net paid'), '', plain(paid)] },
-  )
+  const payTrail = moneyTrail(ctx, payments, paid)
 
   return `
     ${letterhead(ctx, L(lang, 'ಕೆಲಸ ಮತ್ತು ಪಾವತಿ ವಿವರ', 'Work & Payment Statement'), subject)}
@@ -822,8 +894,8 @@ export function labourStatementDoc(
 
     ${section(lang, 'ಕೆಲಸದ ದಿನಗಳು', 'Days worked')}
     ${workTable}
-    ${section(lang, 'ಪಾವತಿ ಮತ್ತು ವಾಪಸಾತಿ', 'Payments and returns')}
-    ${payTable}
+    ${section(lang, 'ದುಡ್ಡಿನ ಲೆಕ್ಕ', 'The money trail')}
+    ${payTrail}
     ${signOff(ctx, L(lang, 'ಸ್ವೀಕರಿಸಿದವರ ಸಹಿ', 'Received by'))}`
 }
 
