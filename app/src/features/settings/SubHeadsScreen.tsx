@@ -120,7 +120,7 @@ export function SpendTypesScreen() {
                 autoFocus
               />
             </Field>
-            <Field label="Name (English)">
+            <Field label={t('set.nameEn')}>
               <Input
                 value={draft.name_en}
                 onChange={(v) => setDraft({ ...draft, name_en: v })}
@@ -131,7 +131,7 @@ export function SpendTypesScreen() {
               <Switch
                 checked={draft.is_labour === 1}
                 onChange={(v) => setDraft({ ...draft, is_labour: v ? 1 : 0 })}
-                label="This is wages paid to people"
+                label={t('set.isLabour')}
               />
             </div>
             {editing ? (
@@ -271,7 +271,7 @@ export function HeadSubHeadsScreen({ headId }: { headId: string }) {
               </div>
             ))}
             {varieties.length === 0 ? (
-              <ListRow title={t('common.empty')} subtitle="Sold one way only" />
+              <ListRow title={t('common.empty')} subtitle={t('set.soldOneWay')} />
             ) : null}
           </Card>
           <div className="mt-2">
@@ -298,7 +298,7 @@ export function HeadSubHeadsScreen({ headId }: { headId: string }) {
               />
             ))}
             {ownSpend.length === 0 ? (
-              <ListRow title={t('set.globalSpend')} subtitle="No spend types of its own" />
+              <ListRow title={t('set.globalSpend')} subtitle={t('set.noOwnSpend')} />
             ) : null}
           </Card>
           <div className="mt-2">
@@ -344,7 +344,7 @@ export function HeadSubHeadsScreen({ headId }: { headId: string }) {
                   autoFocus
                 />
               </Field>
-              <Field label="Name (English)">
+              <Field label={t('set.nameEn')}>
                 <Input
                   value={draft.name_en}
                   onChange={(v) => setDraft({ ...draft, name_en: v })}
@@ -357,7 +357,7 @@ export function HeadSubHeadsScreen({ headId }: { headId: string }) {
                   <Switch
                     checked={draft.is_labour === 1}
                     onChange={(v) => setDraft({ ...draft, is_labour: v ? 1 : 0 })}
-                    label="This is wages paid to people"
+                    label={t('set.isLabour')}
                   />
                 </div>
               ) : null}

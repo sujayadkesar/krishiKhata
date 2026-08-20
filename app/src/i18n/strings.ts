@@ -314,6 +314,65 @@ export const STRINGS = {
   'dash.addHint': { kn: 'ಆದಾಯ ಅಥವಾ ಖರ್ಚು', en: 'Money in or out' },
   'dash.workHint': { kn: 'ಆಳುಗಳ ಹಾಜರಿ', en: 'Attendance for the day' },
   'set.subHeads': { kn: 'ಉಪ ಶೀರ್ಷಿಕೆ', en: 'Sub-heads' },
+  /* Field labels and hints across Settings. These were English literals on a
+     Kannada-default app: a farmer setting up their own farm was reading half
+     a screen in a language they did not choose, which is most of what made
+     Settings feel like somebody else's software. */
+  'set.nameEn': { kn: 'ಹೆಸರು (ಇಂಗ್ಲಿಷ್)', en: 'Name (English)' },
+  'set.accountType': { kn: 'ಬಗೆ', en: 'Type' },
+  'set.bank': { kn: 'ಬ್ಯಾಂಕ್', en: 'Bank' },
+  'set.last4': { kn: 'ಕೊನೆಯ ೪ ಅಂಕಿ', en: 'Last 4 digits' },
+  'set.openingHint': {
+    kn: 'ಇವತ್ತು ಈ ಖಾತೆಯಲ್ಲಿ ಇರುವ ಮೊತ್ತ. ಎಲ್ಲಾ ಶಿಲ್ಕೂ ಇದರ ಮೇಲೆ ನಿಂತಿದೆ.',
+    en: 'What is in this account today. Every balance the app shows builds on this.',
+  },
+  'set.preselectHint': {
+    kn: 'ಈ ಕೆಲಸ ಆರಿಸಿದಾಗ ತಾನಾಗಿ ಬರುತ್ತದೆ. ಬೇಕಾದರೆ ಬದಲಿಸಬಹುದು.',
+    en: 'Pre-selected when this work is chosen. Still changeable afterwards.',
+  },
+  'set.usualRateHint': {
+    kn: 'ಸಾಮಾನ್ಯ ದರ. ಖಾಲಿ ಬಿಟ್ಟರೂ ಸರಿ.',
+    en: 'The usual figure. Leaving it empty is fine — it is only a starting point.',
+  },
+  'set.workUnitHint': {
+    kn: 'ಲೀಟರ್, ಚೀಲ — ಕೆಲಸ ಯಾವುದರಲ್ಲಿ ಎಣಿಸುತ್ತೀರಿ.',
+    en: 'Litres, bags — what the work is counted in.',
+  },
+  'set.farmNameHint': {
+    kn: 'ಪ್ರತಿ ವರದಿಯ ಮೇಲ್ಭಾಗದಲ್ಲಿ ಬರುತ್ತದೆ.',
+    en: 'Printed at the top of every statement.',
+  },
+  'set.salaryHint': {
+    kn: 'ತಿಂಗಳಿಗೊಮ್ಮೆ ಕೆಲಸಗಾರರ ಪುಟದಿಂದ ಹಾಕಲಾಗುತ್ತದೆ. ನಂತರ ಪಾವತಿಯಿಂದ ಕಳೆಯುತ್ತದೆ.',
+    en: 'Posted once a month from the Team screen, then settled by whatever you pay.',
+  },
+  'set.groupSizeHint': {
+    kn: 'ಸಾಮಾನ್ಯ ಸಂಖ್ಯೆ ಅಷ್ಟೆ. ಪ್ರತಿ ದಿನದ ನಿಜವಾದ ಲೆಕ್ಕ ಆ ದಿನವೇ ಹಾಕುತ್ತೀರಿ.',
+    en: 'Just the usual number. You set the real count for each day when recording work.',
+  },
+  'set.mixedRateHint': {
+    kn: 'ತಂಡದಲ್ಲಿ ಗಂಡು-ಹೆಣ್ಣು ದರ ಬೇರೆ ಇರುತ್ತದೆ. ಪ್ರತಿ ದಿನವೂ ಬದಲಿಸಬಹುದು.',
+    en: 'Crews are usually mixed and the two rates differ. Still editable each day.',
+  },
+  'set.halfDayHint': {
+    kn: 'ಖಾಲಿ ಬಿಟ್ಟರೆ ದಿನದ ಕೂಲಿಯ ಅರ್ಧ.',
+    en: 'Leave empty for half of the daily wage.',
+  },
+  'set.isLabour': { kn: 'ಇದು ಜನರಿಗೆ ಕೊಡುವ ಕೂಲಿ', en: 'This is wages paid to people' },
+  'set.soldOneWay': { kn: 'ಒಂದೇ ಬಗೆಯಲ್ಲಿ ಮಾರಾಟ', en: 'Sold one way only' },
+  'set.noOwnSpend': { kn: 'ತನ್ನದೇ ಖರ್ಚಿನ ಬಗೆ ಇಲ್ಲ', en: 'No spend types of its own' },
+  'set.alsoExpense': { kn: 'ಇದರ ಮೇಲೆ ಖರ್ಚೂ ಆಗುತ್ತದೆ', en: 'Money is also spent on this' },
+  'set.alsoIncome': { kn: 'ಇದರಿಂದ ಆದಾಯವೂ ಬರುತ್ತದೆ', en: 'This also brings income' },
+  'set.bothSides': { kn: 'ಆದಾಯ ಮತ್ತು ಖರ್ಚು', en: 'sales and expenses' },
+  'set.unitsHint': {
+    kn: 'ಬಳಸುವ ಕ್ರಮದಲ್ಲಿ ಒತ್ತಿ. ಮೊದಲನೆಯದು ತಾನಾಗಿ ಬರುತ್ತದೆ.',
+    en: 'Tap in the order you use them — the first is offered by default.',
+  },
+  'set.colour': { kn: 'ಬಣ್ಣ', en: 'Colour' },
+  'set.colourHint': {
+    kn: 'ಗ್ರಾಫ್, ಪಟ್ಟಿ ಮತ್ತು ವರದಿಗಳಲ್ಲಿ ಇದೇ ಬಣ್ಣ',
+    en: 'Used for this crop everywhere — charts, lists, statements',
+  },
   'set.spendTypes': { kn: 'ಖರ್ಚಿನ ಬಗೆ', en: 'Kinds of spending' },
   /* Settings groups. Four questions, in the order a farm is set up. */
   'set.grpFarm': { kn: 'ನಿಮ್ಮ ತೋಟ', en: 'Your farm' },

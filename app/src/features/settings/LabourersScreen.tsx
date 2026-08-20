@@ -157,7 +157,7 @@ export function LabourersScreen() {
                 autoFocus
               />
             </Field>
-            <Field label="Name (English)">
+            <Field label={t('set.nameEn')}>
               <Input
                 value={draft.name_en}
                 onChange={(v) => setDraft({ ...draft, name_en: v })}
@@ -201,7 +201,7 @@ export function LabourersScreen() {
             {draft.employment === 'monthly' ? (
               <Field
                 label={t('labour.monthlySalary')}
-                hint="Posted once a month from the Team screen, then settled by whatever you pay them."
+                hint={t('set.salaryHint')}
               >
                 <MoneyInput
                   paise={draft.monthly_salary_paise}
@@ -223,7 +223,7 @@ export function LabourersScreen() {
             {draft.is_group_lead === 1 ? (
               <Field
                 label={t('labour.groupSize')}
-                hint="Just the usual number. You set the real count for each day when recording work."
+                hint={t('set.groupSizeHint')}
               >
                 <Input
                   value={draft.typical_group_size}
@@ -258,7 +258,7 @@ export function LabourersScreen() {
             {draft.is_group_lead === 1 ? (
               <Field
                 label={t('labour.womenRate')}
-                hint="Crews are usually mixed and the two rates differ. Still editable on each day's entry."
+                hint={t('set.mixedRateHint')}
               >
                 <MoneyInput
                   paise={draft.female_rate_paise}
@@ -269,7 +269,7 @@ export function LabourersScreen() {
 
             <Field
               label={t('labour.halfDayRate')}
-              hint="Leave empty for half of the daily wage."
+              hint={t('set.halfDayHint')}
             >
               <MoneyInput
                 paise={draft.half_day_rate_paise}

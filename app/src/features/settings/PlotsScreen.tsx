@@ -134,7 +134,7 @@ export function PlotsScreen() {
                 autoFocus
               />
             </Field>
-            <Field label="Name (English)">
+            <Field label={t('set.nameEn')}>
               <Input
                 value={draft.name_en}
                 onChange={(v) => setDraft({ ...draft, name_en: v })}

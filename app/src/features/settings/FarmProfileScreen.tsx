@@ -37,7 +37,7 @@ export function FarmProfileScreen() {
   return (
     <Shell title={t('set.farmProfile')} onBack={back} right={<span />}>
       <Page>
-        <Field label={t('set.farmName')} hint="Printed at the top of every statement.">
+        <Field label={t('set.farmName')} hint={t('set.farmNameHint')}>
           <Input
             value={form.farm_name}
             onChange={(v) => setForm({ ...form, farm_name: v })}

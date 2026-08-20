@@ -193,7 +193,22 @@ export function EntriesScreen() {
                           className="block text-xs truncate"
                           style={{ color: 'var(--text-faint)' }}
                         >
-                          {[qty, e.party_name, e.note].filter(Boolean).join(' · ') || ' '}
+                          {/*
+                            Wage payments book themselves as an expense, which
+                            is right — but an expense the farmer never typed
+                            looks like a mistake, and the fix people reach for
+                            is to enter the wage again by hand. Saying where
+                            the row came from is what stops the same money
+                            being counted twice.
+                          */}
+                          {e.labour_payment_id ? (
+                            <span style={{ color: 'var(--color-brand-600)' }}>
+                              {t('labour.fromWagePayment')}
+                              {[qty, e.party_name, e.note].filter(Boolean).length ? ' · ' : ''}
+                            </span>
+                          ) : null}
+                          {[qty, e.party_name, e.note].filter(Boolean).join(' · ') ||
+                            (e.labour_payment_id ? '' : ' ')}
                         </span>
                       </span>
 

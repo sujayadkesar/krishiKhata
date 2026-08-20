@@ -120,7 +120,7 @@ export function ActivitiesScreen() {
                 autoFocus
               />
             </Field>
-            <Field label="Name (English)">
+            <Field label={t('set.nameEn')}>
               <Input
                 value={draft.name_en}
                 onChange={(v) => setDraft({ ...draft, name_en: v })}
@@ -130,7 +130,7 @@ export function ActivitiesScreen() {
 
             <Field
               label={t('entry.subHead')}
-              hint="Pre-selected when this work is chosen. Still changeable on the entry."
+              hint={t('set.preselectHint')}
             >
               <Select
                 value={draft.sub_head_id}
@@ -142,7 +142,7 @@ export function ActivitiesScreen() {
 
             <Field
               label={t('labour.basis')}
-              hint="Pre-selected when this work is chosen. Still changeable on the day."
+              hint={t('set.preselectHint')}
             >
               <Select
                 value={draft.default_basis}
@@ -159,7 +159,7 @@ export function ActivitiesScreen() {
             {draft.default_basis === 'hour' || draft.default_basis === 'lump' ? (
               <Field
                 label={draft.default_basis === 'hour' ? t('labour.hourRate') : t('labour.agreedAmount')}
-                hint="The usual figure. Left empty is fine — it is only a starting point."
+                hint={t('set.usualRateHint')}
               >
                 <MoneyInput
                   paise={draft.default_rate_paise}
@@ -169,7 +169,7 @@ export function ActivitiesScreen() {
             ) : null}
 
             {draft.default_basis === 'piece' ? (
-              <Field label={t('entry.unit')} hint="Litres, bags — what the work is counted in.">
+              <Field label={t('entry.unit')} hint={t('set.workUnitHint')}>
                 <Select
                   value={draft.default_unit_id}
                   onChange={(v) => setDraft({ ...draft, default_unit_id: v })}

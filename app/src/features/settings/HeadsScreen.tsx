@@ -95,8 +95,10 @@ export function HeadsScreen({ side }: { side: Side }) {
   const [draft, setDraft] = useState<Draft | null>(null)
   const [editing, setEditing] = useState<Head | null>(null)
 
-  const bothLabel =
-    side === 'income' ? 'Also record expenses against this' : 'Also record sales against this'
+  // Translated, like everything else on the sheet. These were English
+  // literals on a screen whose default language is Kannada, which is exactly
+  // the kind of thing that makes Settings feel like somebody else's app.
+  const bothLabel = side === 'income' ? t('set.alsoExpense') : t('set.alsoIncome')
 
   // Unit assignments live in their own table, so they are fetched when a head
   // is opened rather than joined into the list query.
@@ -184,7 +186,7 @@ export function HeadsScreen({ side }: { side: Side }) {
       )}
       subtitleOf={(h) =>
         [h.category === 'crop' ? t('head.isCrop') : t('head.isGeneral'),
-         h.used_for === 'both' ? 'sales and expenses' : null]
+         h.used_for === 'both' ? t('set.bothSides') : null]
           .filter(Boolean).join(' · ')}
       /* No shortcut on the sale side any more. A crop's varieties are edited
          inside the crop, so a second door into a second screen was the extra
@@ -254,7 +256,7 @@ export function HeadsScreen({ side }: { side: Side }) {
               />
             </Field>
 
-            <Field label="Name (English)">
+            <Field label={t('set.nameEn')}>
               <Input
                 value={draft.name_en}
                 onChange={(v) => setDraft({ ...draft, name_en: v })}
@@ -291,7 +293,7 @@ export function HeadsScreen({ side }: { side: Side }) {
             {side === 'income' && draft.category === 'crop' ? (
               <Field
                 label={t('set.allowedUnits')}
-                hint="Tap in the order you use them — the first one is offered by default."
+                hint={t('set.unitsHint')}
               >
                 <ChipMulti
                   options={(units ?? []).map((u) => ({
@@ -392,7 +394,7 @@ export function HeadsScreen({ side }: { side: Side }) {
               </button>
             ) : null}
 
-            <Field label="Colour" hint="Used for this crop everywhere — charts, lists, statements.">
+            <Field label={t('set.colour')} hint={t('set.colourHint')}>
               <div className="flex flex-wrap gap-2">
                 {COLORS.map((c) => (
                   <button

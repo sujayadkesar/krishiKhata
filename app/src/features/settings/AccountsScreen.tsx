@@ -118,7 +118,7 @@ export function AccountsScreen() {
               />
             </Field>
 
-            <Field label="Name (English)">
+            <Field label={t('set.nameEn')}>
               <Input
                 value={draft.name_en}
                 onChange={(v) => setDraft({ ...draft, name_en: v })}
@@ -126,7 +126,7 @@ export function AccountsScreen() {
               />
             </Field>
 
-            <Field label="Type">
+            <Field label={t('set.accountType')}>
               <Select
                 value={draft.kind}
                 onChange={(v) => setDraft({ ...draft, kind: v })}
@@ -140,14 +140,14 @@ export function AccountsScreen() {
 
             {draft.kind !== 'cash' ? (
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Bank">
+                <Field label={t('set.bank')}>
                   <Input
                     value={draft.bank_name}
                     onChange={(v) => setDraft({ ...draft, bank_name: v })}
                     placeholder="Canara"
                   />
                 </Field>
-                <Field label="Last 4 digits">
+                <Field label={t('set.last4')}>
                   <Input
                     value={draft.account_last4}
                     onChange={(v) => setDraft({ ...draft, account_last4: v.replace(/\D/g, '') })}
@@ -161,7 +161,7 @@ export function AccountsScreen() {
 
             <Field
               label={t('set.openingBalance')}
-              hint="What is in this account today. Every balance the app shows builds on this, so it is worth getting right once."
+              hint={t('set.openingHint')}
             >
               <MoneyInput
                 paise={draft.opening_balance_paise}
