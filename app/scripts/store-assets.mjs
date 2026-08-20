@@ -9,17 +9,22 @@ import { logoSvg } from '../src/components/logoArt.ts'
  *
  *   npm run store-assets
  *
- * Generated rather than drawn in an editor, for the same reason the app icon
- * is: the palette here is THE APP'S palette, pulled from the same tokens the
- * screens use, so a listing cannot drift away from the product it is selling.
- * Change a colour in one place and regenerate.
+ * Generated from the app's own tokens — the same palette, mark and ornament
+ * the product uses — so the listing cannot drift away from the thing it sells.
  *
- * The phone screens below are RECONSTRUCTIONS of the real interface at real
- * proportions, not captures. They are accurate to what the app shows — same
- * layout, same colours, same figures the seeded data produces — but if you
- * want captures from an actual device, take them and use these as the frame
- * design. Play requires screenshots to represent the app honestly, and these
- * do; a real capture is simply better still.
+ * EVERYTHING HERE IS IN ENGLISH, and that is a decision rather than laziness.
+ * The rasteriser's Kannada shaping is not trustworthy: it drops the space
+ * between two Kannada words and mis-forms conjuncts, and no combination of
+ * xml:space, tspan offsets, hand-measured word placement or alternate Indic
+ * fonts fixed it. A listing full of malformed Kannada is the worst possible
+ * first impression for an app whose whole claim is that it speaks Kannada
+ * properly — far worse than an English listing. The default store listing is
+ * en-IN and the app genuinely has an English mode, so this is both honest and
+ * clean. For a Kannada (kn-IN) listing, take real captures off a phone: the
+ * app's own WebView shapes Kannada correctly.
+ *
+ * NO REAL PEOPLE. The farm, its village and every worker name are invented.
+ * A store listing is public forever.
  */
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -32,7 +37,8 @@ mkdirSync(out, { recursive: true })
 
 const C = {
   forest: '#12502c',
-  forestDeep: '#0d3b20',
+  forestMid: '#17572f',
+  forestDeep: '#0a3319',
   leaf: '#6fbf3f',
   brand: '#e35b0d',
   brandSoft: '#fef4ec',
@@ -45,83 +51,21 @@ const C = {
   faint: '#8b7f71',
   income: '#04796b',
   expense: '#c62828',
-  paleGreen: '#a7cbb5',
+  transfer: '#1d4ed8',
+  amber: '#fdf3e0',
+  amberLine: '#f2cc86',
+  amberInk: '#8a5605',
+  pale: '#a7cbb5',
 }
 
-const LATIN = 'Segoe UI'
-const KANNADA = 'Nirmala UI'
+const FONT = 'Segoe UI'
 
 const esc = (s) =>
   String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
-/**
- * How wide a run of text actually renders.
- *
- * MEASURED, not estimated. A first attempt guessed widths from character
- * counts and was wrong by 10–20% depending on how many combining marks a word
- * carried, which made words overlap — worse than the problem it was solving.
- * The rasteriser can report the ink box of anything it draws, so it is asked.
- *
- * Cached because the same handful of labels are drawn across five screenshots
- * and each measurement is a full parse.
- */
-const measured = new Map()
-function widthOf(text, size, family) {
-  const key = `${family}|${size}|${text}`
-  const hit = measured.get(key)
-  if (hit !== undefined) return hit
-
-  const probe = `<svg xmlns="http://www.w3.org/2000/svg" width="6000" height="${size * 3}"><text x="0" y="${size * 2}" font-family="${family}" font-size="${size}">${esc(text)}</text></svg>`
-  let w
-  try {
-    const box = new Resvg(probe, { font: { loadSystemFonts: true } }).getBBox()
-    // From the origin, not just the ink: the left sidebearing is part of the
-    // advance and dropping it shifts every following word left.
-    w = box ? box.x + box.width : size * 0.6 * [...text].length
-  } catch {
-    w = size * 0.6 * [...text].length
-  }
-  measured.set(key, w)
-  return w
-}
-
-/**
- * A text run.
- *
- * MULTI-WORD KANNADA IS LAID OUT WORD BY WORD, and it has to be. The
- * rasteriser drops the space between two Kannada words — "ಆದಾಯ ಮತ್ತು ಖರ್ಚು"
- * comes out as "ಆದಾಯಮತ್ತುಖರ್ಚು" — regardless of xml:space, doubled spaces,
- * tspan offsets, or which Indic font is asked for. For an app whose whole
- * point is that it speaks Kannada properly, a listing full of run-together
- * words is the worst possible first impression, so each word is measured and
- * placed with the gap put back by hand.
- */
-function txt(x, y, s, { size = 24, fill = C.ink, weight = 400, anchor = 'start', kn = false } = {}) {
-  const family = kn ? KANNADA : LATIN
-  const attrs = `font-family="${family}" font-size="${size}" font-weight="${weight}" fill="${fill}"`
-
-  const words = String(s).split(' ').filter(Boolean)
-  if (!kn || words.length < 2) {
-    return `<text x="${x}" y="${y}" ${attrs} text-anchor="${anchor}">${esc(s)}</text>`
-  }
-
-  // Generous on purpose. The measurement is an INK box, so a letter with a
-  // subscript that trails to the right — ಆಗಸ್ಟ್ — measures narrower than it
-  // occupies, and Kannada has no ascender pattern to make a word boundary
-  // obvious the way Latin does. Too much air reads as styling; too little
-  // reads as a spelling mistake.
-  const gap = 0.52 * size
-  const widths = words.map((w) => widthOf(w, size, family))
-  const total = widths.reduce((a, b) => a + b, 0) + gap * (words.length - 1)
-  let cursor = anchor === 'middle' ? x - total / 2 : anchor === 'end' ? x - total : x
-
-  return words
-    .map((w, i) => {
-      const out = `<text x="${cursor}" y="${y}" ${attrs} text-anchor="start">${esc(w)}</text>`
-      cursor += widths[i] + gap
-      return out
-    })
-    .join('')
+function txt(x, y, s, { size = 24, fill = C.ink, weight = 400, anchor = 'start', track = 0 } = {}) {
+  const ls = track ? ` letter-spacing="${track}"` : ''
+  return `<text x="${x}" y="${y}" font-family="${FONT}" font-size="${size}" font-weight="${weight}" fill="${fill}" text-anchor="${anchor}"${ls}>${esc(s)}</text>`
 }
 
 const rect = (x, y, w, h, fill, r = 0, extra = '') =>
@@ -130,311 +74,365 @@ const rect = (x, y, w, h, fill, r = 0, extra = '') =>
 /** The mark, stripped of its own <svg> so it can be placed and scaled. */
 function mark(size, x, y) {
   const inner = logoSvg({ size: 64, bare: true }).replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '')
-  const s = size / 64
-  return `<g transform="translate(${x} ${y}) scale(${s})">${inner}</g>`
+  return `<g transform="translate(${x} ${y}) scale(${size / 64})">${inner}</g>`
 }
 
 /**
  * The ornament from the printed reports, reused here.
  *
  * A listing and a statement that share one piece of decoration read as coming
- * from the same place, which is the entire job of a brand mark.
+ * from the same place, which is the whole job of a mark.
  */
-function ornament(x, y, w) {
-  const half = w / 2 - 46
-  return `<g transform="translate(${x} ${y})">
-    <rect x="0" y="-1" width="${half}" height="2.5" fill="${C.brand}" opacity=".45"/>
-    <rect x="${w - half}" y="-1" width="${half}" height="2.5" fill="${C.brand}" opacity=".45"/>
-    <path d="M${w / 2 - 34} 0 L${w / 2 - 21} -13 L${w / 2 - 8} 0 L${w / 2 - 21} 13 Z" fill="${C.brand}"/>
-    <path d="M${w / 2 - 4} 0 L${w / 2} -5 L${w / 2 + 4} 0 L${w / 2} 5 Z" fill="${C.brandLight}"/>
-    <path d="M${w / 2 + 8} 0 L${w / 2 + 21} -13 L${w / 2 + 34} 0 L${w / 2 + 21} 13 Z" fill="${C.brand}"/>
+function ornament(cx, y, w, colour = C.brand, light = C.brandLight) {
+  const arm = w / 2 - 52
+  return `<g transform="translate(${cx} ${y})">
+    <rect x="${-w / 2}" y="-1.2" width="${arm}" height="2.4" fill="${colour}" opacity=".5"/>
+    <rect x="${w / 2 - arm}" y="-1.2" width="${arm}" height="2.4" fill="${colour}" opacity=".5"/>
+    <path d="M-38 0 L-24 -14 L-10 0 L-24 14 Z" fill="${colour}"/>
+    <path d="M-4 0 L0 -5 L4 0 L0 5 Z" fill="${light}"/>
+    <path d="M10 0 L24 -14 L38 0 L24 14 Z" fill="${colour}"/>
   </g>`
 }
 
 /* ------------------------------------------------------------------ *
- * The phone, and the screens inside it
+ * The device
  * ------------------------------------------------------------------ */
 
-const SCREEN_W = 752
-const SCREEN_H = 1412
+const SCREEN_W = 760
+const SCREEN_H = 1440
 
-/** A hardware frame so a screen reads as a phone rather than a web page. */
-function phone(x, y, screen) {
-  return `<g transform="translate(${x} ${y})">
-    <rect x="0" y="0" width="${SCREEN_W + 28}" height="${SCREEN_H + 28}" rx="58" fill="${C.ink}"/>
-    <rect x="4" y="4" width="${SCREEN_W + 20}" height="${SCREEN_H + 20}" rx="54" fill="#2c2620"/>
-    <clipPath id="scr${x}${y}"><rect x="14" y="14" width="${SCREEN_W}" height="${SCREEN_H}" rx="46"/></clipPath>
-    <g clip-path="url(#scr${x}${y})"><g transform="translate(14 14)">${screen}</g></g>
+function phone(screen) {
+  return `<g>
+    <rect x="0" y="0" width="${SCREEN_W + 30}" height="${SCREEN_H + 30}" rx="62" fill="#221d18"/>
+    <rect x="5" y="5" width="${SCREEN_W + 20}" height="${SCREEN_H + 20}" rx="58" fill="#3a322a"/>
+    <clipPath id="screenClip"><rect x="15" y="15" width="${SCREEN_W}" height="${SCREEN_H}" rx="50"/></clipPath>
+    <g clip-path="url(#screenClip)"><g transform="translate(15 15)">${screen}</g></g>
   </g>`
 }
 
-/** Header bar shared by every screen. */
-function appHeader(title, kn = true) {
-  return `${rect(0, 0, SCREEN_W, 96, C.card)}
-    ${rect(0, 95, SCREEN_W, 1.5, C.border)}
-    ${mark(46, 22, 26)}
-    ${txt(84, 62, title, { size: 30, weight: 600, kn })}`
+/* ------------------------------------------------------------------ *
+ * App chrome
+ * ------------------------------------------------------------------ */
+
+function appHeader(title) {
+  return `${rect(0, 0, SCREEN_W, 104, C.card)}
+    ${rect(0, 103, SCREEN_W, 1.5, C.border)}
+    ${mark(48, 26, 28)}
+    ${txt(90, 68, title, { size: 32, weight: 600 })}`
 }
 
-/** Bottom navigation, with one item lit. */
-function appNav(activeIndex) {
-  const items = [
-    ['ಮುಖಪುಟ', 'M4 10 12 3l8 7v10H4z'],
-    ['ವ್ಯವಹಾರ', 'M5 3h14v18l-3-2-2 2-2-2-2 2-3-2z'],
-    ['ಸೇರಿಸಿ', 'M12 5v14M5 12h14'],
-    ['ಕೆಲಸಗಾರರು', 'M8 11a4 4 0 100-8 4 4 0 000 8zM2 21a6 6 0 0112 0'],
-    ['ಸೆಟ್ಟಿಂಗ್ಸ್', 'M12 8a4 4 0 100 8 4 4 0 000-8z'],
-  ]
+const NAV = [
+  ['Home', 'M4 10.5 12 3.5l8 7V21H4z'],
+  ['Entries', 'M5 3h14v18l-3-2-2 2-2-2-2 2-3-2z'],
+  ['Add', 'M12 5v14M5 12h14'],
+  ['Team', 'M9 11a4 4 0 100-8 4 4 0 000 8zM2 21a7 7 0 0114 0'],
+  ['Settings', 'M12 8.5a3.5 3.5 0 100 7 3.5 3.5 0 000-7z'],
+]
+
+function appNav(active) {
   const w = SCREEN_W / 5
-  const y = SCREEN_H - 116
-  return `${rect(0, y, SCREEN_W, 116, C.card)}${rect(0, y, SCREEN_W, 1.5, C.border)}` +
-    items.map(([label, d], i) => {
-      const on = i === activeIndex
+  const y = SCREEN_H - 124
+  return `${rect(0, y, SCREEN_W, 124, C.card)}${rect(0, y, SCREEN_W, 1.5, C.border)}` +
+    NAV.map(([label, d], i) => {
+      const on = i === active
+      const add = i === 2
       const cx = w * i + w / 2
       const colour = on ? C.brand : C.faint
-      const add = i === 2
-      return `<g transform="translate(${cx} ${y + 34})">
-        ${add ? `<circle cx="0" cy="4" r="27" fill="${C.brand}"/>` : ''}
-        <g transform="translate(-12 -8) scale(1)" fill="none" stroke="${add ? '#fff' : colour}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></g>
-        ${txt(0, 52, label, { size: 17, fill: colour, weight: on ? 600 : 400, anchor: 'middle', kn: true })}
+      return `<g transform="translate(${cx} ${y + 38})">
+        ${add ? `<circle cx="0" cy="2" r="29" fill="${C.brand}"/>` : ''}
+        <g transform="translate(-12 -10)" fill="none" stroke="${add ? '#fff' : colour}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></g>
+        ${txt(0, 56, label, { size: 19, fill: colour, weight: on ? 600 : 400, anchor: 'middle' })}
       </g>`
     }).join('')
 }
 
-const card = (x, y, w, h) => rect(x, y, w, h, C.card, 22, `stroke="${C.border}" stroke-width="1.5"`)
+const card = (x, y, w, h, fill = C.card) =>
+  rect(x, y, w, h, fill, 24, `stroke="${C.border}" stroke-width="1.5"`)
 
-/** 1 — Home. The two big actions, the month, the balances. */
+/** A small uppercase section label, as the app uses. */
+const label = (x, y, s) =>
+  txt(x, y, s.toUpperCase(), { size: 21, fill: C.faint, weight: 600, track: 1.2 })
+
+/* ------------------------------------------------------------------ *
+ * Screens
+ * ------------------------------------------------------------------ */
+
 function screenHome() {
   const tiles = [
-    ['ಆದಾಯ', '₹3.12 L', C.income],
-    ['ಖರ್ಚು', '₹10,000', C.expense],
-    ['ಉಳಿತಾಯ', '₹3.02 L', C.income],
-    ['ಬಾಕಿ ಕೂಲಿ', '₹17,650', C.expense],
+    ['Income', '₹3,12,425', C.income],
+    ['Expense', '₹10,000', C.expense],
+    ['Net', '₹3,02,425', C.income],
+    ['Wages due', '₹17,650', C.expense],
   ]
+  const bars = [[62, 104], [88, 44], [46, 128], [112, 62], [72, 96], [136, 50]]
   return `${rect(0, 0, SCREEN_W, SCREEN_H, C.ground)}
-  ${appHeader('ಕೃಷಿ ಖಾತೆ')}
-  ${rect(28, 128, 340, 190, C.brand, 26)}
-  <g transform="translate(198 212)" fill="none" stroke="#fff" stroke-width="4.5" stroke-linecap="round"><path d="M-22 0h44M0 -22v44"/></g>
-  ${txt(198, 288, 'ಸೇರಿಸಿ', { size: 34, fill: '#fff', weight: 600, anchor: 'middle', kn: true })}
-  ${card(384, 128, 340, 190)}
-  <g transform="translate(554 210)" fill="none" stroke="${C.forest}" stroke-width="4" stroke-linecap="round"><rect x="-22" y="-20" width="44" height="40" rx="5"/><path d="M-11 -30v10M11 -30v10M-22 -6h44"/></g>
-  ${txt(554, 288, 'ಕೆಲಸ', { size: 34, fill: C.forest, weight: 600, anchor: 'middle', kn: true })}
-  ${txt(28, 372, 'ಈ ತಿಂಗಳು · ಆಗಸ್ಟ್ 2026', { size: 22, fill: C.faint, weight: 600, kn: true })}
-  ${tiles.map(([label, value, colour], i) => {
-    const x = 28 + (i % 2) * 348
-    const y = 396 + Math.floor(i / 2) * 148
-    return `${card(x, y, 340, 128)}
-      ${txt(x + 24, y + 44, label, { size: 22, fill: C.soft, weight: 600, kn: true })}
-      ${txt(x + 24, y + 92, value, { size: 42, fill: colour, weight: 700 })}`
+  ${appHeader('Krishi Khata')}
+
+  ${rect(30, 136, 342, 196, C.brand, 28)}
+  <g transform="translate(201 222)" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round"><path d="M-24 0h48M0 -24v48"/></g>
+  ${txt(201, 300, 'Entry', { size: 36, fill: '#fff', weight: 600, anchor: 'middle' })}
+
+  ${card(388, 136, 342, 196)}
+  <g transform="translate(559 220)" fill="none" stroke="${C.forest}" stroke-width="4.2" stroke-linecap="round"><rect x="-24" y="-22" width="48" height="44" rx="6"/><path d="M-12 -32v10M12 -32v10M-24 -8h48"/></g>
+  ${txt(559, 300, 'Work', { size: 36, fill: C.forest, weight: 600, anchor: 'middle' })}
+
+  ${label(30, 388, 'This month · August')}
+  ${tiles.map(([l, v, col], i) => {
+    const x = 30 + (i % 2) * 350
+    const y = 410 + Math.floor(i / 2) * 152
+    return `${card(x, y, 342, 132)}
+      ${txt(x + 26, y + 48, l, { size: 23, fill: C.soft, weight: 600 })}
+      ${txt(x + 26, y + 98, v, { size: 40, fill: col, weight: 700 })}`
   }).join('')}
-  ${txt(28, 738, 'ಖಾತೆ ಶಿಲ್ಕು', { size: 22, fill: C.faint, weight: 600, kn: true })}
-  ${card(28, 762, 696, 190)}
-  ${[['ಕೈಯಲ್ಲಿನ ನಗದು', '₹4,18,888'], ['ಬ್ಯಾಂಕ್', '₹1,24,500'], ['UPI', '₹8,200']]
-    .map(([n, v], i) => `${txt(56, 818 + i * 56, n, { size: 26, weight: 500, kn: true })}
-       ${txt(696, 818 + i * 56, v, { size: 26, weight: 600, anchor: 'end' })}`).join('')}
-  ${txt(28, 1010, 'ಆದಾಯ ಮತ್ತು ಖರ್ಚು', { size: 22, fill: C.faint, weight: 600, kn: true })}
-  ${card(28, 1034, 696, 232)}
-  ${[[52, 96], [78, 40], [40, 120], [104, 58], [66, 88], [126, 46]].map(([a, b], i) => {
-    const x = 76 + i * 104
-    return `${rect(x, 1210 - a, 34, a, C.income, 5)}${rect(x + 38, 1210 - b, 34, b, C.brand, 5)}`
+
+  ${label(30, 762, 'Balances')}
+  ${card(30, 784, 700, 200)}
+  ${[['Cash in hand', '₹4,18,888'], ['Bank', '₹1,24,500'], ['UPI', '₹8,200']]
+    .map(([n, v], i) => `${txt(58, 844 + i * 58, n, { size: 27, weight: 500 })}
+      ${txt(702, 844 + i * 58, v, { size: 27, weight: 600, anchor: 'end' })}`).join('')}
+
+  ${label(30, 1042, 'Income against expense')}
+  ${card(30, 1064, 700, 244)}
+  ${bars.map(([a, b], i) => {
+    const x = 78 + i * 106
+    return `${rect(x, 1252 - a, 36, a, C.income, 6)}${rect(x + 42, 1252 - b, 36, b, C.brand, 6)}`
   }).join('')}
+  ${rect(78, 1252, 604, 1.5, C.border)}
+  <g transform="translate(470 1292)">
+    ${rect(0, -15, 18, 18, C.income, 4)}${txt(28, 0, 'Income', { size: 20, fill: C.soft })}
+    ${rect(124, -15, 18, 18, C.brand, 4)}${txt(152, 0, 'Expense', { size: 20, fill: C.soft })}
+  </g>
   ${appNav(0)}`
 }
 
-/** 2 — Recording a sale. Crop, variety, quantity, rate. */
 function screenEntry() {
-  const chip = (x, y, w, label, on) =>
-    `${rect(x, y, w, 62, on ? C.brand : C.card, 31, `stroke="${on ? C.brand : C.border}" stroke-width="1.5"`)}
-     ${txt(x + w / 2, y + 41, label, { size: 25, fill: on ? '#fff' : C.soft, weight: on ? 600 : 400, anchor: 'middle', kn: true })}`
-  const field = (y, label, value, mono = false) =>
-    `${txt(28, y, label, { size: 21, fill: C.soft, weight: 600, kn: true })}
-     ${rect(28, y + 14, 696, 78, C.card, 16, `stroke="${C.border}" stroke-width="2"`)}
-     ${txt(52, y + 65, value, { size: 29, fill: mono ? C.ink : C.soft, weight: mono ? 600 : 400, kn: !mono })}`
+  const chip = (x, y, w, t, on) =>
+    `${rect(x, y, w, 66, on ? C.brand : C.card, 33, `stroke="${on ? C.brand : C.border}" stroke-width="1.5"`)}
+     ${txt(x + w / 2, y + 44, t, { size: 26, fill: on ? '#fff' : C.soft, weight: on ? 600 : 400, anchor: 'middle' })}`
+  const field = (y, l, v) =>
+    `${label(30, y, l)}
+     ${rect(30, y + 16, 700, 84, C.card, 18, `stroke="${C.border}" stroke-width="2"`)}
+     ${txt(56, y + 70, v, { size: 30, weight: 600 })}`
 
   return `${rect(0, 0, SCREEN_W, SCREEN_H, C.ground)}
-  ${appHeader('ಸೇರಿಸಿ')}
-  ${chip(28, 124, 218, 'ಆದಾಯ', true)}${chip(258, 124, 218, 'ಖರ್ಚು', false)}${chip(488, 124, 218, 'ವರ್ಗಾವಣೆ', false)}
-  ${card(28, 214, 696, 150)}
-  ${txt(376, 268, 'ಮೊತ್ತ', { size: 22, fill: C.faint, weight: 600, anchor: 'middle', kn: true })}
-  ${txt(376, 336, '₹ 24,500', { size: 58, fill: C.income, weight: 700, anchor: 'middle' })}
-  ${field(400, 'ಬೆಳೆ / ಶೀರ್ಷಿಕೆ', 'ಬಾಳೆಕಾಯಿ', true)}
-  ${field(516, 'ತಳಿ', 'ಜಿ೯', true)}
-  ${txt(28, 646, 'ಜಮೀನು', { size: 21, fill: C.soft, weight: 600, kn: true })}
-  ${chip(28, 660, 200, 'ಹೊಸತೋಟ', true)}${chip(240, 660, 200, 'ಮನೆತೋಟ', false)}
-  ${txt(28, 782, 'ಪ್ರಮಾಣ', { size: 21, fill: C.soft, weight: 600, kn: true })}
-  ${rect(28, 796, 336, 78, C.card, 16, `stroke="${C.border}" stroke-width="2"`)}
-  ${txt(52, 847, '350 ಕೆ.ಜಿ', { size: 29, weight: 600, kn: true })}
-  ${txt(388, 782, 'ದರ / ಕೆ.ಜಿ', { size: 21, fill: C.soft, weight: 600, kn: true })}
-  ${rect(388, 796, 336, 78, C.card, 16, `stroke="${C.border}" stroke-width="2"`)}
-  ${txt(412, 847, '₹70', { size: 29, weight: 600 })}
-  ${field(898, 'ಯಾವ ಖಾತೆಗೆ ಬಂತು', 'ಕೈಯಲ್ಲಿನ ನಗದು', true)}
-  ${rect(28, 1042, 696, 96, C.income, 20)}
-  ${txt(376, 1104, 'ಉಳಿಸಿ  ₹24,500', { size: 34, fill: '#fff', weight: 600, anchor: 'middle', kn: true })}
+  ${appHeader('Add entry')}
+
+  ${chip(30, 132, 220, 'Income', true)}${chip(262, 132, 220, 'Expense', false)}${chip(494, 132, 236, 'Transfer', false)}
+
+  ${card(30, 226, 700, 164)}
+  ${label(380, 280, 'Amount')}
+  ${txt(380, 354, '₹ 24,500', { size: 62, fill: C.income, weight: 700, anchor: 'middle' })}
+
+  ${field(430, 'Crop', 'Banana')}
+  ${field(552, 'Variety', 'G9')}
+
+  ${label(30, 690, 'Plot')}
+  ${chip(30, 706, 206, 'Hosatota', true)}${chip(248, 706, 206, 'Manetota', false)}
+
+  ${label(30, 834, 'Quantity')}
+  ${rect(30, 850, 340, 84, C.card, 18, `stroke="${C.border}" stroke-width="2"`)}
+  ${txt(56, 904, '350 kg', { size: 30, weight: 600 })}
+  ${label(390, 834, 'Rate / kg')}
+  ${rect(390, 850, 340, 84, C.card, 18, `stroke="${C.border}" stroke-width="2"`)}
+  ${txt(416, 904, '₹70', { size: 30, weight: 600 })}
+
+  ${field(962, 'Received into', 'Cash in hand')}
+
+  ${rect(30, 1114, 700, 104, C.income, 22)}
+  ${txt(380, 1180, 'Save  ₹24,500', { size: 36, fill: '#fff', weight: 600, anchor: 'middle' })}
   ${appNav(2)}`
 }
 
-/** 3 — Which crop is paying. Income against real cost. */
 function screenCrops() {
   const crops = [
-    ['ಬಾಳೆಕಾಯಿ', 300, 128],
-    ['ಅಡಿಕೆ', 244, 96],
-    ['ಕಾಳುಮೆಣಸು', 176, 150],
-    ['ತೆಂಗಿನಕಾಯಿ', 120, 54],
-    ['ಜೇನುತುಪ್ಪ', 74, 30],
+    ['Banana', 312, 122],
+    ['Arecanut', 248, 92],
+    ['Pepper', 180, 146],
+    ['Coconut', 118, 52],
+    ['Honey', 70, 28],
+  ]
+  const spend = [
+    ['Labour', 330, '₹58,400'],
+    ['Fertilizer', 210, '₹37,200'],
+    ['Spray', 146, '₹25,900'],
+    ['Transport', 93, '₹16,400'],
+    ['Irrigation', 55, '₹9,700'],
   ]
   return `${rect(0, 0, SCREEN_W, SCREEN_H, C.ground)}
-  ${appHeader('ಕೃಷಿ ಖಾತೆ')}
-  ${txt(28, 156, 'ಬೆಳೆವಾರು ಲಾಭ ನಷ್ಟ', { size: 22, fill: C.faint, weight: 600, kn: true })}
-  ${card(28, 180, 696, 560)}
-  ${crops.map(([name, inc, cost], i) => {
-    const y = 232 + i * 104
-    return `${txt(52, y + 6, name, { size: 24, weight: 500, kn: true })}
-      ${rect(52, y + 20, inc * 1.5, 26, C.income, 5)}
-      ${rect(52, y + 52, cost * 1.5, 26, C.brand, 5)}`
+  ${appHeader('Krishi Khata')}
+
+  ${label(30, 164, 'Which crop is paying')}
+  ${card(30, 186, 700, 580)}
+  ${crops.map(([n, inc, cost], i) => {
+    const y = 246 + i * 108
+    return `${txt(58, y + 4, n, { size: 25, weight: 500 })}
+      ${rect(58, y + 20, inc, 28, C.income, 6)}
+      ${rect(58, y + 54, cost, 28, C.brand, 6)}`
   }).join('')}
-  <g transform="translate(430 706)">
-    ${rect(0, -14, 20, 20, C.income, 4)}${txt(30, 3, 'ಆದಾಯ', { size: 21, fill: C.soft, kn: true })}
-    ${rect(140, -14, 20, 20, C.brand, 4)}${txt(170, 3, 'ಖರ್ಚು', { size: 21, fill: C.soft, kn: true })}
+  <g transform="translate(452 734)">
+    ${rect(0, -15, 20, 20, C.income, 4)}${txt(30, 2, 'Income', { size: 22, fill: C.soft })}
+    ${rect(130, -15, 20, 20, C.brand, 4)}${txt(160, 2, 'Cost', { size: 22, fill: C.soft })}
   </g>
-  ${txt(28, 792, 'ಖರ್ಚು ಎಲ್ಲಿ ಹೋಯಿತು', { size: 22, fill: C.faint, weight: 600, kn: true })}
-  ${card(28, 816, 696, 452)}
-  ${[['ಕೂಲಿ', 340, '₹58,400'], ['ಗೊಬ್ಬರ', 217, '₹37,200'], ['ಔಷಧಿ', 151, '₹25,900'], ['ಸಾಗಾಣಿಕೆ', 96, '₹16,400'], ['ನೀರಾವರಿ', 57, '₹9,700']]
-    .map(([name, w, val], i) => {
-      const y = 872 + i * 78
-      return `${txt(52, y + 4, name, { size: 23, weight: 500, kn: true })}
-        ${rect(212, y - 20, w, 34, C.brand, 6)}
-        ${txt(700, y + 4, val, { size: 22, fill: C.soft, weight: 600, anchor: 'end' })}`
-    }).join('')}
+
+  ${label(30, 826, 'Where the money went')}
+  ${card(30, 848, 700, 460)}
+  ${spend.map(([n, w, v], i) => {
+    const y = 910 + i * 80
+    return `${txt(58, y + 4, n, { size: 24, weight: 500 })}
+      ${rect(238, y - 20, w, 34, C.brand, 7)}
+      ${txt(702, y + 4, v, { size: 23, fill: C.soft, weight: 600, anchor: 'end' })}`
+  }).join('')}
   ${appNav(0)}`
 }
 
-/** 4 — The team. Who is owed, and for how many days. */
 function screenTeam() {
   const people = [
-    ['ರಮೇಶ', 'W001 · 18 ದಿನ', '₹9,000', C.expense, 'ಕೊಡಬೇಕು'],
-    ['ಗಣಪತಿ', 'W002 · 12 ದಿನ', '₹4,650', C.expense, 'ಕೊಡಬೇಕು'],
-    ['ಸುಶೀಲ', 'W003 · 22 ದಿನ', '₹0', C.faint, 'ಚುಕ್ತಾ'],
-    ['ಮಂಜುನಾಥ', 'W004 · 6 ದಿನ', '₹2,000', '#1d4ed8', 'ಮುಂಗಡ'],
-    ['ಶಾಂತಾ', 'W005 · 15 ದಿನ', '₹4,000', C.expense, 'ಕೊಡಬೇಕು'],
+    ['Ramesh', 'W001 · 18 days', '₹9,000', C.expense, 'Owed'],
+    ['Basava', 'W002 · 12 days', '₹4,650', C.expense, 'Owed'],
+    ['Sushila', 'W003 · 22 days', '₹0', C.faint, 'Settled'],
+    ['Manjunath', 'W004 · 6 days', '₹2,000', C.transfer, 'Advance'],
+    ['Shanta', 'W005 · 15 days', '₹4,000', C.expense, 'Owed'],
   ]
   return `${rect(0, 0, SCREEN_W, SCREEN_H, C.ground)}
-  ${appHeader('ಕೆಲಸಗಾರರು')}
-  ${card(28, 128, 340, 130)}
-  ${txt(52, 176, 'ಕೊಡಬೇಕಾದದ್ದು', { size: 21, fill: C.soft, weight: 600, kn: true })}
-  ${txt(52, 226, '₹17,650', { size: 40, fill: C.expense, weight: 700 })}
-  ${card(384, 128, 340, 130)}
-  ${txt(408, 176, 'ಮುಂಗಡ', { size: 21, fill: C.soft, weight: 600, kn: true })}
-  ${txt(408, 226, '₹2,000', { size: 40, fill: '#1d4ed8', weight: 700 })}
-  ${rect(28, 282, 696, 118, '#fdf3e0', 20, `stroke="#f2cc86" stroke-width="1.5"`)}
-  <g transform="translate(70 341)" fill="none" stroke="#8a5605" stroke-width="3" stroke-linecap="round"><path d="M0 -14c8 10 12 15 12 21a12 12 0 01-24 0c0-6 4-11 12-21z"/></g>
-  ${txt(110, 328, 'ದರ ನಿಗದಿ ಬಾಕಿ', { size: 25, fill: '#8a5605', weight: 600, kn: true })}
-  ${txt(110, 366, '247.5 ಲೀ ಸಿಂಪರಣೆ · ದರ ಒಪ್ಪಿಸಿ', { size: 21, fill: '#8a5605', kn: true })}
-  ${txt(28, 448, 'ಖಾತೆ', { size: 22, fill: C.faint, weight: 600, kn: true })}
-  ${card(28, 472, 696, 596)}
-  ${people.map(([name, meta, amt, colour, state], i) => {
-    const y = 528 + i * 116
-    return `<circle cx="76" cy="${y + 12}" r="26" fill="${C.brandSoft}"/>
-      <g transform="translate(64 ${y}) " fill="none" stroke="${C.brand}" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="7" r="7"/><path d="M2 22a10 10 0 0120 0"/></g>
-      ${txt(122, y + 6, name, { size: 27, weight: 600, kn: true })}
-      ${txt(122, y + 40, meta, { size: 20, fill: C.faint, kn: true })}
-      ${txt(700, y + 4, amt, { size: 27, fill: colour, weight: 700, anchor: 'end' })}
-      ${txt(700, y + 38, state, { size: 19, fill: colour, anchor: 'end', kn: true })}`
+  ${appHeader('Team')}
+
+  ${card(30, 136, 342, 138)}
+  ${txt(58, 186, 'You owe', { size: 23, fill: C.soft, weight: 600 })}
+  ${txt(58, 240, '₹17,650', { size: 42, fill: C.expense, weight: 700 })}
+  ${card(388, 136, 342, 138)}
+  ${txt(416, 186, 'Advance held', { size: 23, fill: C.soft, weight: 600 })}
+  ${txt(416, 240, '₹2,000', { size: 42, fill: C.transfer, weight: 700 })}
+
+  ${rect(30, 300, 700, 126, C.amber, 22, `stroke="${C.amberLine}" stroke-width="1.5"`)}
+  <g transform="translate(78 364)" fill="none" stroke="${C.amberInk}" stroke-width="3.2" stroke-linecap="round"><path d="M0 -16c9 11 13 17 13 23a13 13 0 01-26 0c0-6 4-12 13-23z"/></g>
+  ${txt(120, 352, 'Waiting to be priced', { size: 27, fill: C.amberInk, weight: 600 })}
+  ${txt(120, 392, '247.5 L spraying · set the rate', { size: 22, fill: C.amberInk })}
+
+  ${label(30, 480, 'Khata')}
+  ${card(30, 502, 700, 620)}
+  ${people.map(([n, meta, amt, col, state], i) => {
+    const y = 562 + i * 120
+    return `<circle cx="82" cy="${y + 12}" r="28" fill="${C.brandSoft}"/>
+      <g transform="translate(69 ${y - 1})" fill="none" stroke="${C.brand}" stroke-width="2.4" stroke-linecap="round"><circle cx="13" cy="8" r="7"/><path d="M2 24a11 11 0 0122 0"/></g>
+      ${txt(132, y + 6, n, { size: 28, weight: 600 })}
+      ${txt(132, y + 42, meta, { size: 21, fill: C.faint })}
+      ${txt(702, y + 4, amt, { size: 28, fill: col, weight: 700, anchor: 'end' })}
+      ${txt(702, y + 40, state, { size: 20, fill: col, anchor: 'end' })}`
   }).join('')}
   ${appNav(3)}`
 }
 
-/** 5 — The statement. A real document with the farm's own letterhead. */
 function screenReport() {
+  const X = 60
+  const W = 640
   const row = (y, a, b, c) =>
-    `${txt(96, y, a, { size: 19, kn: true })}${txt(470, y, b, { size: 19, anchor: 'end' })}${txt(636, y, c, { size: 19, anchor: 'end' })}`
+    `${txt(X + 40, y, a, { size: 20 })}
+     ${txt(X + 430, y, b, { size: 20, anchor: 'end' })}
+     ${txt(X + 600, y, c, { size: 20, anchor: 'end' })}`
+
   return `${rect(0, 0, SCREEN_W, SCREEN_H, '#ded5c8')}
-  ${rect(0, 0, SCREEN_W, 112, C.card)}${rect(0, 111, SCREEN_W, 1.5, C.border)}
-  ${txt(28, 52, 'ಸಂಪೂರ್ಣ ವರದಿ', { size: 28, weight: 600, kn: true })}
-  ${txt(28, 88, '2026-08-01 — 2026-08-31', { size: 20, fill: C.faint })}
-  ${rect(486, 26, 100, 62, C.card, 14, `stroke="${C.border}" stroke-width="2"`)}
-  ${txt(536, 66, 'ಹಿಂದೆ', { size: 22, fill: C.soft, anchor: 'middle', kn: true })}
-  ${rect(598, 26, 132, 62, C.brand, 14)}
-  ${txt(664, 66, 'Share', { size: 22, fill: '#fff', weight: 600, anchor: 'middle' })}
-  <g transform="translate(56 148)">
-    ${rect(0, 0, 640, 1180, C.card, 6, 'stroke="#cdbfae" stroke-width="1"')}
-    ${rect(28, 28, 584, 76, C.forest, 5)}
-    ${mark(52, 40, 40)}
-    ${txt(106, 62, 'ತಾಳಿಬಗಿಲು', { size: 25, fill: '#fff', weight: 600, kn: true })}
-    ${txt(106, 90, 'Ganapati Adkesar', { size: 17, fill: '#cfe4d6' })}
-    ${txt(592, 62, 'ಕೃಷಿ ಖಾತೆ', { size: 15, fill: '#a7cbb5', anchor: 'end', kn: true })}
-    ${txt(592, 84, 'Krishi Khata', { size: 15, fill: '#a7cbb5', anchor: 'end' })}
-    ${txt(320, 130, 'Yellapur · 9482185679', { size: 16, fill: C.faint, anchor: 'middle' })}
-    ${ornament(28, 156, 584)}
-    ${txt(320, 208, 'ಸಂಪೂರ್ಣ ವರದಿ', { size: 27, fill: C.forest, weight: 600, anchor: 'middle', kn: true })}
-    ${txt(320, 240, '01 ಆಗಸ್ಟ್ 2026 — 31 ಆಗಸ್ಟ್ 2026', { size: 17, fill: C.soft, anchor: 'middle', kn: true })}
-    ${[['ಆದಾಯ', '₹3,12,425', C.income], ['ಖರ್ಚು', '₹10,000', C.expense], ['ಉಳಿತಾಯ', '₹3,02,425', C.income], ['ಕೂಲಿ ಬಾಕಿ', '₹17,650', C.ink]]
-      .map(([l, v, col], i) => {
-        const x = 28 + i * 148
-        return `${rect(x, 268, 136, 88, '#faf6ef', 4, 'stroke="#e6dccd" stroke-width="1"')}
-          ${rect(x, 268, 136, 3, col)}
-          ${txt(x + 12, 300, l, { size: 14, fill: C.soft, kn: true })}
-          ${txt(x + 12, 334, v, { size: 21, fill: col, weight: 700 })}`
-      }).join('')}
-    ${txt(28, 406, 'ಬೆಳೆವಾರು ಲಾಭ', { size: 18, fill: C.forest, weight: 600, kn: true })}
-    ${rect(28, 418, 584, 2, C.forest)}
-    ${['ಬೆಳೆ'].map(() => `${txt(96, 452, 'ಬೆಳೆ', { size: 15, fill: C.faint, kn: true })}${txt(470, 452, 'ಆದಾಯ', { size: 15, fill: C.faint, anchor: 'end', kn: true })}${txt(636, 452, 'ಲಾಭ', { size: 15, fill: C.faint, anchor: 'end', kn: true })}`).join('')}
-    ${[['ಬಾಳೆಕಾಯಿ', '₹1,48,000', '₹92,400'], ['ಅಡಿಕೆ', '₹96,200', '₹61,800'], ['ಕಾಳುಮೆಣಸು', '₹42,300', '₹18,900'], ['ತೆಂಗಿನಕಾಯಿ', '₹18,600', '₹9,200'], ['ಜೇನುತುಪ್ಪ', '₹7,325', '₹4,100']]
-      .map(([a, b, c], i) => `${rect(28, 468 + i * 40, 584, 1, '#ece4d8')}${row(496 + i * 40, a, b, c)}`).join('')}
-    ${rect(28, 668, 584, 1.6, C.forest)}
-    ${txt(96, 696, 'ಒಟ್ಟು', { size: 18, weight: 700, kn: true })}
-    ${txt(470, 696, '₹3,12,425', { size: 18, weight: 700, anchor: 'end' })}
-    ${txt(636, 696, '₹1,86,400', { size: 18, weight: 700, anchor: 'end' })}
-    ${txt(28, 764, 'ಕೂಲಿ ಬಾಕಿ', { size: 18, fill: C.forest, weight: 600, kn: true })}
-    ${rect(28, 776, 584, 2, C.forest)}
-    ${[['ರಮೇಶ', '18', '₹9,000'], ['ಗಣಪತಿ', '12', '₹4,650'], ['ಶಾಂತಾ', '15', '₹4,000']]
-      .map(([a, b, c], i) => `${rect(28, 796 + i * 40, 584, 1, '#ece4d8')}${row(824 + i * 40, a, b, c)}`).join('')}
-    ${ornament(28, 986, 584)}
-    ${txt(320, 1026, 'ಇದು ಕಂಪ್ಯೂಟರ್‌ನಿಂದ ತಯಾರಾದ ವರದಿ. ಸಹಿ ಅಗತ್ಯವಿಲ್ಲ.', { size: 14, fill: C.faint, anchor: 'middle', kn: true })}
-  </g>`
+  ${rect(0, 0, SCREEN_W, 120, C.card)}${rect(0, 119, SCREEN_W, 1.5, C.border)}
+  ${txt(30, 56, 'Complete farm report', { size: 29, weight: 600 })}
+  ${txt(30, 94, '01 Aug 2026 — 31 Aug 2026', { size: 21, fill: C.faint })}
+  ${rect(486, 28, 104, 64, C.card, 15, `stroke="${C.border}" stroke-width="2"`)}
+  ${txt(538, 70, 'Back', { size: 23, fill: C.soft, anchor: 'middle' })}
+  ${rect(602, 28, 128, 64, C.brand, 15)}
+  ${txt(666, 70, 'Share', { size: 23, fill: '#fff', weight: 600, anchor: 'middle' })}
+
+  ${rect(X, 152, W, 1216, C.card, 6, 'stroke="#c7b9a6" stroke-width="1"')}
+
+  ${rect(X + 26, 180, W - 52, 84, C.forest, 6)}
+  ${mark(56, X + 40, 194)}
+  ${txt(X + 110, 218, 'Hosatota Farm', { size: 27, fill: '#fff', weight: 600 })}
+  ${txt(X + 110, 248, 'Yellapur, Uttara Kannada', { size: 17, fill: '#cfe4d6' })}
+  ${txt(X + W - 40, 232, 'Krishi Khata', { size: 16, fill: '#a7cbb5', anchor: 'end' })}
+
+  ${ornament(X + W / 2, 292, W - 52)}
+  ${txt(X + W / 2, 344, 'COMPLETE FARM REPORT', { size: 26, fill: C.forest, weight: 700, anchor: 'middle', track: 1 })}
+  ${txt(X + W / 2, 378, 'Financial year 2026-27', { size: 19, fill: C.soft, anchor: 'middle' })}
+
+  ${[['INCOME', '₹3,12,425', C.income], ['EXPENSE', '₹10,000', C.expense], ['NET', '₹3,02,425', C.income], ['WAGES DUE', '₹17,650', C.ink]]
+    .map(([l, v, col], i) => {
+      const x = X + 26 + i * 147
+      return `${rect(x, 406, 135, 92, '#faf6ef', 4, 'stroke="#e6dccd" stroke-width="1"')}
+        ${rect(x, 406, 135, 3.5, col)}
+        ${txt(x + 12, 442, l, { size: 13, fill: C.soft, weight: 600, track: .6 })}
+        ${txt(x + 12, 478, v, { size: 21, fill: col, weight: 700 })}`
+    }).join('')}
+
+  ${txt(X + 26, 552, 'CROP-WISE PROFIT', { size: 18, fill: C.forest, weight: 700, track: .8 })}
+  ${rect(X + 26, 564, W - 52, 2, C.forest)}
+  ${txt(X + 40, 598, 'Crop', { size: 15, fill: C.faint, weight: 600 })}
+  ${txt(X + 430, 598, 'Income', { size: 15, fill: C.faint, weight: 600, anchor: 'end' })}
+  ${txt(X + 600, 598, 'Profit', { size: 15, fill: C.faint, weight: 600, anchor: 'end' })}
+  ${[['Banana', '₹1,48,000', '₹92,400'], ['Arecanut', '₹96,200', '₹61,800'], ['Pepper', '₹42,300', '₹18,900'], ['Coconut', '₹18,600', '₹9,200'], ['Honey', '₹7,325', '₹4,100']]
+    .map(([a, b, c], i) => `${rect(X + 26, 614 + i * 42, W - 52, 1, '#ece4d8')}${row(644 + i * 42, a, b, c)}`).join('')}
+  ${rect(X + 26, 824, W - 52, 1.8, C.forest)}
+  ${txt(X + 40, 856, 'Total', { size: 20, weight: 700 })}
+  ${txt(X + 430, 856, '₹3,12,425', { size: 20, weight: 700, anchor: 'end' })}
+  ${txt(X + 600, 856, '₹1,86,400', { size: 20, weight: 700, anchor: 'end' })}
+
+  ${txt(X + 26, 928, 'WAGES DUE', { size: 18, fill: C.forest, weight: 700, track: .8 })}
+  ${rect(X + 26, 940, W - 52, 2, C.forest)}
+  ${txt(X + 40, 974, 'Name', { size: 15, fill: C.faint, weight: 600 })}
+  ${txt(X + 430, 974, 'Days', { size: 15, fill: C.faint, weight: 600, anchor: 'end' })}
+  ${txt(X + 600, 974, 'Balance', { size: 15, fill: C.faint, weight: 600, anchor: 'end' })}
+  ${[['Ramesh', '18', '₹9,000'], ['Basava', '12', '₹4,650'], ['Shanta', '15', '₹4,000']]
+    .map(([a, b, c], i) => `${rect(X + 26, 990 + i * 42, W - 52, 1, '#ece4d8')}${row(1020 + i * 42, a, b, c)}`).join('')}
+
+  ${ornament(X + W / 2, 1204, W - 52)}
+  ${txt(X + W / 2, 1248, 'Computer generated from the farm’s own records.', { size: 15, fill: C.faint, anchor: 'middle' })}
+  ${txt(X + W / 2, 1274, 'No signature required.', { size: 15, fill: C.faint, anchor: 'middle' })}`
 }
 
 /* ------------------------------------------------------------------ *
- * Screenshots
+ * Screenshot frame
  * ------------------------------------------------------------------ */
 
 const SHOT_W = 1080
 const SHOT_H = 1920
+const BAND = 592
 
 /**
- * One screenshot: a headline band, then the phone.
+ * One screenshot: an eyebrow, a headline, then the device.
  *
- * The caption sits ABOVE the device because the store scrolls these
+ * The caption sits ABOVE the phone because the store scrolls these
  * horizontally at thumbnail size, where the first line of text is often the
- * only thing anybody reads.
+ * only thing anybody reads. The eyebrow gives each frame a one-word subject,
+ * so five screenshots read as a sequence rather than five variations of the
+ * same picture.
  */
-function shot(headline, sub, screen) {
+function shot(eyebrow, headline, sub, screen) {
+  const top = BAND - 34
+  const scale = (SHOT_H - top - 40) / (SCREEN_H + 30)
+  const w = (SCREEN_W + 30) * scale
+
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${SHOT_W}" height="${SHOT_H}" viewBox="0 0 ${SHOT_W} ${SHOT_H}">
   <defs>
-    <linearGradient id="band" x1="0" y1="0" x2="0.6" y2="1">
-      <stop offset="0" stop-color="${C.forest}"/>
+    <linearGradient id="band" x1="0.1" y1="0" x2="0.9" y2="1">
+      <stop offset="0" stop-color="${C.forestMid}"/>
       <stop offset="1" stop-color="${C.forestDeep}"/>
     </linearGradient>
+    <radialGradient id="glow" cx="0.78" cy="0.1" r="0.72">
+      <stop offset="0" stop-color="${C.leaf}" stop-opacity=".17"/>
+      <stop offset="1" stop-color="${C.leaf}" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="drop" x="-35%" y="-25%" width="170%" height="150%">
+      <feDropShadow dx="0" dy="22" stdDeviation="26" flood-color="#3a2614" flood-opacity="0.30"/>
+    </filter>
   </defs>
+
   ${rect(0, 0, SHOT_W, SHOT_H, C.ground)}
-  ${rect(0, 0, SHOT_W, 560, 'url(#band)')}
-  <circle cx="980" cy="90" r="190" fill="${C.leaf}" opacity=".07"/>
-  <circle cx="120" cy="470" r="150" fill="${C.brand}" opacity=".08"/>
-  ${headline.map((line, i) => txt(SHOT_W / 2, 196 + i * 74, line, { size: 60, fill: '#fff', weight: 700, anchor: 'middle' })).join('')}
-  ${txt(SHOT_W / 2, 196 + headline.length * 74 + 26, sub, { size: 32, fill: C.paleGreen, anchor: 'middle' })}
-  ${ornament(SHOT_W / 2 - 150, 496, 300)}
-  ${(() => {
-    /*
-     * Scaled to FIT, not cropped.
-     *
-     * At full size the device ran 144px past the bottom of the canvas and took
-     * the navigation bar with it — which is the one part of a screenshot that
-     * tells somebody this is an app rather than a web page.
-     */
-    const top = 566
-    const scale = (SHOT_H - top - 26) / (SCREEN_H + 28)
-    const w = (SCREEN_W + 28) * scale
-    return `<g transform="translate(${(SHOT_W - w) / 2} ${top}) scale(${scale})">${phone(0, 0, screen)}</g>`
-  })()}
+  ${rect(0, 0, SHOT_W, BAND, 'url(#band)')}
+  ${rect(0, 0, SHOT_W, BAND, 'url(#glow)')}
+  <circle cx="126" cy="${BAND - 46}" r="176" fill="${C.brand}" opacity=".09"/>
+
+  ${txt(SHOT_W / 2, 152, eyebrow.toUpperCase(), { size: 25, fill: C.brandLight, weight: 700, anchor: 'middle', track: 4.5 })}
+  ${headline.map((line, i) => txt(SHOT_W / 2, 248 + i * 78, line, { size: 66, fill: '#fff', weight: 700, anchor: 'middle' })).join('')}
+  ${txt(SHOT_W / 2, 248 + headline.length * 78 + 20, sub, { size: 31, fill: C.pale, anchor: 'middle' })}
+  ${ornament(SHOT_W / 2, BAND - 92, 300)}
+
+  <g transform="translate(${(SHOT_W - w) / 2} ${top}) scale(${scale})" filter="url(#drop)">${phone(screen)}</g>
 </svg>`
 }
 
@@ -448,36 +446,39 @@ function featureGraphic() {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
   <defs>
     <linearGradient id="fg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#164f2d"/>
+      <stop offset="0" stop-color="#18572f"/>
       <stop offset="0.55" stop-color="${C.forest}"/>
       <stop offset="1" stop-color="${C.forestDeep}"/>
     </linearGradient>
+    <radialGradient id="fglow" cx="0.85" cy="0.08" r="0.7">
+      <stop offset="0" stop-color="${C.leaf}" stop-opacity=".18"/>
+      <stop offset="1" stop-color="${C.leaf}" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="cardShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="#04170c" flood-opacity="0.45"/>
+    </filter>
   </defs>
+
   ${rect(0, 0, W, H, 'url(#fg)')}
-  <circle cx="905" cy="70" r="210" fill="${C.leaf}" opacity=".08"/>
-  <circle cx="60" cy="450" r="170" fill="${C.brand}" opacity=".10"/>
+  ${rect(0, 0, W, H, 'url(#fglow)')}
+  <circle cx="70" cy="448" r="180" fill="${C.brand}" opacity=".10"/>
 
-  <!-- Ruled lines: the ledger this is named after, kept faint. -->
-  ${Array.from({ length: 7 }, (_, i) => rect(596, 132 + i * 42, 372, 2, '#ffffff', 1, 'opacity=".06"')).join('')}
+  ${mark(118, 64, 72)}
+  ${txt(64, 268, 'Krishi Khata', { size: 62, fill: '#fff', weight: 700 })}
+  ${rect(66, 292, 78, 5, C.brand, 3)}
+  ${txt(64, 350, 'The farmer’s ledger', { size: 30, fill: C.brandLight, weight: 600 })}
+  ${txt(64, 402, 'Income, expenses and every worker’s', { size: 23, fill: C.pale })}
+  ${txt(64, 434, 'wages — all of it offline.', { size: 23, fill: C.pale })}
 
-  ${mark(132, 74, 106)}
-
-  ${txt(74, 300, 'ಕೃಷಿ ಖಾತೆ', { size: 62, fill: '#fff', weight: 700, kn: true })}
-  ${txt(74, 356, 'Krishi Khata', { size: 40, fill: C.brandLight, weight: 600 })}
-  ${rect(74, 386, 74, 5, C.brand, 3)}
-  ${txt(74, 432, 'A farmer’s ledger. Income, expenses,', { size: 25, fill: C.paleGreen })}
-  ${txt(74, 466, 'wages — all offline.', { size: 25, fill: C.paleGreen })}
-
-  <!-- The product, abstracted: the three figures a farmer opens it for. -->
-  <g transform="translate(596 112)">
-    ${rect(0, 0, 372, 276, '#ffffff', 20, 'opacity=".97"')}
-    ${txt(28, 52, 'ಈ ತಿಂಗಳು', { size: 20, fill: C.faint, weight: 600, kn: true })}
-    ${txt(28, 104, '₹3,12,425', { size: 44, fill: C.income, weight: 700 })}
-    ${txt(28, 134, 'ಆದಾಯ', { size: 19, fill: C.soft, kn: true })}
-    ${rect(28, 158, 316, 1.5, C.border)}
-    ${[['ಖರ್ಚು', '₹10,000', C.expense], ['ಕೂಲಿ ಬಾಕಿ', '₹17,650', C.ink]]
-      .map(([l, v, col], i) => `${txt(28, 196 + i * 46, l, { size: 21, fill: C.soft, kn: true })}
-        ${txt(344, 196 + i * 46, v, { size: 23, fill: col, weight: 700, anchor: 'end' })}`).join('')}
+  <g transform="translate(614 96)" filter="url(#cardShadow)">
+    ${rect(0, 0, 358, 308, '#ffffff', 22)}
+    ${txt(30, 56, 'THIS MONTH', { size: 17, fill: C.faint, weight: 700, track: 1.4 })}
+    ${txt(30, 110, '₹3,12,425', { size: 46, fill: C.income, weight: 700 })}
+    ${txt(30, 140, 'Income', { size: 20, fill: C.soft })}
+    ${rect(30, 166, 298, 1.5, C.border)}
+    ${[['Expense', '₹10,000', C.expense], ['Wages due', '₹17,650', C.ink], ['Net', '₹3,02,425', C.income]]
+      .map(([l, v, col], i) => `${txt(30, 206 + i * 44, l, { size: 22, fill: C.soft })}
+        ${txt(328, 206 + i * 44, v, { size: 23, fill: col, weight: 700, anchor: 'end' })}`).join('')}
   </g>
 </svg>`
 }
@@ -486,7 +487,7 @@ function featureGraphic() {
 
 function render(svg, name, width) {
   const png = new Resvg(svg, {
-    font: { loadSystemFonts: true, defaultFontFamily: LATIN },
+    font: { loadSystemFonts: true, defaultFontFamily: FONT },
     fitTo: { mode: 'width', value: width },
   }).render().asPng()
   writeFileSync(join(out, name), png)
@@ -496,13 +497,13 @@ function render(svg, name, width) {
 render(featureGraphic(), 'feature-graphic-1024x500.png', 1024)
 
 const SHOTS = [
-  ['01-home', [['Your whole farm,', 'on one screen']], 'Income, expenses and wages at a glance', screenHome()],
-  ['02-entry', [['Record a sale', 'in four taps']], 'The form only asks what that crop needs', screenEntry()],
-  ['03-crops', [['Know which crop', 'is actually paying']], 'Income against real cost, wages included', screenCrops()],
-  ['04-team', [['Every worker’s', 'days and dues']], 'Day, hourly, piece-rate, lump sum or salary', screenTeam()],
-  ['05-report', [['Hand over a', 'real PDF statement']], 'Your own letterhead, Kannada that renders', screenReport()],
+  ['home', 'Offline', ['Your whole farm,', 'on one screen'], 'Income, expenses and wages at a glance', screenHome],
+  ['entry', 'Fast entry', ['Record a sale', 'in four taps'], 'The form only asks what that crop needs', screenEntry],
+  ['crops', 'Profit', ['Know which crop', 'is actually paying'], 'Income against real cost, wages included', screenCrops],
+  ['team', 'Labour', ['Every worker’s', 'days and dues'], 'Day, hourly, piece-rate, lump sum or salary', screenTeam],
+  ['report', 'Reports', ['Hand over a', 'real PDF statement'], 'Your own letterhead, ready to hand over', screenReport],
 ]
 
-for (const [name, headline, sub, screen] of SHOTS) {
-  render(shot(headline[0], sub, screen), `screenshot-${name}.png`, SHOT_W)
-}
+SHOTS.forEach(([slug, eyebrow, headline, sub, screen], i) => {
+  render(shot(eyebrow, headline, sub, screen()), `screenshot-0${i + 1}-${slug}.png`, SHOT_W)
+})
