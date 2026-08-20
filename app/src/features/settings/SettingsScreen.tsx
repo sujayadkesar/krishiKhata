@@ -12,46 +12,62 @@ import type { StringKey } from '@/i18n/strings'
 /**
  * Settings is where the app is shaped to the farm: which crops, which units
  * they sell in, what each labourer is paid. Everything else depends on it,
- * which is why the first three rows are the ones a new user must fill in.
+ * which is why the first group is the one a new user must fill in.
  */
 
 interface Row {
   path: string
   label: StringKey
   icon: typeof Wallet
-  hint: string
+  hint: StringKey
 }
 
 /**
- * Grouped, not one long list.
+ * Four groups, in the order a farm is set up.
  *
- * Six identical rows give no clue which matter on day one. "Your farm" is what
- * a new user must fill in before anything works; "What you grow and spend on"
- * is the vocabulary; "Your team" is people. Someone who has just installed the
- * app can work down the groups in order.
+ * This list used to run six near-identical rows under one heading that said
+ * "what you grow AND spend on" — which is exactly the confusion. They are two
+ * different questions. Banana is a thing you SELL; it is also one of several
+ * things you spend money ON, alongside the car and the house. Putting them
+ * under one title asked the reader to hold both meanings at once.
+ *
+ * So: "What you sell" is the crops. "What you spend on" is every category
+ * money leaves under, crops included. The varieties row is gone entirely —
+ * kinds of banana are now edited inside banana, where somebody looking for
+ * them would actually look.
+ *
+ * The titles and hints are translated. They were English literals on a screen
+ * whose default language is Kannada, which is its own kind of clutter: a
+ * reader who cannot read the heading has to open all six rows to find out
+ * what they do.
  */
-const GROUPS: { title: string; rows: Row[] }[] = [
+const GROUPS: { title: StringKey; rows: Row[] }[] = [
   {
-    title: 'Your farm',
+    title: 'set.grpFarm',
     rows: [
-      { path: '/settings/profile', label: 'set.farmProfile', icon: Home, hint: 'Name and village, printed on every statement' },
-      { path: '/settings/plots', label: 'plot.title', icon: MapPin, hint: 'Each piece of land, so every plot shows its own profit' },
-      { path: '/settings/accounts', label: 'set.accounts', icon: Wallet, hint: 'Cash, bank and UPI, with opening balances' },
+      { path: '/settings/profile', label: 'set.farmProfile', icon: Home, hint: 'set.hintProfile' },
+      { path: '/settings/plots', label: 'plot.title', icon: MapPin, hint: 'set.hintPlots' },
+      { path: '/settings/accounts', label: 'set.accounts', icon: Wallet, hint: 'set.hintAccounts' },
     ],
   },
   {
-    title: 'What you grow and spend on',
+    title: 'set.grpSell',
     rows: [
-      { path: '/settings/heads/income', label: 'set.incomeHeads', icon: Sprout, hint: 'Crops and the units they sell in' },
-      { path: '/settings/heads/expense', label: 'set.expenseHeads', icon: Tags, hint: 'What your spending gets filed against' },
-      { path: '/settings/sub-heads', label: 'set.varietiesGrades', icon: Tags, hint: 'G9, Mitka, Karibale — the kinds each crop is sold as' },
-      { path: '/settings/activities', label: 'set.activities', icon: Hammer, hint: 'The work itself — harvesting, spraying, weeding' },
+      { path: '/settings/heads/income', label: 'set.incomeHeads', icon: Sprout, hint: 'set.hintCrops' },
     ],
   },
   {
-    title: 'Your team',
+    title: 'set.grpSpend',
     rows: [
-      { path: '/settings/labourers', label: 'labour.labourers', icon: Users, hint: 'Names, phones and day rates' },
+      { path: '/settings/heads/expense', label: 'set.expenseHeads', icon: Tags, hint: 'set.hintSpend' },
+      { path: '/settings/spend-types', label: 'set.spendTypes', icon: Tags, hint: 'set.hintSpendKinds' },
+    ],
+  },
+  {
+    title: 'set.grpWork',
+    rows: [
+      { path: '/settings/labourers', label: 'labour.labourers', icon: Users, hint: 'set.hintWorkers' },
+      { path: '/settings/activities', label: 'set.activities', icon: Hammer, hint: 'set.hintActivities' },
     ],
   },
 ]
@@ -66,13 +82,13 @@ export function SettingsScreen() {
       <Page>
         {GROUPS.map((group) => (
           <section key={group.title}>
-            <SectionHeader>{group.title}</SectionHeader>
+            <SectionHeader>{t(group.title)}</SectionHeader>
             <Card>
               {group.rows.map(({ path, label, icon: Icon, hint }) => (
                 <ListRow
                   key={path}
                   title={t(label)}
-                  subtitle={hint}
+                  subtitle={t(hint)}
                   onClick={() => navigate(path)}
                   leading={
                     <span

@@ -234,10 +234,22 @@ export const STRINGS = {
     kn: 'ಒಮ್ಮೆ ಒತ್ತಿ = ಪೂರ್ಣ ದಿನ, ಎರಡು ಬಾರಿ = ಅರ್ಧ ದಿನ',
     en: 'Tap once for a full day, tap again for half a day',
   },
+  /*
+   * Paying a worker ALREADY writes the expense — `recordPayment` inserts the
+   * entry, dated the payment, tagged to the crop when every day it settles
+   * belongs to one. Farmers were re-entering it by hand because nothing on
+   * this screen said so, which is a doubled expense in the books. The wording
+   * is now a statement of fact rather than a hint about the future.
+   */
   'labour.payExpenseNote': {
-    kn: 'ಇದು ಇಂದಿನ ದಿನಾಂಕದ ಖರ್ಚಾಗಿ ದಾಖಲಾಗುತ್ತದೆ',
-    en: 'This is what becomes an expense, dated today',
+    kn: 'ಇದು ತಾನಾಗಿಯೇ ಖರ್ಚಿನಲ್ಲಿ ಸೇರುತ್ತದೆ. ಮತ್ತೆ ಪ್ರತ್ಯೇಕ ಎಂಟ್ರಿ ಮಾಡುವ ಅಗತ್ಯವಿಲ್ಲ.',
+    en: 'This is added to your expenses automatically. Do not enter it again.',
   },
+  'labour.paidAndBooked': {
+    kn: 'ಪಾವತಿ ಆಯಿತು · ಖರ್ಚಿನಲ್ಲಿ ಸೇರಿದೆ',
+    en: 'Paid · added to expenses',
+  },
+  'labour.fromWagePayment': { kn: 'ಕೂಲಿ ಪಾವತಿಯಿಂದ', en: 'From a wage payment' },
   'labour.repayNote': {
     kn: 'ಮುಂಗಡ ತೆಗೆದುಕೊಂಡು ವಾಪಸ್ ಕೊಟ್ಟರೆ ಇಲ್ಲಿ ದಾಖಲಿಸಿ',
     en: 'Use this when they hand back money from an advance',
@@ -300,11 +312,44 @@ export const STRINGS = {
   'set.incomeHeads': { kn: 'ಮಾರಾಟದ ಬೆಳೆ', en: 'What you sell' },
   'set.expenseHeads': { kn: 'ಖರ್ಚಿನ ಶೀರ್ಷಿಕೆ', en: 'What you spend on' },
   'set.subHeads': { kn: 'ಉಪ ಶೀರ್ಷಿಕೆ', en: 'Sub-heads' },
+  'set.spendTypes': { kn: 'ಖರ್ಚಿನ ಬಗೆ', en: 'Kinds of spending' },
+  /* Settings groups. Four questions, in the order a farm is set up. */
+  'set.grpFarm': { kn: 'ನಿಮ್ಮ ತೋಟ', en: 'Your farm' },
+  'set.grpSell': { kn: 'ನೀವು ಮಾರುವುದು', en: 'What you sell' },
+  'set.grpSpend': { kn: 'ನೀವು ಖರ್ಚು ಮಾಡುವುದು', en: 'What you spend on' },
+  'set.grpWork': { kn: 'ಕೆಲಸ ಮತ್ತು ಆಳುಗಳು', en: 'Work and workers' },
+  'set.hintProfile': {
+    kn: 'ಹೆಸರು ಮತ್ತು ಊರು — ಪ್ರತಿ ವರದಿಯಲ್ಲಿ ಬರುತ್ತದೆ',
+    en: 'Name and village, printed on every statement',
+  },
+  'set.hintPlots': {
+    kn: 'ಪ್ರತಿ ಜಮೀನಿಗೂ ಪ್ರತ್ಯೇಕ ಲಾಭ-ನಷ್ಟ',
+    en: 'Each piece of land, so every plot shows its own profit',
+  },
+  'set.hintAccounts': { kn: 'ನಗದು, ಬ್ಯಾಂಕ್, ಯುಪಿಐ', en: 'Cash, bank and UPI, with opening balances' },
+  'set.hintCrops': {
+    kn: 'ಬೆಳೆ, ಅದರ ತಳಿ ಮತ್ತು ಅಳತೆ',
+    en: 'Crops, their varieties, and the units they sell in',
+  },
+  'set.hintSpend': {
+    kn: 'ಬೆಳೆ, ಗಾಡಿ, ಮನೆ — ದುಡ್ಡು ಎಲ್ಲಿಗೆ ಹೋಗುತ್ತದೆ',
+    en: 'Crops, vehicle, household — where the money goes',
+  },
+  'set.hintSpendKinds': {
+    kn: 'ಗೊಬ್ಬರ, ಡೀಸೆಲ್, ದುರಸ್ತಿ',
+    en: 'Fertilizer, diesel, repairs — the same list on every head',
+  },
+  'set.hintWorkers': { kn: 'ಹೆಸರು, ಫೋನ್ ಮತ್ತು ದಿನದ ಕೂಲಿ', en: 'Names, phones and day rates' },
+  'set.hintActivities': { kn: 'ಕೊಯ್ಲು, ಔಷಧಿ, ಕಳೆ ತೆಗೆಯುವುದು', en: 'Harvesting, spraying, weeding' },
   'set.varietiesGrades': { kn: 'ತಳಿಗಳು', en: 'Varieties' },
+  'set.hasVarieties': {
+    kn: 'ಈ ಬೆಳೆಗೆ ಬೇರೆ ಬೇರೆ ತಳಿ ಇದೆಯೇ?',
+    en: 'Does this crop come in different kinds?',
+  },
   'set.varieties': { kn: 'ತಳಿಗಳು', en: 'Varieties' },
   'set.varietiesHint': {
-    kn: 'ಬೇರೆ ಬೇರೆ ದರ ಇರುವ ತಳಿಗಳಿದ್ದರೆ ಮಾತ್ರ. ಇಲ್ಲದಿದ್ದರೆ ಖಾಲಿ ಬಿಡಿ.',
-    en: 'Only if different kinds fetch different prices. Leave empty otherwise.',
+    kn: 'ಉದಾ: ಜಿ೯, ಮಿಟ್ಕಾ, ಕರಿಬಾಳೆ',
+    en: 'For example: G9, Mitka, Karibale',
   },
   'set.addVariety': { kn: 'ತಳಿ ಸೇರಿಸಿ', en: 'Add variety' },
   'set.addGrade': { kn: 'ದರ್ಜೆ ಸೇರಿಸಿ', en: 'Add grade' },

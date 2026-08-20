@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Tags, HardHat, ChevronRight, Plus, Pencil, EyeOff, Sprout } from 'lucide-react'
+import { Tags, HardHat, Plus, Pencil, EyeOff, Sprout } from 'lucide-react'
 import { Page, Shell } from '@/components/Shell'
 import { Button, Card, EmptyState, Field, Input, ListRow, Sheet, Switch, SectionHeader } from '@/components/ui'
 import { useQuery } from '@/hooks/useQuery'
@@ -7,7 +7,7 @@ import {
   listHeads, listSubHeads, listSubHeadsOfHead, saveSubHead,
 } from '@/data/masterData'
 import { useI18n } from '@/i18n'
-import { back, navigate } from '@/router'
+import { back } from '@/router'
 import { MasterList, RowActions } from './MasterList'
 import type { Bool, SubHead } from '@/db/types'
 
@@ -27,87 +27,13 @@ import type { Bool, SubHead } from '@/db/types'
  *   fertilizer is fertilizer whatever it was applied to — but a crop can have
  *   its own, and only its own are offered against it.
  *
- * The screen is therefore per head. `/settings/sub-heads` lists the crops to
- * choose from plus the global spend types; `/settings/sub-heads/:headId` is
- * the tree for one crop.
+ * A crop's varieties are edited inside the crop itself, in Settings → What you
+ * sell, so there is no picker screen listing crops to choose from any more —
+ * that was a second door to one thing and people took neither. What remains is
+ * per head: `/settings/spend-types` for the global kinds of spend, and
+ * `/settings/sub-heads/:headId` for the ones belonging to a single head.
  */
 
-/* ------------------------------------------------------------------ *
- * The picker: which crop's varieties and grades to edit
- * ------------------------------------------------------------------ */
-
-export function SubHeadsScreen() {
-  const { t, nameOf } = useI18n()
-  const { data: heads, loading } = useQuery(() => listHeads(false), [])
-
-  return (
-    <Shell title={t('set.subHeads')} onBack={back} right={<span />}>
-      <Page>
-        <section>
-          <SectionHeader>{t('set.pickHead')}</SectionHeader>
-          {loading ? (
-            <EmptyState>{t('common.loading')}</EmptyState>
-          ) : (
-            <Card>
-              {(heads ?? []).map((h) => (
-                <ListRow
-                  key={h.id}
-                  title={nameOf(h)}
-                  subtitle={t('set.varietiesGrades')}
-                  leading={<Sprout size={19} style={{ color: 'var(--color-brand-600)' }} />}
-                  right={<ChevronRight size={16} style={{ color: 'var(--text-faint)' }} />}
-                  onClick={() => navigate(`/settings/sub-heads/${h.id}`)}
-                />
-              ))}
-            </Card>
-          )}
-        </section>
-
-        <section>
-          <SectionHeader>{t('set.globalSpend')}</SectionHeader>
-          <GlobalSpendTypes />
-        </section>
-      </Page>
-    </Shell>
-  )
-}
-
-/**
- * The kinds of spend that apply to every crop — fertilizer, transport, labour.
- *
- * Kept on the picker screen rather than behind another tap, because these are
- * what most farms actually edit and burying them under a crop that does not
- * own them would be a lie about where they live.
- */
-function GlobalSpendTypes() {
-  const { t, nameOf } = useI18n()
-  const { data } = useQuery(() => listSubHeads(false), [])
-  const global = (data ?? []).filter((s) => !s.head_id)
-
-  return (
-    <Card>
-      {global.map((s) => (
-        <ListRow
-          key={s.id}
-          title={nameOf(s)}
-          subtitle={s.is_labour ? 'Wages paid to people' : undefined}
-          leading={
-            s.is_labour ? (
-              <HardHat size={18} style={{ color: 'var(--color-earth-500)' }} />
-            ) : (
-              <Tags size={18} style={{ color: 'var(--color-brand-600)' }} />
-            )
-          }
-          right={<ChevronRight size={16} style={{ color: 'var(--text-faint)' }} />}
-          onClick={() => navigate('/settings/spend-types')}
-        />
-      ))}
-      {global.length === 0 ? (
-        <ListRow title={t('common.empty')} onClick={() => navigate('/settings/spend-types')} />
-      ) : null}
-    </Card>
-  )
-}
 
 /* ------------------------------------------------------------------ *
  * Global spend types, as a plain master list

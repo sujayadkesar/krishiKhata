@@ -21,8 +21,7 @@ import { SettingsScreen } from '@/features/settings/SettingsScreen'
 import { AccountsScreen } from '@/features/settings/AccountsScreen'
 import { HeadsScreen } from '@/features/settings/HeadsScreen'
 import {
-  HeadSubHeadsScreen, SpendTypesScreen, SubHeadsScreen,
-} from '@/features/settings/SubHeadsScreen'
+  HeadSubHeadsScreen, SpendTypesScreen, } from '@/features/settings/SubHeadsScreen'
 import { ActivitiesScreen } from '@/features/settings/ActivitiesScreen'
 import { LabourersScreen } from '@/features/settings/LabourersScreen'
 import { PlotsScreen } from '@/features/settings/PlotsScreen'
@@ -123,7 +122,6 @@ const ROUTES: RouteDef[] = [
   { path: '/settings/heads', render: () => <HeadsScreen side="income" /> },
   { path: '/settings/heads/income', render: () => <HeadsScreen side="income" /> },
   { path: '/settings/heads/expense', render: () => <HeadsScreen side="expense" /> },
-  { path: '/settings/sub-heads', render: () => <SubHeadsScreen /> },
   { path: '/settings/sub-heads/:headId', render: (p) => <HeadSubHeadsScreen headId={p.headId} /> },
   { path: '/settings/spend-types', render: () => <SpendTypesScreen /> },
   { path: '/settings/activities', render: () => <ActivitiesScreen /> },

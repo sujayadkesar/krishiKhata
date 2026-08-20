@@ -100,6 +100,21 @@ export const listHeadsFor = (side: 'income' | 'expense', includeInactive = false
   )
 
 /**
+ * Only the heads that are actually grown on land.
+ *
+ * Labour, plots and yields all belong to crops. Offering a general head — the
+ * car, the house — anywhere those are being recorded is not merely untidy: it
+ * lets somebody file a day's weeding against Household, and no report can
+ * recover from that.
+ */
+export const listCropHeads = (includeInactive = false) =>
+  all<Head>(
+    `SELECT * FROM heads
+      WHERE category = 'crop' ${includeInactive ? '' : 'AND is_active = 1'}
+      ORDER BY sort_order, name_en;`,
+  )
+
+/**
  * Expense sub-heads: the global ones plus any scoped to a crop.
  * Grades (income-only) are excluded — see `listSubHeadsFor`.
  */

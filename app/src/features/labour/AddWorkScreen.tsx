@@ -9,7 +9,7 @@ import { SearchMultiSelect } from '@/components/SearchPicker'
 import { MissingHint } from '@/features/entries/EntryForm'
 import { useQuery } from '@/hooks/useQuery'
 import {
-  listActivities, listHeads, listLabourers, listPlots, listSubHeads, listUnits,
+  listActivities, listCropHeads, listLabourers, listPlots, listSubHeads, listUnits,
 } from '@/data/masterData'
 import { attendanceInMonth, saveWorkSession } from '@/data/labour'
 import { useI18n } from '@/i18n'
@@ -87,7 +87,15 @@ export function AddWorkScreen() {
   const [femaleRate, setFemaleRate] = useState<number | null>(null)
 
   const { data: labourers } = useQuery(() => listLabourers(false), [])
-  const { data: heads } = useQuery(() => listHeads(false), [])
+  /*
+   * CROPS ONLY.
+   *
+   * This asked `listHeads`, which returns every head the farm has — so the
+   * crop picker on a worker's attendance offered Vehicle, Household and
+   * Personal. Nobody weeds a car. Work happens on land, so the list is the
+   * land.
+   */
+  const { data: heads } = useQuery(() => listCropHeads(false), [])
   const { data: activities } = useQuery(() => listActivities(false), [])
   const { data: subHeads } = useQuery(() => listSubHeads(false), [])
   const { data: plots } = useQuery(() => listPlots(false), [])

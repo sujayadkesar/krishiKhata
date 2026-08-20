@@ -265,7 +265,7 @@ export function PayScreen({ labourerId }: { labourerId?: string }) {
           >
             {saved ? (
               <>
-                <Check size={20} /> {t('entry.saved')}
+                <Check size={20} /> {t('labour.paidAndBooked')}
               </>
             ) : (
               `${direction === 'in' ? t('labour.payIn') : t('labour.pay')} ${

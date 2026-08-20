@@ -53,6 +53,15 @@ interface Draft {
    * are — is now one sheet, so the entry form can stay short.
    */
   varieties: { id?: string; name_en: string; name_kn: string }[]
+  /**
+   * Whether this crop is sold as more than one kind of thing.
+   *
+   * Off by default, because roughly two crops on a farm have varieties and
+   * the rest are just themselves. Honey is honey. Asking every crop to think
+   * about varieties is how a five-field form becomes a screen people abandon,
+   * so the question is one switch and the list only exists after a yes.
+   */
+  hasVarieties: boolean
 }
 
 /**
@@ -70,6 +79,7 @@ const blank = (side: Side): Draft => ({
   color: 'emerald',
   unitIds: [],
   varieties: [],
+  hasVarieties: false,
 })
 
 export type Side = 'income' | 'expense'
@@ -109,6 +119,7 @@ export function HeadsScreen({ side }: { side: Side }) {
               varieties: varieties
                 .filter((v) => v.head_id === editing.id && !v.parent_id)
                 .map((v) => ({ id: v.id, name_en: v.name_en, name_kn: v.name_kn })),
+              hasVarieties: varieties.some((v) => v.head_id === editing.id && !v.parent_id),
             }
           : d,
       )
@@ -135,7 +146,10 @@ export function HeadsScreen({ side }: { side: Side }) {
     })
     // After the head, because a brand-new one has no id until it exists.
     if (side === 'income' && draft.category === 'crop') {
-      await saveVarieties(headId, draft.varieties)
+      // Switching the toggle off retires whatever was there. `saveVarieties`
+      // deletes only what nothing references and deactivates the rest, so a
+      // sale already filed under G9 keeps its name.
+      await saveVarieties(headId, draft.hasVarieties ? draft.varieties : [])
     }
     setDraft(null)
     setEditing(null)
@@ -172,22 +186,25 @@ export function HeadsScreen({ side }: { side: Side }) {
         [h.category === 'crop' ? t('head.isCrop') : t('head.isGeneral'),
          h.used_for === 'both' ? 'sales and expenses' : null]
           .filter(Boolean).join(' · ')}
-      /* Straight from the head to the varieties and grades filed under it,
-         because that is where the farmer is going next and hunting for it in
-         another Settings screen is the step people give up on. */
-      rightOf={(h) => (
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            navigate(`/settings/sub-heads/${h.id}`)
-          }}
-          aria-label={t('set.varietiesGrades')}
-          className="px-1.5"
-          style={{ color: 'var(--color-brand-600)', minHeight: 32 }}
-        >
-          <Tags size={17} />
-        </button>
-      )}
+      /* No shortcut on the sale side any more. A crop's varieties are edited
+         inside the crop, so a second door into a second screen was the extra
+         step that made this feel like two settings for one thing. The expense
+         side keeps it: spend kinds really are a list of their own. */
+      rightOf={(h) =>
+        side === 'expense' ? (
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              navigate(`/settings/sub-heads/${h.id}`)
+            }}
+            aria-label={t('set.spendTypes')}
+            className="px-1.5"
+            style={{ color: 'var(--color-brand-600)', minHeight: 32 }}
+          >
+            <Tags size={17} />
+          </button>
+        ) : null
+      }
       onAdd={() => {
         setEditing(null)
         setDraft(blank(side))
@@ -203,6 +220,7 @@ export function HeadsScreen({ side }: { side: Side }) {
           color: h.color,
           unitIds: [],
           varieties: [],
+          hasVarieties: false,
         })
       }}
     >
@@ -294,6 +312,27 @@ export function HeadsScreen({ side }: { side: Side }) {
               and doing it here is what lets the entry form stay short.
             */}
             {side === 'income' && draft.category === 'crop' ? (
+              <div className="card px-4 py-2">
+                <Switch
+                  checked={draft.hasVarieties}
+                  onChange={(v) =>
+                    setDraft({
+                      ...draft,
+                      hasVarieties: v,
+                      // Offer one empty row immediately: a switch that turns
+                      // on and reveals nothing to do reads as broken.
+                      varieties:
+                        v && draft.varieties.length === 0
+                          ? [{ name_en: '', name_kn: '' }]
+                          : draft.varieties,
+                    })
+                  }
+                  label={t('set.hasVarieties')}
+                />
+              </div>
+            ) : null}
+
+            {side === 'income' && draft.category === 'crop' && draft.hasVarieties ? (
               <Field
                 label={t('set.varieties')}
                 hint={t('set.varietiesHint')}
@@ -342,13 +381,13 @@ export function HeadsScreen({ side }: { side: Side }) {
               </Field>
             ) : null}
 
-            {editing ? (
+            {editing && side === 'expense' ? (
               <button
                 onClick={() => navigate(`/settings/sub-heads/${editing.id}`)}
                 className="card w-full flex items-center gap-3 px-4 py-3 text-left"
               >
                 <Tags size={18} style={{ color: 'var(--color-brand-600)' }} />
-                <span className="flex-1 text-sm font-medium">{t('set.varietiesGrades')}</span>
+                <span className="flex-1 text-sm font-medium">{t('set.spendTypes')}</span>
                 <ChevronRight size={16} style={{ color: 'var(--text-faint)' }} />
               </button>
             ) : null}
