@@ -201,7 +201,7 @@ export function PayScreen({ labourerId }: { labourerId?: string }) {
         {amountPaise && preview.allocs.length > 0 ? (
           <div>
             <p className="field-label">{t('labour.settles')}</p>
-            <div className="card divide-y" style={{ borderColor: 'var(--border)' }}>
+            <div className="card rows">
               {preview.allocs.map((a) => {
                 const w = dayOf(a.attendance_id)
                 return (

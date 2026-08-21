@@ -819,7 +819,7 @@ export function ListRow({
 
 export function Card({ children }: { children: ReactNode }) {
   return (
-    <div className="card divide-y overflow-hidden" style={{ borderColor: 'var(--border)' }}>
+    <div className="card rows overflow-hidden">
       {children}
     </div>
   )

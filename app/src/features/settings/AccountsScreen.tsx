@@ -1,14 +1,13 @@
 import { useState } from 'react'
-import { Banknote, Landmark, Smartphone } from 'lucide-react'
 import { useQuery } from '@/hooks/useQuery'
 import { listAccounts, saveAccount } from '@/data/masterData'
 import { useI18n } from '@/i18n'
 import { Button, Field, Input, MoneyInput, Select, Sheet } from '@/components/ui'
 import { formatRupees } from '@/lib/money'
+import { AccountAvatar } from '@/components/accountArt'
 import { MasterList, RowActions } from './MasterList'
 import type { Account, AccountKind } from '@/db/types'
 
-const ICONS = { cash: Banknote, bank: Landmark, upi: Smartphone }
 
 interface Draft {
   id?: string
@@ -66,10 +65,7 @@ export function AccountsScreen() {
       loading={loading}
       showInactive={showInactive}
       onShowInactiveChange={setShowInactive}
-      leadingOf={(a) => {
-        const Icon = ICONS[a.kind]
-        return <Icon size={19} style={{ color: 'var(--color-brand-600)' }} />
-      }}
+      leadingOf={(a) => <AccountAvatar kind={a.kind} size={34} />}
       subtitleOf={(a) =>
         a.bank_name ? `${a.bank_name}${a.account_last4 ? ` ••${a.account_last4}` : ''}` : a.kind
       }

@@ -4,11 +4,12 @@ import {
   XAxis, YAxis,
 } from 'recharts'
 import {
-  Plus, CalendarPlus, Wallet, CloudUpload, MapPin,
+  Plus, CalendarPlus, CloudUpload, MapPin,
   IndianRupee, ChartColumn, TrendingUp, TrendingDown, HardHat,
 } from 'lucide-react'
 import { Page, Shell } from '@/components/Shell'
-import { Card, EmptyState, QuickLink, SectionHeader } from '@/components/ui'
+import { AccountAvatar } from '@/components/accountArt'
+import { EmptyState, QuickLink, SectionHeader } from '@/components/ui'
 import { useQuery } from '@/hooks/useQuery'
 import {
   accountBalances, expenseTotalsBySubHead, monthlyTotals, totalsByKind,
@@ -107,6 +108,7 @@ export function HomeScreen() {
 
   const net = (data?.income ?? 0) - (data?.expense ?? 0)
   const owed = (data?.labour ?? []).reduce((s, r) => s + Math.max(0, r.balance_paise), 0)
+  const totalBalance = (data?.balances ?? []).reduce((s, a) => s + a.balance_paise, 0)
   const daysThisMonth = (data?.labour ?? []).reduce((s, r) => s + r.days, 0)
 
   const spendData = useMemo(
@@ -349,13 +351,49 @@ export function HomeScreen() {
           </button>
         ) : null}
 
-        <div>
+        {/*
+          What is actually in hand, and where.
+
+          This was one grey wallet repeated down a list, so telling cash from
+          the bank meant reading a Kannada word on every row. Each kind of
+          account now wears its own tile — see `accountArt` — and the total
+          sits at the top, because "how much have I got altogether" is the
+          question that gets asked first and the list never answered it.
+        */}
+        <section>
           <SectionHeader>{t('dash.balances')}</SectionHeader>
-          <Card>
+          <div className="card rows overflow-hidden">
+            {/* Only worth a row when there is more than one account to add
+                up. On a farm that keeps cash and nothing else, a total that
+                repeats the single line below it is noise. */}
+            {(data?.balances ?? []).length > 1 ? (
+              <div
+                className="flex items-center justify-between px-4 py-3"
+                style={{ background: 'var(--surface-sunken)' }}
+              >
+                <span className="text-sm font-semibold" style={{ color: 'var(--text-soft)' }}>
+                  {t('dash.inHand')}
+                </span>
+                <span
+                  className="tnum font-bold"
+                  style={{
+                    fontSize: 19,
+                    color: totalBalance < 0 ? 'var(--color-expense)' : 'var(--text)',
+                  }}
+                >
+                  {loading ? '—' : formatRupees(totalBalance)}
+                </span>
+              </div>
+            ) : null}
             {(data?.balances ?? []).map((a) => (
               <div key={a.account_id} className="flex items-center gap-3 px-4 py-3">
-                <Wallet size={17} style={{ color: 'var(--text-faint)' }} />
-                <span className="flex-1 font-medium truncate">{nameOf(a)}</span>
+                <AccountAvatar kind={a.kind} size={36} />
+                <span className="flex-1 min-w-0 leading-tight">
+                  <span className="block font-medium truncate">{nameOf(a)}</span>
+                  <span className="block text-xs" style={{ color: 'var(--text-faint)' }}>
+                    {t(`account.${a.kind}` as 'account.cash')}
+                  </span>
+                </span>
                 <span
                   className="tnum font-semibold"
                   style={{ color: a.balance_paise < 0 ? 'var(--color-expense)' : 'var(--text)' }}
@@ -364,8 +402,8 @@ export function HomeScreen() {
                 </span>
               </div>
             ))}
-          </Card>
-        </div>
+          </div>
+        </section>
 
         {/*
           The quick row, directly under the balances where the thumb already is.

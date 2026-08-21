@@ -196,6 +196,19 @@
     box-shadow: var(--shadow-rest);
   }
 
+  /*
+   * The hairline between rows of a card.
+   *
+   * This was Tailwind's `divide-y` with the colour set on the PARENT, and
+   * border-color does not inherit — so every child fell back to currentColor
+   * and drew a near-black rule between every row, in every list in the app.
+   * It read as heavy ruled paper rather than as a card, which is the same
+   * mistake the printed reports had. Set on the children, where it belongs.
+   */
+  .rows > * + * {
+    border-top: 1px solid var(--border);
+  }
+
   .field-label {
     display: block;
     font-size: 0.8125rem;

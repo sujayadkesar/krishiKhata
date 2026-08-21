@@ -325,6 +325,10 @@ export const STRINGS = {
      rather than the thing — income is not only crops, and never was. */
   'set.incomeHeads': { kn: 'ಆದಾಯದ ಶೀರ್ಷಿಕೆ', en: 'Income heads' },
   'set.expenseHeads': { kn: 'ಖರ್ಚಿನ ಶೀರ್ಷಿಕೆ', en: 'Expense heads' },
+  'dash.inHand': { kn: 'ಒಟ್ಟು ಶಿಲ್ಕು', en: 'Total on hand' },
+  'account.cash': { kn: 'ನಗದು', en: 'Cash' },
+  'account.bank': { kn: 'ಬ್ಯಾಂಕ್', en: 'Bank' },
+  'account.upi': { kn: 'ಯುಪಿಐ', en: 'UPI' },
   'dash.addHint': { kn: 'ಆದಾಯ ಅಥವಾ ಖರ್ಚು', en: 'Money in or out' },
   'dash.workHint': { kn: 'ಆಳುಗಳ ಹಾಜರಿ', en: 'Attendance for the day' },
   'set.subHeads': { kn: 'ಉಪ ಶೀರ್ಷಿಕೆ', en: 'Sub-heads' },

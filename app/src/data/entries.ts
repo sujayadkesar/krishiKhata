@@ -1,7 +1,7 @@
 import { all, run, tx } from '@/db/db'
 import { newId } from '@/lib/ids'
 import { notifyDataChanged } from '@/hooks/useQuery'
-import type { Entry, EntryKind, ISODate } from '@/db/types'
+import type { AccountKind, Entry, EntryKind, ISODate } from '@/db/types'
 
 /**
  * Income, expense and transfer entries.
@@ -274,7 +274,9 @@ export interface AccountBalance {
   account_id: string
   name_en: string
   name_kn: string
-  kind: string
+  /* Typed, not a bare string: the home screen picks the icon and the colour
+     off it, and a widened type there is a silently wrong tile. */
+  kind: AccountKind
   balance_paise: number
 }
 
