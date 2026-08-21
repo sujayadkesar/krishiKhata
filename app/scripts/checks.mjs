@@ -284,6 +284,50 @@ eq(balanceState(0), 'settled', 'balance: settled')
     'wage: a lump sum is always positive; direction comes from the ledger',
   )
 
+  /*
+   * A DAY THAT WAS NEVER PRICED, THEN PRICED.
+   *
+   * A worker added with no rate records days worth ₹0, and raising their rate
+   * in Settings must never rewrite those rows — that rule protects what last
+   * season actually cost. The repair is to price the job itself, which is the
+   * arithmetic below: `priceSession` re-runs the day through the same formula
+   * with the agreed rate, so what comes out has to be rate x person-days.
+   */
+  const unpriced = { ...day, daily_rate_paise: 0, male_rate_paise: 0 }
+  eq(
+    wagePaise('day', unpriced, null, lineTotalPaise),
+    0,
+    'wage: a day recorded before a rate was agreed is worth nothing YET',
+  )
+  eq(
+    wagePaise('day', { ...unpriced, daily_rate_paise: 45000, male_rate_paise: 45000 }, 45000, lineTotalPaise),
+    45000,
+    'wage: pricing that day afterwards gives the full day at the agreed rate',
+  )
+  eq(
+    wagePaise(
+      'day',
+      { ...unpriced, day_fraction: 500, daily_rate_paise: 45000, male_rate_paise: 45000 },
+      45000,
+      lineTotalPaise,
+    ),
+    22500,
+    'wage: pricing a HALF day afterwards gives half — not the whole rate',
+  )
+  eq(
+    wagePaise(
+      'day',
+      {
+        ...unpriced, is_group: 1, male_count: 8, female_count: 4,
+        daily_rate_paise: 45000, male_rate_paise: 45000, female_rate_paise: 45000,
+      },
+      45000,
+      lineTotalPaise,
+    ),
+    45000 * 12,
+    'wage: pricing a crew afterwards pays every one of them, at one agreed rate',
+  )
+
   // A salaried month is not a day worked.
   eq(
     wagePaise('salary', { ...day, day_fraction: 0, amount_paise: 1200000 }, null, lineTotalPaise),

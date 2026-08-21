@@ -164,11 +164,58 @@ export async function priceSession(sessionId: string, ratePaise: number): Promis
   const ts = nowISO()
   const rate = Math.abs(Math.round(ratePaise))
 
-  const rows = await all<{ id: string; quantity_milli: number | null; labourer_id: string }>(
-    `SELECT id, quantity_milli, labourer_id FROM attendance
+  const session = await one<{ basis: WorkBasis }>(
+    'SELECT basis FROM work_sessions WHERE id = ?;',
+    [sessionId],
+  )
+  if (!session) return 0
+  const basis = session.basis
+
+  const rows = await all<{
+    id: string
+    labourer_id: string
+    quantity_milli: number | null
+    day_fraction: number
+    is_group: Bool
+    male_count: number
+    female_count: number
+  }>(
+    `SELECT id, labourer_id, quantity_milli, day_fraction, is_group, male_count, female_count
+       FROM attendance
       WHERE work_session_id = ? AND is_deleted = 0;`,
     [sessionId],
   )
+
+  /*
+   * ONE RATE, APPLIED THE WAY THAT BASIS IS PAID.
+   *
+   * Piece and hourly work multiply the quantity. Day work does not: it is the
+   * crew formula, so a half day comes out half and a crew of twelve comes out
+   * twelve times. Running day rows through the quantity path would have priced
+   * every one of them at zero, since day rows carry no quantity.
+   */
+  const amountFor = (r: (typeof rows)[number]): number =>
+    basis === 'piece' || basis === 'hour'
+      ? lineTotalPaise(r.quantity_milli ?? 0, rate)
+      : wagePaise(
+          basis,
+          {
+            day_fraction: r.day_fraction,
+            is_group: r.is_group,
+            daily_rate_paise: rate,
+            // The agreed rate is the rate. A half-day rate is a standing
+            // arrangement with one person, not something being settled here.
+            half_day_rate_paise: null,
+            male_count: r.male_count,
+            female_count: r.female_count,
+            male_rate_paise: rate,
+            // A crew priced after the fact is priced at one rate for everyone;
+            // nobody agrees two figures retrospectively.
+            female_rate_paise: r.female_count > 0 ? rate : 0,
+          },
+          rate,
+          lineTotalPaise,
+        )
 
   await tx(async (exec) => {
     await exec(
@@ -176,9 +223,14 @@ export async function priceSession(sessionId: string, ratePaise: number): Promis
       [rate, ts, ts, sessionId],
     )
     for (const r of rows) {
+      // The per-row rates are written too, so the snapshot on the row keeps
+      // telling the truth about what this work was paid at.
       await exec(
-        'UPDATE attendance SET rate_paise = ?, amount_paise = ?, updated_at = ? WHERE id = ?;',
-        [rate, lineTotalPaise(r.quantity_milli ?? 0, rate), ts, r.id],
+        `UPDATE attendance
+            SET rate_paise = ?, amount_paise = ?,
+                male_rate_paise = ?, female_rate_paise = ?, updated_at = ?
+          WHERE id = ?;`,
+        [rate, amountFor(r), rate, r.female_count > 0 ? rate : 0, ts, r.id],
       )
     }
   })
@@ -207,17 +259,29 @@ export interface OpenJob {
   labourer_name_en: string
   labourer_name_kn: string
   days: number
+  /** Days times crew size — what a day rate actually multiplies against. */
+  person_days: number
   note: string | null
 }
 
 /**
- * Piece-rate jobs still waiting for a price.
+ * Work that has been done and still has no price on it.
  *
  * Surfaced prominently rather than left to be remembered: work that has been
  * done but never priced is invisible in every total on a cash basis, so
  * without this the farmer's books quietly understate what they are about to
  * owe — which is the exact failure the outstanding-wages line exists to
  * prevent everywhere else.
+ *
+ * IT USED TO MEAN PIECE WORK ONLY, and that left a hole a farmer could fall
+ * into and not climb out of. Add a worker without filling in their day rate,
+ * record a week of their work, then set the rate in Settings — and every one
+ * of those days stays at ₹0 for ever, in the khata, in the crop costs and in
+ * their statement. The rate on an attendance row is a snapshot and must never
+ * be rewritten by a later Settings change; that rule protects a rate somebody
+ * actually worked under, and zero was never a rate anybody agreed. So day and
+ * hourly work that totals nothing is listed here too, and pricing it fills it
+ * in the same way pricing a spraying job does.
  */
 export function openJobs(): Promise<OpenJob[]> {
   return all<OpenJob>(
@@ -225,6 +289,7 @@ export function openJobs(): Promise<OpenJob[]> {
             MIN(a.date) AS first_date, MAX(a.date) AS last_date,
             COALESCE(SUM(a.quantity_milli), 0) AS quantity_milli,
             SUM(a.day_fraction) / 1000.0 AS days,
+            SUM(a.day_fraction * MAX(a.group_size, 1)) / 1000.0 AS person_days,
             u.short_en AS unit_short_en, u.short_kn AS unit_short_kn,
             h.name_en AS head_name_en, h.name_kn AS head_name_kn,
             ac.name_en AS activity_name_en, ac.name_kn AS activity_name_kn,
@@ -236,8 +301,15 @@ export function openJobs(): Promise<OpenJob[]> {
        LEFT JOIN units u       ON u.id = ws.unit_id
        LEFT JOIN heads h       ON h.id = ws.head_id
        LEFT JOIN activities ac ON ac.id = ws.activity_id
-      WHERE ws.basis = 'piece' AND ws.priced_at IS NULL AND ws.is_deleted = 0
+      WHERE ws.priced_at IS NULL AND ws.is_deleted = 0
+        AND ws.basis IN ('piece', 'day', 'hour')
       GROUP BY ws.id, a.labourer_id
+      -- Piece work is open until it is priced, whatever it adds up to. Day and
+      -- hourly work is only open when it adds up to nothing, which is the
+      -- signature of a rate that was never set. The day_fraction test keeps
+      -- salaried months out: those carry no days, by design.
+      HAVING ws.basis = 'piece'
+          OR (SUM(a.amount_paise) = 0 AND SUM(a.day_fraction) > 0)
       ORDER BY first_date;`,
   )
 }

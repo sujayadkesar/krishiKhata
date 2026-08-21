@@ -249,6 +249,18 @@ export const STRINGS = {
     kn: 'ಪಾವತಿ ಆಯಿತು · ಖರ್ಚಿನಲ್ಲಿ ಸೇರಿದೆ',
     en: 'Paid · added to expenses',
   },
+  'labour.noRateYet': {
+    kn: 'ಇವರಿಗೆ ದಿನದ ಕೂಲಿ ಇನ್ನೂ ಹಾಕಿಲ್ಲ. ಈ ದಿನಗಳಿಗೆ ಎಷ್ಟು?',
+    en: 'no day rate set yet. What are these days worth?',
+  },
+  'labour.dayRateHint': {
+    kn: 'ಈ ಕೆಲಸಕ್ಕೆ ಮಾತ್ರ. ಹಳೆಯ ಕೆಲಸದ ದರ ಬದಲಾಗುವುದಿಲ್ಲ.',
+    en: 'For this job only. It does not change what earlier work was paid at.',
+  },
+  'labour.pricedNote': {
+    kn: 'ದರ ಸೇರಿಸಲಾಯಿತು. {name} ಅವರಿಗೆ ಈಗಾಗಲೇ ಕೊಟ್ಟ ಹಣ ಇದಕ್ಕೆ ಹೊಂದಿಸಲಾಗಿದೆ.',
+    en: 'Priced. Anything already paid to {name} has been set against it.',
+  },
   'labour.fromWagePayment': { kn: 'ಕೂಲಿ ಪಾವತಿಯಿಂದ', en: 'From a wage payment' },
   'labour.repayNote': {
     kn: 'ಮುಂಗಡ ತೆಗೆದುಕೊಂಡು ವಾಪಸ್ ಕೊಟ್ಟರೆ ಇಲ್ಲಿ ದಾಖಲಿಸಿ',

@@ -86,6 +86,21 @@ export function AddWorkScreen() {
   const [maleRate, setMaleRate] = useState<number | null>(null)
   const [femaleRate, setFemaleRate] = useState<number | null>(null)
 
+  /**
+   * A day rate for workers who do not have one yet.
+   *
+   * A worker could be added without a rate — the field is optional, because
+   * often nobody has settled it yet — and every day recorded for them then
+   * came out at ₹0. Filling the rate in on the worker afterwards did not fix
+   * those days and never can: the rate on an attendance row is a snapshot,
+   * and rewriting it would rewrite what last season cost too.
+   *
+   * So the rate is asked for HERE, at the moment the work is recorded, and
+   * written onto these days only. Days already recorded at zero are repaired
+   * from Team → work waiting for a price.
+   */
+  const [dayRate, setDayRate] = useState<number | null>(null)
+
   const { data: labourers } = useQuery(() => listLabourers(false), [])
   /*
    * CROPS ONLY.
@@ -232,7 +247,7 @@ export function AddWorkScreen() {
         } else {
           total += attendanceAmountPaise(
             sel.fraction,
-            l.daily_rate_paise,
+            l.daily_rate_paise > 0 ? l.daily_rate_paise : (dayRate ?? 0),
             l.half_day_rate_paise,
             1,
           )
@@ -244,8 +259,17 @@ export function AddWorkScreen() {
     return { total: total as number | null, days, personDays }
   }, [
     selection, selected, maleCount, femaleCount, maleRate, femaleRate,
-    basis, lumpAmount, quantity, hourRate,
+    basis, lumpAmount, quantity, hourRate, dayRate,
   ])
+
+  /* A worker's own rate wins. The field only stands in where there is none. */
+  const rateFor = (l: { daily_rate_paise: number }) =>
+    l.daily_rate_paise > 0 ? l.daily_rate_paise : (dayRate ?? 0)
+
+  /* Who on this screen has no rate of their own. Named, so the farmer knows
+     whose wage they are being asked to settle rather than just seeing a
+     field appear. */
+  const unrated = selected.filter((l) => l.is_group_lead !== 1 && l.daily_rate_paise <= 0)
 
   // A plot is required once the farm has entered any, matching the entry form:
   // labour recorded against no land leaves a hole in every plot report, and
@@ -255,6 +279,13 @@ export function AddWorkScreen() {
   const needsUnit = basis === 'piece' && !unitId
   const needsHourRate = basis === 'hour' && (!hourRate || hourRate <= 0)
   const needsLump = basis === 'lump' && (!lumpAmount || lumpAmount <= 0)
+  /*
+   * A day of work worth ₹0 is never what anybody meant. It used to save
+   * silently, and the farmer found out months later when the crop's labour
+   * cost read zero. The button now says what is missing.
+   */
+  const needsDayRate =
+    basis === 'day' && selection.size > 0 && selectedIds.length > 0 && (summary.total ?? 0) <= 0
   const valid =
     selectedIds.length > 0 &&
     selection.size > 0 &&
@@ -262,7 +293,8 @@ export function AddWorkScreen() {
     !needsQuantity &&
     !needsUnit &&
     !needsHourRate &&
-    !needsLump
+    !needsLump &&
+    !needsDayRate
 
   async function submit() {
     if (!valid) return
@@ -280,12 +312,12 @@ export function AddWorkScreen() {
           date,
           day_fraction: sel.fraction,
           is_group: l.is_group_lead,
-          daily_rate_paise: l.daily_rate_paise,
+          daily_rate_paise: rateFor(l),
           half_day_rate_paise: l.half_day_rate_paise,
           male_count: isCrew ? maleCount : 1,
           female_count: isCrew ? femaleCount : 0,
-          male_rate_paise: isCrew ? (maleRate ?? l.daily_rate_paise) : l.daily_rate_paise,
-          female_rate_paise: isCrew ? (femaleRate ?? l.daily_rate_paise) : 0,
+          male_rate_paise: isCrew ? (maleRate ?? rateFor(l)) : rateFor(l),
+          female_rate_paise: isCrew ? (femaleRate ?? rateFor(l)) : 0,
           // The quantity is per person per day: two people spraying 100 litres
           // each is 200 litres of work, and the price is per litre sprayed.
           quantity_milli: basis === 'piece' || basis === 'hour' ? quantity : null,
@@ -318,6 +350,7 @@ export function AddWorkScreen() {
     setQuantity(null)
     setLumpAmount(null)
     setHourRate(null)
+    setDayRate(null)
     setError(null)
     setSaved(true)
     setTimeout(() => setSaved(false), 1800)
@@ -490,6 +523,18 @@ export function AddWorkScreen() {
               </p>
             ) : null}
           </div>
+        ) : null}
+
+        {/* Only when somebody selected has no rate of their own. A farmer whose
+            workers all have rates never sees this. */}
+        {basis === 'day' && unrated.length > 0 ? (
+          <Field
+            label={t('labour.dayRate')}
+            hint={`${unrated.map((l) => nameOf(l)).join(', ')} — ${t('labour.noRateYet')}`}
+            required
+          >
+            <MoneyInput paise={dayRate} onChange={setDayRate} />
+          </Field>
         ) : null}
 
         <Field

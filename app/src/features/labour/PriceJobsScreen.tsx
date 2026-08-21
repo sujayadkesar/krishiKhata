@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Check, Droplets } from 'lucide-react'
+import { Check, Droplets, CalendarClock } from 'lucide-react'
 import { Page, Shell } from '@/components/Shell'
 import { Button, Card, EmptyState, Field, MoneyInput, Sheet } from '@/components/ui'
 import { useQuery } from '@/hooks/useQuery'
@@ -12,18 +12,26 @@ import { back } from '@/router'
 import type { OpenJob } from '@/data/labour'
 
 /**
- * Piece-rate jobs still waiting for a price.
+ * Work that has been done and still has no price on it.
  *
- * This screen exists because of how spraying is actually paid for: the litres
- * are known day by day, the rate is agreed only when the job finishes, and
- * money often changes hands in between. Until the rate exists the work is
- * genuinely worth nothing in a cash-basis book — so it moves no balance, and
- * anything already handed over is sitting as an advance.
+ * It began as spraying, which is paid for in a particular way: the litres are
+ * known day by day, the rate is agreed only when the job finishes, and money
+ * often changes hands in between. Until the rate exists the work is genuinely
+ * worth nothing in a cash-basis book — so it moves no balance, and anything
+ * already handed over is sitting as an advance.
  *
- * Setting the rate here is the moment it all resolves. Every day under the job
- * gets `litres × rate`, and the ordinary FIFO engine then settles the advance
- * against the work it was always for. No separate reconciliation step, because
- * two ways of moving the same money is how a ledger stops balancing.
+ * It now also catches ordinary DAY work that came out at zero, which happens
+ * whenever a worker was added before anybody had settled what they would be
+ * paid. Filling the rate in on the worker afterwards cannot fix those days —
+ * the rate on an attendance row is a snapshot, and rewriting it would rewrite
+ * last season's costs too. Pricing the job here is the honest repair: it puts
+ * the agreed figure on that job and nothing else.
+ *
+ * Setting the rate is the moment it all resolves. Every day under the job is
+ * recomputed the way its own basis is paid, and the ordinary FIFO engine then
+ * settles any advance against the work it was always for. No separate
+ * reconciliation step, because two ways of moving the same money is how a
+ * ledger stops balancing.
  */
 export function PriceJobsScreen() {
   const { t, lang, nameOf } = useI18n()
@@ -36,8 +44,16 @@ export function PriceJobsScreen() {
 
   const unitOf = (j: OpenJob) => (lang === 'en' ? j.unit_short_en : j.unit_short_kn) ?? ''
 
+  /* Day work is priced per day, not per litre — a day job carries no quantity
+     at all, so multiplying by one would have priced every repair at zero. */
+  const isDay = (j: OpenJob) => j.basis === 'day'
+
   const preview =
-    pricing && rate != null ? lineTotalPaise(pricing.quantity_milli, rate) : null
+    pricing && rate != null
+      ? isDay(pricing)
+        ? Math.round(pricing.person_days * rate)
+        : lineTotalPaise(pricing.quantity_milli, rate)
+      : null
 
   async function submit() {
     if (!pricing || rate == null || rate <= 0) return
@@ -63,7 +79,7 @@ export function PriceJobsScreen() {
             style={{ background: 'var(--color-income-soft)', color: 'var(--color-income)' }}
           >
             <Check size={17} className="shrink-0 mt-0.5" />
-            Priced. Anything already paid to {done} has been set against it.
+            {t('labour.pricedNote').replace('{name}', done)}
           </div>
         ) : null}
 
@@ -86,7 +102,11 @@ export function PriceJobsScreen() {
                 }}
                 className="w-full flex items-center gap-3 px-4 py-3 text-left"
               >
-                <Droplets size={19} style={{ color: 'var(--color-transfer)' }} />
+                {isDay(j) ? (
+                  <CalendarClock size={19} style={{ color: 'var(--color-earth-500)' }} />
+                ) : (
+                  <Droplets size={19} style={{ color: 'var(--color-transfer)' }} />
+                )}
                 <span className="flex-1 min-w-0">
                   <span className="block font-medium truncate">
                     {nameOf({ name_en: j.labourer_name_en, name_kn: j.labourer_name_kn })}
@@ -107,7 +127,9 @@ export function PriceJobsScreen() {
                   </span>
                 </span>
                 <span className="text-sm font-semibold tnum shrink-0">
-                  {formatQuantity(j.quantity_milli)} {unitOf(j)}
+                  {isDay(j)
+                    ? `${j.person_days} ${t('labour.days')}`
+                    : `${formatQuantity(j.quantity_milli)} ${unitOf(j)}`}
                 </span>
               </button>
             ))}
@@ -134,13 +156,21 @@ export function PriceJobsScreen() {
                   })}
                 </p>
                 <p className="text-sm mt-0.5" style={{ color: 'var(--text-soft)' }}>
-                  {formatQuantity(pricing.quantity_milli)} {unitOf(pricing)} ·{' '}
-                  {pricing.days} {t('labour.days')}
+                  {isDay(pricing)
+                    ? `${pricing.person_days} ${t('labour.personDays')}`
+                    : `${formatQuantity(pricing.quantity_milli)} ${unitOf(pricing)} · ${
+                        pricing.days
+                      } ${t('labour.days')}`}
                 </p>
               </div>
 
               <Field
-                label={`${t('labour.perUnit')} ${unitOf(pricing) ? `/ ${unitOf(pricing)}` : ''}`}
+                label={
+                  isDay(pricing)
+                    ? t('labour.dayRate')
+                    : `${t('labour.perUnit')} ${unitOf(pricing) ? `/ ${unitOf(pricing)}` : ''}`
+                }
+                hint={isDay(pricing) ? t('labour.dayRateHint') : undefined}
                 required
               >
                 <MoneyInput paise={rate} onChange={setRate} />
