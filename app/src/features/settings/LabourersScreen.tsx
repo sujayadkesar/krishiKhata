@@ -1,10 +1,14 @@
 import { useState } from 'react'
-import { User, UsersRound, Phone } from 'lucide-react'
+import { User, UsersRound, Phone, BookUser, ShieldCheck } from 'lucide-react'
 import { useQuery } from '@/hooks/useQuery'
 import { listLabourers, saveLabourer } from '@/data/masterData'
 import { useI18n } from '@/i18n'
 import { Button, Field, Input, MoneyInput, Select, Sheet, Switch, TextArea } from '@/components/ui'
 import { formatRupees } from '@/lib/money'
+import { canPickContact, pickContact } from '@/lib/contactPick'
+
+/** The Kannada block. Decides which name column a picked contact goes in. */
+const KANNADA = /[\u0C80-\u0CFF]/
 import { MasterList, RowActions } from './MasterList'
 import type { Bool, Employment, Labourer } from '@/db/types'
 
@@ -49,6 +53,42 @@ export function LabourersScreen() {
   const [showInactive, setShowInactive] = useState(false)
   const { data, loading } = useQuery(() => listLabourers(showInactive), [showInactive])
   const [draft, setDraft] = useState<Draft | null>(null)
+  /**
+   * The reassurance, shown once before the phone book is ever opened.
+   *
+   * "This app wants your contacts" is a sentence people have learnt to
+   * distrust, and rightly. Here it is not what happens — the picker is the
+   * system's own and only the one person chosen ever reaches the app — so the
+   * farmer is told that BEFORE anything opens, not buried in a policy.
+   */
+  const [askContact, setAskContact] = useState(false)
+  const [contactError, setContactError] = useState<string | null>(null)
+
+  async function fromPhoneBook() {
+    setAskContact(false)
+    setContactError(null)
+    try {
+      const picked = await pickContact()
+      if (picked.cancelled) return
+      setDraft((d) =>
+        d
+          ? {
+              ...d,
+              // The English column takes the contact's name as stored. One
+              // already saved in Kannada goes into the Kannada column too;
+              // a Latin-script name is NOT transliterated by guesswork,
+              // because a wrong Kannada spelling of somebody's name is
+              // worse than an empty field.
+              name_en: picked.name || d.name_en,
+              name_kn: d.name_kn || (KANNADA.test(picked.name ?? '') ? (picked.name ?? '') : d.name_kn),
+              phone: picked.phone || d.phone,
+            }
+          : d,
+      )
+    } catch (e) {
+      setContactError(e instanceof Error ? e.message : String(e))
+    }
+  }
   const [editing, setEditing] = useState<Labourer | null>(null)
 
   const valid = !!draft && (draft.name_kn.trim() !== '' || draft.name_en.trim() !== '')
@@ -136,6 +176,42 @@ export function LabourersScreen() {
       }}
     >
       <Sheet
+        open={askContact}
+        onClose={() => setAskContact(false)}
+        title={t('contact.privacyTitle')}
+        footer={
+          <div className="grid grid-cols-2 gap-3">
+            <Button variant="soft" full onClick={() => setAskContact(false)}>
+              {t('common.cancel')}
+            </Button>
+            <Button full onClick={fromPhoneBook}>
+              {t('contact.open')}
+            </Button>
+          </div>
+        }
+      >
+        <div className="flex flex-col items-center text-center px-1 pt-1 pb-2">
+          <span
+            className="grid place-items-center rounded-2xl mb-3"
+            style={{ width: 56, height: 56, background: 'var(--color-income-soft)', color: 'var(--color-income)' }}
+          >
+            <ShieldCheck size={28} />
+          </span>
+          <p className="text-sm leading-relaxed" style={{ color: 'var(--text-soft)' }}>
+            {t('contact.privacyBody')}
+          </p>
+        </div>
+        <ul className="flex flex-col gap-2">
+          {(['contact.pt1', 'contact.pt2', 'contact.pt3'] as const).map((k) => (
+            <li key={k} className="card flex items-start gap-2.5 px-3.5 py-3">
+              <ShieldCheck size={16} className="shrink-0 mt-0.5" style={{ color: 'var(--color-income)' }} />
+              <span className="text-sm leading-snug">{t(k)}</span>
+            </li>
+          ))}
+        </ul>
+      </Sheet>
+
+      <Sheet
         open={!!draft}
         onClose={() => {
           setDraft(null)
@@ -150,6 +226,48 @@ export function LabourersScreen() {
       >
         {draft ? (
           <>
+            {/* Only on a real phone. The web preview has no contacts app, and
+                a button that always fails is worse than no button. */}
+            {canPickContact() && !draft.id ? (
+              <button
+                onClick={() => setAskContact(true)}
+                className="w-full flex items-center gap-3 rounded-xl px-4 py-3.5 text-left active:scale-[.99] transition"
+                style={{
+                  background: 'var(--color-brand-50)',
+                  border: '1px solid var(--color-brand-200)',
+                }}
+              >
+                <span
+                  className="grid place-items-center rounded-xl shrink-0"
+                  style={{
+                    width: 38,
+                    height: 38,
+                    background: 'var(--color-brand-100)',
+                    color: 'var(--color-brand-700)',
+                  }}
+                >
+                  <BookUser size={20} />
+                </span>
+                <span className="flex-1 leading-tight">
+                  <span
+                    className="block text-sm font-semibold"
+                    style={{ color: 'var(--color-brand-800)' }}
+                  >
+                    {t('contact.fromPhone')}
+                  </span>
+                  <span className="block text-xs" style={{ color: 'var(--color-brand-700)', opacity: 0.85 }}>
+                    {t('contact.fromPhoneHint')}
+                  </span>
+                </span>
+              </button>
+            ) : null}
+
+            {contactError ? (
+              <p className="text-sm" style={{ color: 'var(--color-expense)' }}>
+                {contactError}
+              </p>
+            ) : null}
+
             <Field label="ಹೆಸರು (ಕನ್ನಡ)" required>
               <Input
                 value={draft.name_kn}

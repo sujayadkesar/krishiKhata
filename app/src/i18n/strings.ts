@@ -332,6 +332,30 @@ export const STRINGS = {
      Kannada-default app: a farmer setting up their own farm was reading half
      a screen in a language they did not choose, which is most of what made
      Settings feel like somebody else's software. */
+  /* Picking a worker out of the phone book. */
+  'contact.fromPhone': { kn: 'ಫೋನ್ ಪಟ್ಟಿಯಿಂದ ಆರಿಸಿ', en: 'Pick from your phone book' },
+  'contact.fromPhoneHint': {
+    kn: 'ಹೆಸರು ಮತ್ತು ನಂಬರ್ ತಾನಾಗಿ ತುಂಬುತ್ತದೆ',
+    en: 'Fills in the name and number for you',
+  },
+  'contact.privacyTitle': { kn: 'ಮೊದಲು ಇದನ್ನು ಓದಿ', en: 'Before it opens' },
+  'contact.privacyBody': {
+    kn: 'ಕೃಷಿ ಖಾತೆ ನಿಮ್ಮ ಫೋನ್ ಪಟ್ಟಿಯನ್ನು ಓದುವುದಿಲ್ಲ. ನೀವು ಆರಿಸುವ ಒಬ್ಬರ ಹೆಸರು ಮತ್ತು ನಂಬರ್ ಮಾತ್ರ ಈ ಆ್ಯಪ್‌ಗೆ ಬರುತ್ತದೆ.',
+    en: 'Krishi Khata does not read your phone book. Only the one person you choose comes across — their name and number, nothing else.',
+  },
+  'contact.pt1': {
+    kn: 'ಫೋನ್ ಪಟ್ಟಿ ತೆರೆಯುವುದು ನಿಮ್ಮ ಫೋನೇ ಹೊರತು ಈ ಆ್ಯಪ್ ಅಲ್ಲ. ಯಾವ ಅನುಮತಿಯೂ ಬೇಡ.',
+    en: 'Your phone opens its own contact list — not this app. No permission is asked for.',
+  },
+  'contact.pt2': {
+    kn: 'ಈ ಆ್ಯಪ್ ಪೂರ್ತಿ ಆಫ್‌ಲೈನ್. ಯಾವ ಸರ್ವರ್‌ಗೂ, ಕ್ಲೌಡ್‌ಗೂ ಏನೂ ಹೋಗುವುದಿಲ್ಲ.',
+    en: 'This app works completely offline. Nothing goes to any server or cloud, ever.',
+  },
+  'contact.pt3': {
+    kn: 'ಬಂದ ಹೆಸರು-ನಂಬರ್ ಇದೇ ಫೋನಿನ ನಿಮ್ಮ ಲೆಕ್ಕದಲ್ಲಿ ಮಾತ್ರ ಉಳಿಯುತ್ತದೆ.',
+    en: 'What comes across is saved only in your ledger, on this phone.',
+  },
+  'contact.open': { kn: 'ಫೋನ್ ಪಟ್ಟಿ ತೆರೆಯಿರಿ', en: 'Open phone book' },
   'set.nameEn': { kn: 'ಹೆಸರು (ಇಂಗ್ಲಿಷ್)', en: 'Name (English)' },
   'set.accountType': { kn: 'ಬಗೆ', en: 'Type' },
   'set.bank': { kn: 'ಬ್ಯಾಂಕ್', en: 'Bank' },
