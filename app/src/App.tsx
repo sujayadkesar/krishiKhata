@@ -122,6 +122,7 @@ const ROUTES: RouteDef[] = [
   { path: '/settings/heads', render: () => <HeadsScreen side="income" /> },
   { path: '/settings/heads/income', render: () => <HeadsScreen side="income" /> },
   { path: '/settings/heads/expense', render: () => <HeadsScreen side="expense" /> },
+  { path: '/settings/crops', render: () => <HeadsScreen side="crop" /> },
   { path: '/settings/sub-heads/:headId', render: (p) => <HeadSubHeadsScreen headId={p.headId} /> },
   { path: '/settings/spend-types', render: () => <SpendTypesScreen /> },
   { path: '/settings/activities', render: () => <ActivitiesScreen /> },

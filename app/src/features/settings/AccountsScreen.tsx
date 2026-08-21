@@ -59,6 +59,7 @@ export function AccountsScreen() {
 
   return (
     <MasterList
+      whereUsed={t('set.whereAccounts')}
       title={t('set.accounts')}
       table="accounts"
       items={accounts}

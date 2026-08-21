@@ -321,8 +321,10 @@ export const STRINGS = {
   'set.ownerName': { kn: 'ರೈತರ ಹೆಸರು', en: 'Farmer name' },
   'set.accounts': { kn: 'ಖಾತೆಗಳು', en: 'Accounts' },
   'set.heads': { kn: 'ಬೆಳೆ / ಶೀರ್ಷಿಕೆ', en: 'Crops & Heads' },
-  'set.incomeHeads': { kn: 'ಮಾರಾಟದ ಬೆಳೆ', en: 'What you sell' },
-  'set.expenseHeads': { kn: 'ಖರ್ಚಿನ ಶೀರ್ಷಿಕೆ', en: 'What you spend on' },
+  /* Crops have their own row now, so these two name the SIDE OF THE BOOK
+     rather than the thing — income is not only crops, and never was. */
+  'set.incomeHeads': { kn: 'ಆದಾಯದ ಶೀರ್ಷಿಕೆ', en: 'Income heads' },
+  'set.expenseHeads': { kn: 'ಖರ್ಚಿನ ಶೀರ್ಷಿಕೆ', en: 'Expense heads' },
   'dash.addHint': { kn: 'ಆದಾಯ ಅಥವಾ ಖರ್ಚು', en: 'Money in or out' },
   'dash.workHint': { kn: 'ಆಳುಗಳ ಹಾಜರಿ', en: 'Attendance for the day' },
   'set.subHeads': { kn: 'ಉಪ ಶೀರ್ಷಿಕೆ', en: 'Sub-heads' },
@@ -388,9 +390,46 @@ export const STRINGS = {
   'set.spendTypes': { kn: 'ಖರ್ಚಿನ ಬಗೆ', en: 'Kinds of spending' },
   /* Settings groups. Four questions, in the order a farm is set up. */
   'set.grpFarm': { kn: 'ನಿಮ್ಮ ತೋಟ', en: 'Your farm' },
-  'set.grpSell': { kn: 'ನೀವು ಮಾರುವುದು', en: 'What you sell' },
-  'set.grpSpend': { kn: 'ನೀವು ಖರ್ಚು ಮಾಡುವುದು', en: 'What you spend on' },
-  'set.grpWork': { kn: 'ಕೆಲಸ ಮತ್ತು ಆಳುಗಳು', en: 'Work and workers' },
+  'set.grpMoney': { kn: 'ಆದಾಯ ಮತ್ತು ಖರ್ಚು', en: 'Income and expenses' },
+  'set.grpWork': { kn: 'ಬೆಳೆ ಮತ್ತು ಕೆಲಸ', en: 'Crops and work' },
+  'set.cropHeads': { kn: 'ಬೆಳೆಗಳು', en: 'Crops' },
+  /* Where each list turns up. Shown on the list screen itself. */
+  'set.whereIncome': {
+    kn: 'ಇಲ್ಲಿ ಸೇರಿಸಿದ್ದು ಎಂಟ್ರಿಯ “ಆದಾಯ” ಭಾಗದಲ್ಲಿ ಬರುತ್ತದೆ. ಬೆಳೆಗೆ ತಳಿ ಇದ್ದರೆ ಅದೂ ಇಲ್ಲೇ ಸೇರಿಸಿ.',
+    en: 'These appear in the Income tab when you record an entry. A crop\'s varieties are added here too.',
+  },
+  'set.whereExpense': {
+    kn: 'ಇಲ್ಲಿ ಸೇರಿಸಿದ್ದು ಎಂಟ್ರಿಯ “ಖರ್ಚು” ಭಾಗದಲ್ಲಿ ಬರುತ್ತದೆ. ಬೆಳೆಯ ಖರ್ಚು, ಗಾಡಿ, ಮನೆ, ಸ್ವಂತ ಖರ್ಚು — ಎಲ್ಲವೂ ಇಲ್ಲಿಗೇ.',
+    en: 'These appear in the Expense tab. Spending on a crop, the vehicle, the house, personal — all of it goes here.',
+  },
+  'set.whereCrops': {
+    kn: 'ಆಳುಗಳ ಹಾಜರಿ ಹಾಕುವಾಗ “ಯಾವ ಬೆಳೆ” ಎಂಬಲ್ಲಿ ಇದೇ ಪಟ್ಟಿ ಬರುತ್ತದೆ. ಬೆಳೆವಾರು ಕೂಲಿ ಖರ್ಚು ಇದರಿಂದಲೇ ಲೆಕ್ಕವಾಗುತ್ತದೆ.',
+    en: 'This list fills the crop box when you record a day of work. Crop-wise labour cost is worked out from it.',
+  },
+  'set.whereSpendTypes': {
+    kn: 'ಖರ್ಚು ಸೇರಿಸುವಾಗ “ಯಾವ ಬಗೆಯ ಖರ್ಚು” ಎಂಬಲ್ಲಿ ಬರುತ್ತದೆ. ಎಲ್ಲಾ ಶೀರ್ಷಿಕೆಗೂ ಇದೇ ಪಟ್ಟಿ.',
+    en: 'These appear in the “kind of spending” box on an expense. The same list on every head.',
+  },
+  'set.whereActivities': {
+    kn: 'ಆಳುಗಳ ಹಾಜರಿ ಹಾಕುವಾಗ “ಯಾವ ಕೆಲಸ” ಎಂಬಲ್ಲಿ ಬರುತ್ತದೆ.',
+    en: 'These appear in the “which work” box when you record a day of work.',
+  },
+  'set.whereWorkers': {
+    kn: 'ಹಾಜರಿ ಮತ್ತು ಪಾವತಿ ಮಾಡುವಾಗ ಈ ಜನರ ಪಟ್ಟಿ ಬರುತ್ತದೆ.',
+    en: 'These are the people offered when you record attendance or make a payment.',
+  },
+  'set.wherePlots': {
+    kn: 'ಎಂಟ್ರಿ ಮತ್ತು ಹಾಜರಿ ಎರಡರಲ್ಲೂ ಬರುತ್ತದೆ. ಪ್ರತಿ ಜಮೀನಿನ ಲಾಭ-ನಷ್ಟ ಪ್ರತ್ಯೇಕ ಸಿಗುತ್ತದೆ.',
+    en: 'These appear on both entries and attendance, and each plot gets its own profit line.',
+  },
+  'set.whereAccounts': {
+    kn: 'ಪ್ರತಿ ಎಂಟ್ರಿಯಲ್ಲೂ “ಯಾವ ಖಾತೆಯಿಂದ” ಎಂಬಲ್ಲಿ ಬರುತ್ತದೆ. ಮುಖಪುಟದ ಶಿಲ್ಕು ಇದರಿಂದಲೇ.',
+    en: 'These fill the “from which account” box on every entry, and the balances on the home screen.',
+  },
+  'set.hintCropWork': {
+    kn: 'ಹಾಜರಿ ಹಾಕುವಾಗ ಬರುವ ಬೆಳೆಗಳ ಪಟ್ಟಿ',
+    en: 'The crops offered when recording a day of work',
+  },
   'set.hintProfile': {
     kn: 'ಹೆಸರು ಮತ್ತು ಊರು — ಪ್ರತಿ ವರದಿಯಲ್ಲಿ ಬರುತ್ತದೆ',
     en: 'Name and village, printed on every statement',
@@ -401,12 +440,12 @@ export const STRINGS = {
   },
   'set.hintAccounts': { kn: 'ನಗದು, ಬ್ಯಾಂಕ್, ಯುಪಿಐ', en: 'Cash, bank and UPI, with opening balances' },
   'set.hintCrops': {
-    kn: 'ಬೆಳೆ, ಅದರ ತಳಿ ಮತ್ತು ಅಳತೆ',
-    en: 'Crops, their varieties, and the units they sell in',
+    kn: 'ಎಂಟ್ರಿಯ ಆದಾಯ ಭಾಗದಲ್ಲಿ ಬರುತ್ತದೆ',
+    en: 'What shows up in the Income tab of an entry',
   },
   'set.hintSpend': {
-    kn: 'ಬೆಳೆ, ಗಾಡಿ, ಮನೆ — ದುಡ್ಡು ಎಲ್ಲಿಗೆ ಹೋಗುತ್ತದೆ',
-    en: 'Crops, vehicle, household — where the money goes',
+    kn: 'ಬೆಳೆ, ಗಾಡಿ, ಮನೆ — ಖರ್ಚು ಭಾಗದಲ್ಲಿ ಬರುತ್ತದೆ',
+    en: 'Crops, vehicle, household — shows up in the Expense tab',
   },
   'set.hintSpendKinds': {
     kn: 'ಗೊಬ್ಬರ, ಡೀಸೆಲ್, ದುರಸ್ತಿ',

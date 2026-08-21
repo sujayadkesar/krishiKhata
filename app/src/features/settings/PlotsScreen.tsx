@@ -84,6 +84,7 @@ export function PlotsScreen() {
 
   return (
     <MasterList
+      whereUsed={t('set.wherePlots')}
       title={t('plot.title')}
       table="plots"
       items={data ?? []}

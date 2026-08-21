@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
-import { Plus, EyeOff, Trash2, Pencil } from 'lucide-react'
+import { Plus, EyeOff, Trash2, Pencil, Info } from 'lucide-react'
 import { Page, Shell } from '@/components/Shell'
 import { Button, Card, Confirm, EmptyState, ListRow, Switch } from '@/components/ui'
 import { useI18n } from '@/i18n'
@@ -36,6 +36,16 @@ export interface MasterListProps<T extends MasterRow> {
   showInactive: boolean
   onShowInactiveChange: (v: boolean) => void
   emptyHint?: string
+  /**
+   * WHERE THIS LIST TURNS UP IN THE APP.
+   *
+   * Every one of these screens edits a list that appears somewhere else, and
+   * from inside Settings there is no way to tell which. A farmer looking at
+   * "Work types" cannot see that it fills the work box on the attendance
+   * screen, so they either edit the wrong list or edit nothing. One sentence
+   * at the top says where they will see the result.
+   */
+  whereUsed?: string
 }
 
 export function MasterList<T extends MasterRow>({
@@ -52,6 +62,7 @@ export function MasterList<T extends MasterRow>({
   showInactive,
   onShowInactiveChange,
   emptyHint,
+  whereUsed,
 }: MasterListProps<T>) {
   const { t, nameOf } = useI18n()
   const [pendingRemove, setPendingRemove] = useState<T | null>(null)
@@ -89,6 +100,21 @@ export function MasterList<T extends MasterRow>({
             <button className="block mt-1 font-semibold underline" onClick={() => setNotice(null)}>
               {t('common.close')}
             </button>
+          </div>
+        ) : null}
+
+        {whereUsed ? (
+          <div
+            className="flex gap-2.5 rounded-xl px-3.5 py-3"
+            style={{
+              background: 'var(--color-brand-50)',
+              border: '1px solid var(--color-brand-100)',
+            }}
+          >
+            <Info size={17} className="shrink-0 mt-0.5" style={{ color: 'var(--color-brand-600)' }} />
+            <p className="text-sm leading-snug" style={{ color: 'var(--color-brand-800)' }}>
+              {whereUsed}
+            </p>
           </div>
         ) : null}
 

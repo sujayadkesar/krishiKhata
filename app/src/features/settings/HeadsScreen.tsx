@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { Sprout, Tags, ChevronRight, Plus, X } from 'lucide-react'
 import { useQuery } from '@/hooks/useQuery'
 import {
-  getHeadUnits, listHeadsFor, listSubHeadsFor, listUnits, saveHead, saveVarieties,
+  getHeadUnits, listCropHeads, listHeadsFor, listSubHeadsFor, listUnits, saveHead,
+  saveVarieties,
 } from '@/data/masterData'
 import { useI18n } from '@/i18n'
 import { Button, ChipMulti, Field, Input, Select, Sheet, Switch } from '@/components/ui'
@@ -11,13 +12,23 @@ import { MasterList, RowActions } from './MasterList'
 import type { Head, HeadCategory, HeadUse } from '@/db/types'
 
 /**
- * Heads, one side of the book at a time.
+ * Heads, one list at a time.
  *
- * "What you sell" and "what you spend on" are two lists because they are two
- * questions, and reading one combined list forced the farmer to work out which
- * rows were relevant to what they were doing. A crop answers both and is still
- * ONE row underneath — see `listHeadsFor` for why splitting it in the database
- * would quietly destroy crop profitability.
+ * THREE VIEWS OF ONE TABLE, because a farmer asks three different questions
+ * and each deserves its own list:
+ *
+ *   income  — what money comes IN against. Crops, and anything else sold.
+ *   expense — what money goes OUT against. Crops again, and the car, the
+ *             house, the phone bill. Spending on a crop and spending on a
+ *             motorbike belong in one list because they are one question:
+ *             where did the money go.
+ *   crop    — the land itself. This is the list that fills the crop box when
+ *             a day of labour is recorded, and it is separate because nobody
+ *             weeds a motorbike. It is `category = 'crop'` and nothing else.
+ *
+ * A crop appears in all three. That is not duplication: it is one row in one
+ * table, answering three questions — see `listHeadsFor` for why splitting it
+ * in the database would quietly destroy crop profitability.
  *
  * The unit list is per head because honey is sold by the bottle AND by the
  * kilo while banana goes by kilo or by bunch. Offering every unit on every
@@ -72,25 +83,31 @@ interface Draft {
 const blank = (side: Side): Draft => ({
   name_en: '',
   name_kn: '',
-  used_for: side === 'income' ? 'both' : 'expense',
+  // A crop is grown, sold and spent on, so it belongs to both sides from the
+  // moment it exists — there is no such thing as a crop that only costs.
+  used_for: side === 'expense' ? 'expense' : 'both',
   // Something added from the sale side is almost always a crop; something
   // added from the expense side is as likely to be the car as the field.
-  category: side === 'income' ? 'crop' : 'general',
+  category: side === 'expense' ? 'general' : 'crop',
   color: 'emerald',
   unitIds: [],
   varieties: [],
   hasVarieties: false,
 })
 
-export type Side = 'income' | 'expense'
+export type Side = 'income' | 'expense' | 'crop'
 
 export function HeadsScreen({ side }: { side: Side }) {
   const { t, nameOf, lang } = useI18n()
   const [showInactive, setShowInactive] = useState(false)
   const { data, loading } = useQuery(
-    () => listHeadsFor(side, showInactive),
+    () => (side === 'crop' ? listCropHeads(showInactive) : listHeadsFor(side, showInactive)),
     [side, showInactive],
   )
+
+  /* The crop list is a filtered view of the same table, so everything the sale
+     side offers a crop — its units, its varieties — belongs here too. */
+  const cropSide = side === 'crop' || side === 'income' 
   const { data: units } = useQuery(() => listUnits(false), [])
   const [draft, setDraft] = useState<Draft | null>(null)
   const [editing, setEditing] = useState<Head | null>(null)
@@ -98,7 +115,21 @@ export function HeadsScreen({ side }: { side: Side }) {
   // Translated, like everything else on the sheet. These were English
   // literals on a screen whose default language is Kannada, which is exactly
   // the kind of thing that makes Settings feel like somebody else's app.
-  const bothLabel = side === 'income' ? t('set.alsoExpense') : t('set.alsoIncome')
+  const bothLabel = side === 'expense' ? t('set.alsoIncome') : t('set.alsoExpense')
+
+  const heading =
+    side === 'income'
+      ? t('set.incomeHeads')
+      : side === 'expense'
+        ? t('set.expenseHeads')
+        : t('set.cropHeads')
+
+  const whereUsed =
+    side === 'income'
+      ? t('set.whereIncome')
+      : side === 'expense'
+        ? t('set.whereExpense')
+        : t('set.whereCrops')
 
   // Unit assignments live in their own table, so they are fetched when a head
   // is opened rather than joined into the list query.
@@ -147,7 +178,7 @@ export function HeadsScreen({ side }: { side: Side }) {
       unitIds: draft.category === 'crop' ? draft.unitIds : [],
     })
     // After the head, because a brand-new one has no id until it exists.
-    if (side === 'income' && draft.category === 'crop') {
+    if (cropSide && draft.category === 'crop') {
       // Switching the toggle off retires whatever was there. `saveVarieties`
       // deletes only what nothing references and deactivates the rest, so a
       // sale already filed under G9 keeps its name.
@@ -175,7 +206,8 @@ export function HeadsScreen({ side }: { side: Side }) {
 
   return (
     <MasterList
-      title={side === 'income' ? t('set.incomeHeads') : t('set.expenseHeads')}
+      title={heading}
+      whereUsed={whereUsed}
       table="heads"
       items={data ?? []}
       loading={loading}
@@ -232,13 +264,7 @@ export function HeadsScreen({ side }: { side: Side }) {
           setDraft(null)
           setEditing(null)
         }}
-        title={
-          editing
-            ? nameOf(editing)
-            : side === 'income'
-              ? t('set.incomeHeads')
-              : t('set.expenseHeads')
-        }
+        title={editing ? nameOf(editing) : heading}
         footer={
           <Button full onClick={submit} disabled={!valid}>
             {t('common.save')}
@@ -268,29 +294,35 @@ export function HeadsScreen({ side }: { side: Side }) {
                 a head: a crop carries plots, units, quantities and a line in
                 the profitability report; everything else carries an amount
                 and nothing more. */}
-            <Field label={t('head.category')}>
-              <Select
-                value={draft.category}
-                onChange={(v) => setDraft({ ...draft, category: v })}
-                options={[
-                  { value: 'crop', label: t('head.isCrop') },
-                  { value: 'general', label: t('head.isGeneral') },
-                ]}
-              />
-            </Field>
+            {side !== 'crop' ? (
+              <Field label={t('head.category')}>
+                <Select
+                  value={draft.category}
+                  onChange={(v) => setDraft({ ...draft, category: v })}
+                  options={[
+                    { value: 'crop', label: t('head.isCrop') },
+                    { value: 'general', label: t('head.isGeneral') },
+                  ]}
+                />
+              </Field>
+            ) : null}
 
             {/* One switch instead of a three-way "used for". The farmer is
                 already in the list they meant; all that is left to say is
                 whether this head also belongs on the other side. */}
-            <div className="card px-4 py-2">
-              <Switch
-                checked={draft.used_for === 'both'}
-                onChange={(v) => setDraft({ ...draft, used_for: v ? 'both' : side })}
-                label={bothLabel}
-              />
-            </div>
+            {side !== 'crop' ? (
+              <div className="card px-4 py-2">
+                <Switch
+                  checked={draft.used_for === 'both'}
+                  onChange={(v) =>
+                    setDraft({ ...draft, used_for: v ? 'both' : side === 'income' ? 'income' : 'expense' })
+                  }
+                  label={bothLabel}
+                />
+              </div>
+            ) : null}
 
-            {side === 'income' && draft.category === 'crop' ? (
+            {cropSide && draft.category === 'crop' ? (
               <Field
                 label={t('set.allowedUnits')}
                 hint={t('set.unitsHint')}
@@ -313,7 +345,7 @@ export function HeadsScreen({ side }: { side: Side }) {
               part of describing the crop, so it belongs in the same sheet —
               and doing it here is what lets the entry form stay short.
             */}
-            {side === 'income' && draft.category === 'crop' ? (
+            {cropSide && draft.category === 'crop' ? (
               <div className="card px-4 py-2">
                 <Switch
                   checked={draft.hasVarieties}
@@ -334,7 +366,7 @@ export function HeadsScreen({ side }: { side: Side }) {
               </div>
             ) : null}
 
-            {side === 'income' && draft.category === 'crop' && draft.hasVarieties ? (
+            {cropSide && draft.category === 'crop' && draft.hasVarieties ? (
               <Field
                 label={t('set.varieties')}
                 hint={t('set.varietiesHint')}

@@ -72,6 +72,7 @@ export function ActivitiesScreen() {
 
   return (
     <MasterList
+      whereUsed={t('set.whereActivities')}
       title={t('set.activities')}
       table="activities"
       items={data ?? []}

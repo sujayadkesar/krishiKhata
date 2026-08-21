@@ -79,6 +79,7 @@ export function LabourersScreen() {
 
   return (
     <MasterList
+      whereUsed={t('set.whereWorkers')}
       title={t('labour.labourers')}
       table="labourers"
       items={data ?? []}

@@ -74,6 +74,7 @@ export function SpendTypesScreen() {
 
   return (
     <MasterList
+      whereUsed={t('set.whereSpendTypes')}
       title={t('set.globalSpend')}
       table="sub_heads"
       items={items}

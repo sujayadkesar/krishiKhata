@@ -1,5 +1,6 @@
 import {
   Wallet, Sprout, Tags, Hammer, Users, Home, Languages, CloudUpload, ChevronRight, MapPin,
+  TrendingUp, TrendingDown,
 } from 'lucide-react'
 import { Page, Shell } from '@/components/Shell'
 import { Card, ListRow, SectionHeader } from '@/components/ui'
@@ -25,21 +26,20 @@ interface Row {
 /**
  * Four groups, in the order a farm is set up.
  *
- * This list used to run six near-identical rows under one heading that said
- * "what you grow AND spend on" — which is exactly the confusion. They are two
- * different questions. Banana is a thing you SELL; it is also one of several
- * things you spend money ON, alongside the car and the house. Putting them
- * under one title asked the reader to hold both meanings at once.
+ * Selling and spending sit together under ONE heading now, with a row each.
+ * They are two lists and stay two lists — clubbing them into a single list is
+ * what made the old screen unreadable — but they are two answers to the same
+ * question, "what does money move against", and separating them across the
+ * page implied they were unrelated things.
  *
- * So: "What you sell" is the crops. "What you spend on" is every category
- * money leaves under, crops included. The varieties row is gone entirely —
- * kinds of banana are now edited inside banana, where somebody looking for
- * them would actually look.
+ * The crops have their own row, apart from both. That list is what fills the
+ * crop box when a day of labour is recorded, and a farmer looking for it under
+ * "what you sell" would not find it, because a worker weeding a field is not
+ * a sale. It is the same underlying rows — a crop is sold, spent on, AND
+ * worked — shown where each of the three questions is asked.
  *
- * The titles and hints are translated. They were English literals on a screen
- * whose default language is Kannada, which is its own kind of clutter: a
- * reader who cannot read the heading has to open all six rows to find out
- * what they do.
+ * Every row says where in the app it shows up. From inside Settings there was
+ * no way to tell, so people edited the wrong list or edited nothing.
  */
 const GROUPS: { title: StringKey; rows: Row[] }[] = [
   {
@@ -51,23 +51,19 @@ const GROUPS: { title: StringKey; rows: Row[] }[] = [
     ],
   },
   {
-    title: 'set.grpSell',
+    title: 'set.grpMoney',
     rows: [
-      { path: '/settings/heads/income', label: 'set.incomeHeads', icon: Sprout, hint: 'set.hintCrops' },
-    ],
-  },
-  {
-    title: 'set.grpSpend',
-    rows: [
-      { path: '/settings/heads/expense', label: 'set.expenseHeads', icon: Tags, hint: 'set.hintSpend' },
+      { path: '/settings/heads/income', label: 'set.incomeHeads', icon: TrendingUp, hint: 'set.hintCrops' },
+      { path: '/settings/heads/expense', label: 'set.expenseHeads', icon: TrendingDown, hint: 'set.hintSpend' },
       { path: '/settings/spend-types', label: 'set.spendTypes', icon: Tags, hint: 'set.hintSpendKinds' },
     ],
   },
   {
     title: 'set.grpWork',
     rows: [
-      { path: '/settings/labourers', label: 'labour.labourers', icon: Users, hint: 'set.hintWorkers' },
+      { path: '/settings/crops', label: 'set.cropHeads', icon: Sprout, hint: 'set.hintCropWork' },
       { path: '/settings/activities', label: 'set.activities', icon: Hammer, hint: 'set.hintActivities' },
+      { path: '/settings/labourers', label: 'labour.labourers', icon: Users, hint: 'set.hintWorkers' },
     ],
   },
 ]
