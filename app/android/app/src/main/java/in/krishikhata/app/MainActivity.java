@@ -13,6 +13,7 @@ public class MainActivity extends BridgeActivity {
         // which fails only when somebody exports a report.
         registerPlugin(PdfPrintPlugin.class);
         registerPlugin(ContactPickPlugin.class);
+        registerPlugin(SystemSettingsPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

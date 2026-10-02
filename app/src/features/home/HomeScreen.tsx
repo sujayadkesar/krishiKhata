@@ -170,10 +170,13 @@ export function HomeScreen() {
             }}
           >
             <CloudUpload size={19} className="shrink-0" />
-            <span className="text-sm">
-              {data.lastBackup
-                ? 'A backup is due. Tap to save a copy of your records.'
-                : 'Your records have never been backed up. Tap to save a copy.'}
+            {/* Translated. This was two English literals on a Kannada screen,
+                about the one thing a farmer cannot afford to misread. */}
+            <span className="leading-tight">
+              <span className="block text-sm font-semibold">
+                {data.lastBackup ? t('backup.dueTitle') : t('backup.neverTitle')}
+              </span>
+              <span className="block text-xs opacity-85">{t('backup.dueHint')}</span>
             </span>
           </button>
         ) : null}

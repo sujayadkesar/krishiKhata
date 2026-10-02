@@ -532,13 +532,41 @@ export const STRINGS = {
   'set.showInactive': { kn: 'ನಿಷ್ಕ್ರಿಯವನ್ನೂ ತೋರಿಸಿ', en: 'Show inactive' },
 
   /* backup */
+  /*
+   * HONEST, AND IT DID NOT USED TO BE.
+   *
+   * This said Android saves your records to your Google account about once a
+   * day, flatly, as a fact. It is only true when the phone's own "Back up to
+   * Google Drive" switch is on, when the phone is idle, charging and on
+   * wi-fi — and the app can verify none of that. It cannot read the switch,
+   * trigger a backup, or learn when one last ran. Telling a farmer their
+   * season is safe when it might not be is the worst thing this screen could
+   * do, so it now says "if", points at where to check, and puts the weight on
+   * the copy they take themselves.
+   */
   'backup.autoTitle': {
-    kn: 'ಫೋನ್ ತಾನಾಗಿಯೇ ಬ್ಯಾಕಪ್ ಮಾಡುತ್ತದೆ',
-    en: 'Your phone backs this up on its own',
+    kn: 'ಫೋನಿನ ಬ್ಯಾಕಪ್ — ಆನ್ ಇದ್ದರೆ ಮಾತ್ರ',
+    en: "Your phone's own backup — only if it is on",
   },
   'backup.autoBody': {
-    kn: 'ನಿಮ್ಮ Google ಖಾತೆಗೆ ದಿನಕ್ಕೊಮ್ಮೆ ಸೇವ್ ಆಗುತ್ತದೆ. ಹೊಸ ಫೋನ್‌ನಲ್ಲಿ ಈ ಆ್ಯಪ್ ಹಾಕಿದಾಗ ಎಲ್ಲವೂ ವಾಪಸ್ ಬರುತ್ತದೆ. ಸೈನ್ ಇನ್ ಬೇಡ.',
-    en: 'Android saves your records to your Google account about once a day, and puts them back when you set up a new phone. No sign-in needed.',
+    kn: 'ಫೋನಿನಲ್ಲಿ Google ಬ್ಯಾಕಪ್ ಆನ್ ಇದ್ದರೆ, ಚಾರ್ಜ್‌ನಲ್ಲಿ ವೈ-ಫೈ ಇದ್ದಾಗ ಆಂಡ್ರಾಯ್ಡ್ ತಾನಾಗಿ ಸೇವ್ ಮಾಡುತ್ತದೆ. ಅದು ಆಗಿದೆಯೇ ಎಂದು ಈ ಆ್ಯಪ್‌ಗೆ ತಿಳಿಯುವುದಿಲ್ಲ. ಹಾಗಾಗಿ ಕೆಳಗಿನ ನಿಮ್ಮದೇ ಪ್ರತಿಯನ್ನೂ ತೆಗೆದಿಡಿ.',
+    en: 'If Google backup is switched on, Android saves your records while the phone is charging on wi-fi. This app cannot check whether that has happened, so keep your own copy below as well.',
+  },
+  'backup.checkPhone': {
+    kn: 'ಫೋನಿನ ಬ್ಯಾಕಪ್ ಸೆಟ್ಟಿಂಗ್ ನೋಡಿ',
+    en: "Check your phone's backup setting",
+  },
+  'backup.dueTitle': {
+    kn: 'ಬ್ಯಾಕಪ್ ತೆಗೆದು ಒಂದು ವಾರ ಆಯಿತು',
+    en: 'It has been a week since your last backup',
+  },
+  'backup.neverTitle': {
+    kn: 'ಇನ್ನೂ ಒಮ್ಮೆಯೂ ಬ್ಯಾಕಪ್ ತೆಗೆದಿಲ್ಲ',
+    en: 'Your records have never been backed up',
+  },
+  'backup.dueHint': {
+    kn: 'ಒತ್ತಿ — ಒಂದು ಫೈಲ್ ಆಗಿ ಸೇವ್ ಮಾಡಿ, Google Drive ಅಥವಾ ವಾಟ್ಸಾಪ್‌ಗೆ ಕಳಿಸಿಡಿ.',
+    en: 'Tap to save a copy, and keep it in Google Drive or send it to yourself.',
   },
   'backup.ownCopy': { kn: 'ನಿಮ್ಮದೇ ಪ್ರತಿ', en: 'A copy you keep' },
   'backup.ownCopyBody': {

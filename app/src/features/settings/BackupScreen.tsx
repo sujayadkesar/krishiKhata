@@ -1,5 +1,7 @@
 import { useState } from 'react'
-import { Check, RotateCcw, Share2, ShieldCheck, TriangleAlert } from 'lucide-react'
+import {
+  Check, ExternalLink, RotateCcw, Share2, ShieldCheck, TriangleAlert,
+} from 'lucide-react'
 import { Page, Shell } from '@/components/Shell'
 import { Card, EmptyState, SectionHeader } from '@/components/ui'
 import { useQuery } from '@/hooks/useQuery'
@@ -9,6 +11,7 @@ import {
   decodeBackup, encodeBackup, lastBackupAt, restoreSnapshot, shareBackup,
 } from '@/data/backup'
 import { formatDate } from '@/lib/date'
+import { canOpenBackupSettings, openBackupSettings } from '@/lib/systemSettings'
 
 /**
  * Backup.
@@ -109,21 +112,41 @@ export function BackupScreen() {
           className="card p-4 flex gap-3"
           style={{
             background: 'var(--color-income-soft)',
-            borderColor: 'var(--color-income)',
+            borderColor: 'var(--color-earth-300)',
           }}
         >
           <ShieldCheck
             size={22}
             className="shrink-0 mt-0.5"
-            style={{ color: 'var(--color-income)' }}
+            style={{ color: 'var(--color-earth-700)' }}
           />
-          <div>
-            <p className="font-semibold" style={{ color: 'var(--color-income)' }}>
+          <div className="flex-1">
+            <p className="font-semibold" style={{ color: 'var(--color-earth-700)' }}>
               {t('backup.autoTitle')}
             </p>
             <p className="text-sm mt-0.5" style={{ color: 'var(--text-soft)' }}>
               {t('backup.autoBody')}
             </p>
+            {/*
+              A door, not a claim.
+
+              The app cannot read whether the phone's backup switch is on,
+              cannot switch it on, cannot trigger a backup and cannot find out
+              when one last ran. It had been asserting that records were safe
+              in a Google account anyway. This sends the farmer to the screen
+              where the switch and the account name actually are, so they can
+              see for themselves.
+            */}
+            {canOpenBackupSettings() ? (
+              <button
+                onClick={() => void openBackupSettings()}
+                className="mt-2.5 inline-flex items-center gap-1.5 text-sm font-semibold"
+                style={{ color: 'var(--color-earth-700)' }}
+              >
+                {t('backup.checkPhone')}
+                <ExternalLink size={14} />
+              </button>
+            ) : null}
           </div>
         </div>
 

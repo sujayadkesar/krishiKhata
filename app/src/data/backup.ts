@@ -245,7 +245,10 @@ export async function markBackedUp(): Promise<void> {
 export async function backupFrequencyDays(): Promise<number> {
   const raw = await getSetting(BACKUP_FREQUENCY_KEY)
   const n = raw ? parseInt(raw, 10) : NaN
-  return Number.isFinite(n) && n > 0 ? n : 30
+  // WEEKLY, not monthly. A month of lost entries is a month of a farm, and
+  // the only backup this app can actually guarantee is the one the farmer
+  // takes — so it has to ask often enough to be taken.
+  return Number.isFinite(n) && n > 0 ? n : 7
 }
 
 export async function backupEnabled(): Promise<boolean> {
