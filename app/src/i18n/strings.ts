@@ -386,6 +386,23 @@ export const STRINGS = {
     kn: 'ಬಂದ ಹೆಸರು-ನಂಬರ್ ಇದೇ ಫೋನಿನ ನಿಮ್ಮ ಲೆಕ್ಕದಲ್ಲಿ ಮಾತ್ರ ಉಳಿಯುತ್ತದೆ.',
     en: 'What comes across is saved only in your ledger, on this phone.',
   },
+  'contact.added': { kn: '{n} ಜನ ಸೇರಿದರು', en: '{n} added' },
+  'contact.allow': { kn: 'ಅನುಮತಿ ಕೊಡಿ', en: 'Allow' },
+  'contact.pickOne': { kn: 'ಒಬ್ಬರನ್ನು ಆರಿಸಿ', en: 'Pick just one' },
+  'contact.pickSome': { kn: 'ಯಾರನ್ನು ಸೇರಿಸಬೇಕು ಆರಿಸಿ', en: 'Choose who to add' },
+  'contact.search': { kn: 'ಹೆಸರು ಅಥವಾ ನಂಬರ್ ಹುಡುಕಿ', en: 'Search a name or number' },
+  'contact.refused': {
+    kn: 'ಅನುಮತಿ ಸಿಗಲಿಲ್ಲ. “ಒಬ್ಬರನ್ನು ಆರಿಸಿ” ಬಳಸಿ — ಅದಕ್ಕೆ ಯಾವ ಅನುಮತಿಯೂ ಬೇಡ.',
+    en: 'Permission was not given. Use "Pick just one" instead — that needs no permission at all.',
+  },
+  'contact.rateHint': {
+    kn: 'ಎಲ್ಲರಿಗೂ ಒಂದೇ ದರ ಇದ್ದರೆ ಇಲ್ಲಿ ಹಾಕಿ. ಖಾಲಿ ಬಿಟ್ಟರೂ ಸರಿ — ಕೆಲಸ ಹಾಕುವಾಗ ಕೇಳುತ್ತದೆ.',
+    en: 'One rate for everyone you are adding. Leave it empty if you like — the work screen asks then.',
+  },
+  'contact.editLater': {
+    kn: 'ಹೆಸರು, ನಂಬರ್, ದರ — ಎಲ್ಲವನ್ನೂ ಆಮೇಲೆ ಬದಲಿಸಬಹುದು.',
+    en: 'Names, numbers and rates can all be edited afterwards.',
+  },
   'contact.open': { kn: 'ಫೋನ್ ಪಟ್ಟಿ ತೆರೆಯಿರಿ', en: 'Open phone book' },
   'set.nameEn': { kn: 'ಹೆಸರು (ಇಂಗ್ಲಿಷ್)', en: 'Name (English)' },
   'set.accountType': { kn: 'ಬಗೆ', en: 'Type' },

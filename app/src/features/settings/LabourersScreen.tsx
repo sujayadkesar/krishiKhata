@@ -5,10 +5,11 @@ import { listLabourers, saveLabourer } from '@/data/masterData'
 import { useI18n } from '@/i18n'
 import { Button, Field, Input, MoneyInput, Select, Sheet, Switch, TextArea } from '@/components/ui'
 import { formatRupees } from '@/lib/money'
-import { canPickContact, pickContact } from '@/lib/contactPick'
+import { canPickContact, pickOne } from '@/lib/contactPick'
 
 /** The Kannada block. Decides which name column a picked contact goes in. */
 const KANNADA = /[\u0C80-\u0CFF]/
+import { ContactImportSheet } from './ContactImportSheet'
 import { MasterList, RowActions } from './MasterList'
 import type { Bool, Employment, Labourer } from '@/db/types'
 
@@ -51,7 +52,7 @@ const blank = (): Draft => ({
 export function LabourersScreen() {
   const { t, nameOf } = useI18n()
   const [showInactive, setShowInactive] = useState(false)
-  const { data, loading } = useQuery(() => listLabourers(showInactive), [showInactive])
+  const { data, loading, reload } = useQuery(() => listLabourers(showInactive), [showInactive])
   const [draft, setDraft] = useState<Draft | null>(null)
   /**
    * The reassurance, shown once before the phone book is ever opened.
@@ -68,7 +69,7 @@ export function LabourersScreen() {
     setAskContact(false)
     setContactError(null)
     try {
-      const picked = await pickContact()
+      const picked = await pickOne()
       if (picked.cancelled) return
       setDraft((d) =>
         d
@@ -90,6 +91,8 @@ export function LabourersScreen() {
     }
   }
   const [editing, setEditing] = useState<Labourer | null>(null)
+  const [importing, setImporting] = useState(false)
+  const [imported, setImported] = useState<number | null>(null)
 
   const valid = !!draft && (draft.name_kn.trim() !== '' || draft.name_en.trim() !== '')
 
@@ -119,6 +122,53 @@ export function LabourersScreen() {
 
   return (
     <MasterList
+      /* Signing on a crew is twelve forms otherwise, and the names and
+         numbers are already in the farmer's phone. */
+      action={
+        canPickContact() ? (
+          <>
+            <button
+              onClick={() => setImporting(true)}
+              className="w-full flex items-center gap-3 rounded-xl px-4 py-3.5 text-left active:scale-[.99] transition"
+              style={{
+                background: 'var(--color-brand-50)',
+                border: '1px solid var(--color-brand-200)',
+              }}
+            >
+              <span
+                className="grid place-items-center rounded-xl shrink-0"
+                style={{
+                  width: 38,
+                  height: 38,
+                  background: 'var(--color-brand-100)',
+                  color: 'var(--color-brand-700)',
+                }}
+              >
+                <BookUser size={20} />
+              </span>
+              <span className="flex-1 leading-tight">
+                <span
+                  className="block text-sm font-semibold"
+                  style={{ color: 'var(--color-brand-800)' }}
+                >
+                  {t('contact.fromPhone')}
+                </span>
+                <span
+                  className="block text-xs"
+                  style={{ color: 'var(--color-brand-700)', opacity: 0.85 }}
+                >
+                  {t('contact.fromPhoneHint')}
+                </span>
+              </span>
+            </button>
+            {imported != null ? (
+              <p className="text-sm mt-2" style={{ color: 'var(--color-income)' }}>
+                {t('contact.added').replace('{n}', String(imported))}
+              </p>
+            ) : null}
+          </>
+        ) : null
+      }
       whereUsed={t('set.whereWorkers')}
       title={t('labour.labourers')}
       table="labourers"
@@ -175,6 +225,16 @@ export function LabourersScreen() {
         })
       }}
     >
+      <ContactImportSheet
+        open={importing}
+        onClose={() => setImporting(false)}
+        onImported={(n) => {
+          setImported(n)
+          reload()
+          setTimeout(() => setImported(null), 4000)
+        }}
+      />
+
       <Sheet
         open={askContact}
         onClose={() => setAskContact(false)}

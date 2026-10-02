@@ -33,6 +33,8 @@ export interface MasterListProps<T extends MasterRow> {
   onEdit: (item: T) => void
   /** The add/edit sheet, rendered by the calling screen. */
   children?: ReactNode
+  /** An extra way in, above the list. Workers use it to import a whole crew. */
+  action?: ReactNode
   showInactive: boolean
   onShowInactiveChange: (v: boolean) => void
   emptyHint?: string
@@ -63,6 +65,7 @@ export function MasterList<T extends MasterRow>({
   onShowInactiveChange,
   emptyHint,
   whereUsed,
+  action,
 }: MasterListProps<T>) {
   const { t, nameOf } = useI18n()
   const [pendingRemove, setPendingRemove] = useState<T | null>(null)
@@ -117,6 +120,8 @@ export function MasterList<T extends MasterRow>({
             </p>
           </div>
         ) : null}
+
+        {action}
 
         {loading ? (
           <EmptyState>{t('common.loading')}</EmptyState>

@@ -1,21 +1,23 @@
 import { registerPlugin, Capacitor } from '@capacitor/core'
 
 /**
- * Picking one person out of the phone book.
+ * Getting a worker's name and number out of the phone book.
  *
  * Adding a worker means typing a name and a ten-digit number into a phone
  * while standing in a field, and both are already in the farmer's contacts.
- * This hands the job to the system's own contact picker.
  *
- * NO PERMISSION IS ASKED FOR, AND NONE IS NEEDED. The picker is the system's,
- * running in the system's process; the app receives one row for the one person
- * chosen and never gains the ability to read the address book. That is worth
- * stating plainly to the farmer — see `contact.privacyBody` — because "this
- * app wants your contacts" is a sentence people have learnt to distrust, and
- * in this case it is not what is happening.
+ * TWO ROUTES. `pickOne` opens the system's own picker and needs NO permission:
+ * the picker runs in the system's process, and the app receives one row for
+ * the one person chosen. `listAll` reads the phone book into the app so it can
+ * be searched and a whole crew added at a sitting — that needs READ_CONTACTS,
+ * so it is asked for only when the farmer chooses that route, and a refusal
+ * falls back to the picker rather than dead-ending.
  *
- * See `ContactPickPlugin.java` for why this is hand-written rather than an
- * off-the-shelf dependency: the obvious one demands WRITE_CONTACTS too.
+ * READ ONLY, deliberately. See `ContactPickPlugin.java` for why this is
+ * hand-written: the off-the-shelf plugin demands WRITE_CONTACTS as well, so a
+ * farm ledger would be asking for the right to edit the address book.
+ *
+ * Nothing read here is ever transmitted. The app has no server.
  */
 
 export interface PickedContact {
@@ -24,8 +26,16 @@ export interface PickedContact {
   phone?: string
 }
 
+export interface ContactRow {
+  name: string
+  phone: string
+}
+
 interface ContactPickPlugin {
   pick(): Promise<PickedContact>
+  checkPermission(): Promise<{ granted: boolean }>
+  requestPermission(): Promise<{ granted: boolean }>
+  listContacts(): Promise<{ contacts: ContactRow[] }>
 }
 
 const ContactPick = registerPlugin<ContactPickPlugin>('ContactPick')
@@ -43,15 +53,47 @@ export function tidyPhone(raw: string): string {
   const digits = raw.replace(/\D/g, '')
   // Contacts routinely carry +91, 0091 or a leading 0. What goes in the ledger
   // is the number somebody would actually dial.
-  const local = digits.replace(/^(0091|91)(?=\d{10}$)/, '').replace(/^0(?=\d{10}$)/, '')
-  return local
+  return digits.replace(/^(0091|91)(?=\d{10}$)/, '').replace(/^0(?=\d{10}$)/, '')
+}
+
+/** Has the farmer already allowed the phone book to be searched in-app? */
+export async function hasContactsPermission(): Promise<boolean> {
+  if (!canPickContact()) return false
+  try {
+    return (await ContactPick.checkPermission()).granted
+  } catch {
+    return false
+  }
+}
+
+/** Ask. Resolves false on a refusal, which is an answer and not an error. */
+export async function askContactsPermission(): Promise<boolean> {
+  if (!canPickContact()) return false
+  try {
+    return (await ContactPick.requestPermission()).granted
+  } catch {
+    return false
+  }
 }
 
 /**
- * Open the picker. Resolves cancelled when the farmer backs out, which is an
- * ordinary thing to do and not an error.
+ * The whole phone book, tidied and sorted, for searching inside the app.
+ *
+ * Throws with code DENIED when the permission is not held, so the caller can
+ * offer the system picker instead.
  */
-export async function pickContact(): Promise<PickedContact> {
+export async function listAll(): Promise<ContactRow[]> {
+  const { contacts } = await ContactPick.listContacts()
+  return contacts
+    .map((c) => ({ name: c.name.trim(), phone: tidyPhone(c.phone) }))
+    .filter((c) => c.name !== '' && c.phone !== '')
+}
+
+/**
+ * Open the system picker. Resolves cancelled when the farmer backs out, which
+ * is an ordinary thing to do and not an error.
+ */
+export async function pickOne(): Promise<PickedContact> {
   if (!canPickContact()) return { cancelled: true }
   const result = await ContactPick.pick()
   if (result.cancelled) return { cancelled: true }

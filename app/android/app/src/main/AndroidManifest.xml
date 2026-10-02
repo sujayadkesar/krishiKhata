@@ -41,4 +41,28 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!--
+      READ ONLY, AND OPTIONAL.
+
+      Searching the phone book inside the app is what turns signing on a crew
+      of twelve from twelve forms into one screen, and that genuinely needs
+      this permission. It is requested when the farmer taps "add from my phone
+      book" and never at launch: a farmer who has just opened a farm ledger for
+      the first time has no idea why it wants their contacts, and a refusal is
+      harder to recover than a question never asked.
+
+      A refusal is not a dead end. ACTION_PICK needs no permission at all — the
+      picker runs in the system's process and hands back only the one person
+      chosen — so that route stays available and the sheet offers it.
+
+      WRITE_CONTACTS IS DELIBERATELY ABSENT. The off-the-shelf plugin bundles
+      read and write into one permission alias and will not proceed until both
+      are granted, which is why that dependency was removed rather than used.
+      Nothing in this app ever writes a contact, and the Play listing should
+      not say it might.
+
+      Nothing read here is transmitted anywhere. There is no server.
+    -->
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+
 </manifest>
