@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Check, Info } from 'lucide-react'
+import { Check, ChevronRight, Info } from 'lucide-react'
 import { Page, Shell } from '@/components/Shell'
 import { DateInput, Field, MoneyInput, Select, TextArea } from '@/components/ui'
 import { useQuery } from '@/hooks/useQuery'
@@ -9,7 +9,7 @@ import { useI18n } from '@/i18n'
 import { formatRupees } from '@/lib/money'
 import { matchFifo } from '@/lib/labour'
 import { formatDate, todayISO } from '@/lib/date'
-import { back } from '@/router'
+import { back, navigate } from '@/router'
 import type { PaymentMode } from '@/db/types'
 import type { PaymentDirection } from '@/data/labour'
 
@@ -145,10 +145,26 @@ export function PayScreen({ labourerId }: { labourerId?: string }) {
           />
         </Field>
 
+        {/* The figure, and a way into the whole story behind it.
+            "₹11,900" invites exactly one question — which days is that? — and
+            this screen was a dead end for it, so the farmer had to go back out
+            to the team list and find the person again. */}
         {selectedId ? (
-          <div className="card p-4 flex items-center justify-between">
-            <span className="text-sm font-semibold" style={{ color: 'var(--text-soft)' }}>
-              {t('labour.outstanding')}
+          <button
+            onClick={() => navigate(`/labour/khata/${selectedId}`)}
+            className="card w-full p-4 flex items-center justify-between text-left active:scale-[.99] transition"
+          >
+            <span className="leading-tight">
+              <span className="block text-sm font-semibold" style={{ color: 'var(--text-soft)' }}>
+                {t('labour.outstanding')}
+              </span>
+              <span
+                className="block text-xs inline-flex items-center gap-1"
+                style={{ color: 'var(--color-brand-600)' }}
+              >
+                {t('labour.seeKhata')}
+                <ChevronRight size={13} />
+              </span>
             </span>
             <span
               className="text-xl font-semibold tnum"
@@ -156,7 +172,7 @@ export function PayScreen({ labourerId }: { labourerId?: string }) {
             >
               {formatRupees(owed)}
             </span>
-          </div>
+          </button>
         ) : null}
 
         <Field label={t('common.date')}>

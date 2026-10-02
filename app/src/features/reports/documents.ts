@@ -1,9 +1,11 @@
 import { escapeHtml } from '@/lib/printDoc'
 import { formatCompactINR, formatINR, formatPaise } from '@/lib/money'
 import { formatQuantity } from '@/lib/quantity'
-import { formatDate } from '@/lib/date'
+import {
+  formatDate, formatMonth, todayISO, WEEKDAYS_EN_SHORT, WEEKDAYS_KN_SHORT,
+} from '@/lib/date'
 import { logoSvg } from '@/components/logoArt'
-import { donut, groupedBars, rankedBars } from './charts'
+import { donut, groupedBars, rankedBars, workCalendar } from './charts'
 import type { Lang } from '@/i18n/strings'
 import type { FarmProfile } from '@/data/masterData'
 import type {
@@ -217,18 +219,19 @@ function chart(svg: string): string {
  */
 function signOff(ctx: DocContext, _signatory?: string): string {
   const { lang, profile } = ctx
-  const made = L(
-    lang,
-    'ಇದು ಕಂಪ್ಯೂಟರ್‌ನಿಂದ ತಯಾರಾದ ವರದಿ. ಸಹಿ ಅಗತ್ಯವಿಲ್ಲ.',
-    'Computer generated from the farm’s own records. No signature required.',
-  )
   const generated = L(lang, 'ತಯಾರಿಸಿದ ದಿನಾಂಕ', 'Generated')
-  const today = formatDate(new Date().toISOString().slice(0, 10), lang)
+  /*
+   * todayISO, not toISOString().slice(0, 10).
+   *
+   * The second is UTC, so a statement printed after half past five in the
+   * evening in India carried yesterday's date — on the one line whose whole
+   * job is to say when the document was made.
+   */
+  const today = formatDate(todayISO(), lang)
 
   return `
   <div class="close">
     ${ornament()}
-    <div class="close-made">${escapeHtml(made)}</div>
     <div class="foot">
       <span>${escapeHtml(generated)}: ${escapeHtml(today)}</span>
       <span>${escapeHtml(profile.farm_name || '')}</span>
@@ -795,13 +798,21 @@ export function labourStatementDoc(
     0,
   )
 
-  const subject = [
-    `<span class="strong">${escapeHtml(ctx.name(labourer))}</span>`,
-    labourer.code ? escapeHtml(labourer.code) : '',
-    labourer.phone ? escapeHtml(labourer.phone) : '',
-  ]
-    .filter(Boolean)
-    .join(' <span class="muted">·</span> ')
+  // The name on its own line and twice the size, with the code and number
+  // beneath it. This is the person's own record; it should look like it.
+  const subject = `<span class="who">
+      <span class="who-name">${escapeHtml(ctx.name(labourer))}</span>
+      ${
+        labourer.code || labourer.phone
+          ? `<span class="who-meta">${[
+              labourer.code ? escapeHtml(labourer.code) : '',
+              labourer.phone ? escapeHtml(labourer.phone) : '',
+            ]
+              .filter(Boolean)
+              .join(' · ')}</span>`
+          : ''
+      }
+    </span>`
 
   const monthChart = charts?.monthly.length
     ? groupedBars({
@@ -818,7 +829,29 @@ export function labourStatementDoc(
             values: charts.monthly.map((m) => m.paid),
           },
         ],
+        // Days under each month, so "was that a lot of work or a high rate"
+        // is answerable from the chart rather than the table below it.
+        subLabels: charts.monthly.map(
+          (m) => `${m.days} ${L(lang, 'ದಿನ', m.days === 1 ? 'day' : 'days')}`,
+        ),
         axisFormat: compact,
+      })
+    : ''
+
+  /**
+   * The months as calendars, with the days worked filled in.
+   *
+   * Built from the work rows already loaded, so it costs no query. A total
+   * says nineteen days; this says which nineteen, which is the thing the two
+   * of them actually disagree about — and the one part of the statement a
+   * worker can check against their own memory without reading a number.
+   */
+  const calendar = work.length
+    ? workCalendar({
+        days: new Map(work.map((w) => [w.date, w.day_fraction])),
+        months: [...new Set(work.map((w) => w.date.slice(0, 7)))].sort(),
+        weekdayInitials: lang === 'en' ? WEEKDAYS_EN_SHORT : WEEKDAYS_KN_SHORT,
+        monthLabel: (ym) => formatMonth(`${ym}-01`, lang),
       })
     : ''
 
@@ -890,6 +923,7 @@ export function labourStatementDoc(
     ])}
 
     ${monthChart ? section(lang, 'ತಿಂಗಳವಾರು', 'Month by month') + chart(monthChart) : ''}
+    ${calendar ? section(lang, 'ಯಾವ ಯಾವ ದಿನ ಬಂದರು', 'Which days they came') + chart(calendar) : ''}
     ${cropChart ? section(lang, 'ಯಾವ ಬೆಳೆಗೆ ಕೆಲಸ', 'Work by crop') + chart(cropChart) + cropTable : ''}
 
     ${section(lang, 'ಕೆಲಸದ ದಿನಗಳು', 'Days worked')}

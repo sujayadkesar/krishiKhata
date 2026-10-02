@@ -254,6 +254,7 @@ export const STRINGS = {
     en: 'no day rate set yet. What are these days worth?',
   },
   'labour.day': { kn: 'ದಿನ', en: 'day' },
+  'labour.seeKhata': { kn: 'ಪೂರ್ತಿ ಲೆಕ್ಕ ನೋಡಿ', en: 'See the full khata' },
   'labour.howMuchOfTheDay': { kn: 'ಎಷ್ಟು ದಿನ ಕೆಲಸ', en: 'How much of the day' },
   'labour.removeWorkBody': {
     kn: 'ಈ ದಿನದ ಕೆಲಸ ತೆಗೆಯಬೇಕೆ? ಇದಕ್ಕೆ ಹೊಂದಿಸಿದ್ದ ಪಾವತಿ ಮತ್ತೆ ಮುಂಗಡವಾಗುತ್ತದೆ.',

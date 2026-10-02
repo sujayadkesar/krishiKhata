@@ -109,6 +109,17 @@ export const WEEKDAYS_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 export const WEEKDAYS_KN = ['ಭಾನು', 'ಸೋಮ', 'ಮಂಗಳ', 'ಬುಧ', 'ಗುರು', 'ಶುಕ್ರ', 'ಶನಿ']
 
 /**
+ * One syllable per day, for a calendar cell.
+ *
+ * The full forms above are three and four letters and run into each other
+ * across a seven-column grid barely forty units wide — on the printed
+ * statement they came out as one unbroken word. A column heading only has to
+ * distinguish seven things from each other, not name them.
+ */
+export const WEEKDAYS_EN_SHORT = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+export const WEEKDAYS_KN_SHORT = ['ಭಾ', 'ಸೋ', 'ಮಂ', 'ಬು', 'ಗು', 'ಶು', 'ಶ']
+
+/**
  * Mirrors the i18n language, but a date is never printed twice.
  * "06 ಆಗಸ್ಟ್ 2026 · 06 Aug 2026" helps nobody, so 'both' follows Kannada.
  */

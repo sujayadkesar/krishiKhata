@@ -41,11 +41,20 @@ const W = 1000
 export function groupedBars({
   categories,
   series,
+  subLabels,
   axisFormat,
   height = 300,
 }: {
   categories: string[]
   series: BarSeries[]
+  /**
+   * A second line under each category — days worked, hours run.
+   *
+   * Money alone does not answer "was that a lot of work or a high rate",
+   * which is the question behind every month a farmer looks twice at. The
+   * count belongs on the same chart as the money, not in a table below it.
+   */
+  subLabels?: string[]
   axisFormat: (v: number) => string
   height?: number
 }): string {
@@ -54,7 +63,7 @@ export function groupedBars({
   const padL = 92
   const padR = 14
   const padT = 30
-  const padB = series.length > 1 ? 62 : 44
+  const padB = (series.length > 1 ? 62 : 44) + (subLabels ? 16 : 0)
 
   const plotW = W - padL - padR
   const plotH = height - padT - padB
@@ -117,9 +126,14 @@ export function groupedBars({
   const labels = categories
     .map((c, i) => {
       const cx = padL + i * bandW + bandW / 2
+      const sub = subLabels?.[i]
       return `<text x="${cx.toFixed(1)}" y="${padT + plotH + 22}" class="axis" text-anchor="middle">${escapeHtml(
         c,
-      )}</text>`
+      )}</text>${
+        sub
+          ? `<text x="${cx.toFixed(1)}" y="${padT + plotH + 38}" class="axis sub" text-anchor="middle">${escapeHtml(sub)}</text>`
+          : ''
+      }`
     })
     .join('')
 
@@ -268,4 +282,102 @@ export function rankedBars({
     .join('')
 
   return `<svg class="chart" viewBox="0 0 ${W} ${h}" role="img" xmlns="http://www.w3.org/2000/svg">${bars}</svg>`
+}
+
+/**
+ * The months as calendars, with the days worked filled in.
+ *
+ * A bar chart says a worker did nineteen days in August. A calendar says they
+ * came every day of the first week, nothing in the second, and every Monday
+ * after that — which is the thing a farmer and a worker actually argue about,
+ * and the thing neither of them can reconstruct from a total. It is also the
+ * one piece of this statement that a worker who does not read numbers can
+ * check against their own memory of the month.
+ *
+ * Drawn as squares in the chart's own 1000-unit viewBox, three months a row.
+ * Full days are solid, half days are half-toned and carry a mark, and a day
+ * nobody worked is a faint outline — so the shape of the month is legible
+ * before a single number is read.
+ */
+export function workCalendar({
+  days,
+  months,
+  weekdayInitials,
+  monthLabel,
+}: {
+  /** Date to fraction, in milli-units. Only days worked need be present. */
+  days: Map<string, number>
+  /** "2026-08" strings, in order, each drawn as its own block. */
+  months: string[]
+  /** Seven single letters, starting Sunday. */
+  weekdayInitials: string[]
+  monthLabel: (ym: string) => string
+}): string {
+  if (months.length === 0) return ''
+
+  const perRow = 3
+  const gap = 26
+  const blockW = (W - gap * (perRow - 1)) / perRow
+  const cell = blockW / 7
+  // Six week rows always, so a month starting on a Saturday is the same height
+  // as one starting on a Monday and the grid below it does not jump.
+  const blockH = 26 + 14 + 6 * cell
+  const rows = Math.ceil(months.length / perRow)
+  const height = rows * blockH + (rows - 1) * 16
+
+  const blocks = months
+    .map((ym, i) => {
+      const col = i % perRow
+      const row = Math.floor(i / perRow)
+      const ox = col * (blockW + gap)
+      const oy = row * (blockH + 16)
+
+      const [y, m] = ym.split('-').map(Number)
+      // Local arithmetic only: `new Date(y, m - 1, 1)` is midnight local, and
+      // getDay/getDate never touch UTC. A UTC-built date would shift the first
+      // of the month across a weekday boundary for half the world.
+      const first = new Date(y, m - 1, 1)
+      const startDow = first.getDay()
+      const daysInMonth = new Date(y, m, 0).getDate()
+
+      const heads = weekdayInitials
+        .map(
+          (w, d) =>
+            `<text x="${(ox + d * cell + cell / 2).toFixed(1)}" y="${(oy + 38).toFixed(1)}"
+               class="cal-dow" text-anchor="middle">${escapeHtml(w)}</text>`,
+        )
+        .join('')
+
+      const cells: string[] = []
+      for (let day = 1; day <= daysInMonth; day += 1) {
+        const index = startDow + day - 1
+        const cx = ox + (index % 7) * cell
+        const cy = oy + 46 + Math.floor(index / 7) * cell
+        const iso = `${ym}-${String(day).padStart(2, '0')}`
+        const fraction = days.get(iso) ?? 0
+        const worked = fraction > 0
+        const half = worked && fraction < 1000
+
+        const pad = 2.5
+        cells.push(
+          `<rect x="${(cx + pad).toFixed(1)}" y="${(cy + pad).toFixed(1)}"
+             width="${(cell - pad * 2).toFixed(1)}" height="${(cell - pad * 2).toFixed(1)}"
+             rx="3"
+             fill="${worked ? (half ? '#cfe4de' : '#04796b') : '#fbf7f0'}"
+             stroke="${worked ? 'none' : '#ece4d8'}" stroke-width="1"/>
+           <text x="${(cx + cell / 2).toFixed(1)}" y="${(cy + cell / 2 + 5).toFixed(1)}"
+             class="cal-day" text-anchor="middle"
+             fill="${worked && !half ? '#ffffff' : '#6b6157'}">${day}</text>`,
+        )
+      }
+
+      return `<text x="${ox.toFixed(1)}" y="${(oy + 16).toFixed(1)}" class="cal-month">${escapeHtml(
+        monthLabel(ym),
+      )}</text>${heads}${cells.join('')}`
+    })
+    .join('')
+
+  return `<svg class="chart" viewBox="0 0 ${W} ${height.toFixed(0)}" role="img" xmlns="http://www.w3.org/2000/svg">
+    ${blocks}
+  </svg>`
 }

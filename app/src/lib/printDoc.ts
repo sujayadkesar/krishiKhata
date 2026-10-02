@@ -201,6 +201,26 @@ const STYLES = `
     font-weight: 600;
   }
   .subject { font-size: 10.5pt; font-weight: 600; margin-top: 2px; }
+
+  /*
+   * WHO THE STATEMENT IS ABOUT.
+   *
+   * On a worker's statement the name was the same size as the period beneath
+   * it, so the document read as a report that happened to mention somebody
+   * rather than as that person's own record. It is the thing they look for
+   * first when it is handed to them, and the thing a second worker checks to
+   * be sure it is not theirs.
+   */
+  .who { margin-top: 6px; }
+  .who-name {
+    display: block;
+    font-size: 17pt;
+    font-weight: 600;
+    line-height: 1.2;
+    color: #1a1411;
+    letter-spacing: 0; /* never set tracking: it takes Kannada apart */
+  }
+  .who-meta { display: block; font-size: 9pt; color: #6b6157; margin-top: 2px; }
   .period { font-size: 9pt; color: #6b6157; margin-top: 2px; }
 
   /* ------------------------------------------------------------- tables - */
@@ -345,6 +365,7 @@ const STYLES = `
   svg.chart .axis-line { stroke: #cbbfa9; stroke-width: 1.5; }
   svg.chart text { font-family: inherit; }
   svg.chart .axis { font-size: 15px; fill: #8b7f71; }
+  svg.chart .axis.sub { font-size: 13px; fill: #a2968a; }
   /* The figure printed over a bar has to hold its own against the colour
      beneath it, so it is darker and heavier than an axis tick. */
   svg.chart .bar-value { font-size: 15px; fill: #4a4238; font-weight: 600;
@@ -352,6 +373,12 @@ const STYLES = `
   svg.chart .key { font-size: 17px; fill: #3a3229; }
   svg.chart .key.num { font-variant-numeric: tabular-nums; }
   svg.chart .donut-value { font-size: 26px; font-weight: 600; fill: #1a1411; }
+
+  /* The worked-days calendar. Sizes are viewBox units, like every other chart
+     here — roughly x0.71 to reach page points. */
+  svg.chart .cal-month { font-size: 19px; font-weight: 600; fill: #12502c; }
+  svg.chart .cal-dow { font-size: 14px; fill: #a2968a; }
+  svg.chart .cal-day { font-size: 14px; font-variant-numeric: tabular-nums; }
 
   /* Two charts side by side, where both are small enough to read. */
   .chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
