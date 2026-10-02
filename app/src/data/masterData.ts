@@ -10,6 +10,7 @@ import type {
   Head,
   HeadCategory,
   HeadUnit,
+  ISODate,
   Labourer,
   Plot,
   SubHead,
@@ -196,6 +197,32 @@ export const listPlots = (includeInactive = false) =>
 export const listLabourers = (includeInactive = false) =>
   all<Labourer>(
     `SELECT * FROM labourers ${activeClause(includeInactive)} ORDER BY is_group_lead DESC, sort_order, name_en;`,
+  )
+
+/**
+ * The same people, most-used first.
+ *
+ * A farm has four or five people who come most weeks and a dozen who came
+ * twice last year, and the alphabet knows nothing about the difference. On a
+ * phone that meant scrolling past names you never pick to reach the ones you
+ * pick every day.
+ *
+ * `since` is a plain local business date from `lib/date` — never SQLite's
+ * date('now'), which is UTC and would move the window by a day every evening.
+ * Ties fall back to the old order, so the list stays stable rather than
+ * reshuffling under the thumb between two equally-used people.
+ */
+export const listLabourersByUse = (since: ISODate, includeInactive = false) =>
+  all<Labourer & { recent_days: number }>(
+    `SELECT l.*,
+            COALESCE((SELECT COUNT(*) FROM attendance a
+                       WHERE a.labourer_id = l.id
+                         AND a.is_deleted = 0
+                         AND a.date >= ?), 0) AS recent_days
+       FROM labourers l
+      ${includeInactive ? '' : 'WHERE l.is_active = 1'}
+      ORDER BY recent_days DESC, l.is_group_lead DESC, l.sort_order, l.name_en;`,
+    [since],
   )
 
 export const getHeadUnits = (headId: string) =>

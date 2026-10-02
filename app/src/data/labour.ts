@@ -3,6 +3,7 @@ import { newId } from '@/lib/ids'
 import { notifyDataChanged } from '@/hooks/useQuery'
 import { crewSize, matchFifo, wagePaise } from '@/lib/labour'
 import { lineTotalPaise } from '@/lib/quantity'
+import { FULL_DAY } from '@/db/types'
 import type { Alloc, OpenPayment, OpenWork } from '@/lib/labour'
 import type { Bool, ISODate, PaymentMode, WorkBasis } from '@/db/types'
 
@@ -86,12 +87,106 @@ export interface WorkSessionInput {
  * recorded is worse than none: the farmer sees the entry, believes the week is
  * captured, and only finds the gap when someone disputes their wages.
  */
+
+/**
+ * How much of each day a person is already down for.
+ *
+ * Returned as "labourerId|date" -> total day_fraction already recorded, so a
+ * screen can grey out a day somebody is already fully booked on rather than
+ * letting it be tapped and refused at save.
+ *
+ * Only day-basis work counts. Piece and lump jobs carry no day fraction worth
+ * defending, and a salaried month is deliberately zero.
+ */
+export async function recordedFractions(
+  labourerIds: string[],
+  from: ISODate,
+  to: ISODate,
+): Promise<Map<string, number>> {
+  if (labourerIds.length === 0) return new Map()
+  const marks = labourerIds.map(() => '?').join(',')
+  const rows = await all<{ labourer_id: string; date: ISODate; used: number }>(
+    `SELECT labourer_id, date, SUM(day_fraction) AS used
+       FROM attendance
+      WHERE is_deleted = 0
+        AND basis = 'day'
+        AND labourer_id IN (${marks})
+        AND date BETWEEN ? AND ?
+      GROUP BY labourer_id, date;`,
+    [...labourerIds, from, to],
+  )
+  return new Map(rows.map((r) => [`${r.labourer_id}|${r.date}`, r.used]))
+}
+
+/**
+ * A person cannot work more than one full day in one day.
+ *
+ * THE BUG THIS EXISTS FOR: a farmer records the morning's work, forgets, and
+ * records it again that evening. Nothing stopped them, so the day was counted
+ * twice — the worker was owed double, the crop carried double the labour cost,
+ * and nothing on screen looked wrong.
+ *
+ * The rule is a CAP, not a ban on a second row. Two half days on two different
+ * jobs is an ordinary thing and must keep working; it is the total that cannot
+ * exceed a full day. Enforced here rather than in the screen so that no future
+ * caller can route around it.
+ */
+async function assertNoOverbooking(input: WorkSessionInput, basis: WorkBasis): Promise<void> {
+  if (basis !== 'day') return
+
+  const dates = input.days.map((d) => d.date)
+  if (dates.length === 0) return
+  const ids = [...new Set(input.days.map((d) => d.labourer_id))]
+  const already = await recordedFractions(
+    ids,
+    dates.reduce((a, b) => (a < b ? a : b)),
+    dates.reduce((a, b) => (a > b ? a : b)),
+  )
+
+  const wanted = new Map<string, number>()
+  for (const d of input.days) {
+    const key = `${d.labourer_id}|${d.date}`
+    wanted.set(key, (wanted.get(key) ?? 0) + d.day_fraction)
+  }
+
+  const clashes: { labourer_id: string; date: ISODate }[] = []
+  for (const [key, add] of wanted) {
+    if ((already.get(key) ?? 0) + add > FULL_DAY) {
+      const [labourer_id, date] = key.split('|')
+      clashes.push({ labourer_id, date: date as ISODate })
+    }
+  }
+  if (clashes.length === 0) return
+
+  // The names, so the message can say WHO rather than make the farmer guess.
+  const names = await all<{ id: string; name_kn: string; name_en: string }>(
+    `SELECT id, name_kn, name_en FROM labourers WHERE id IN (${clashes
+      .map(() => '?')
+      .join(',')});`,
+    clashes.map((c) => c.labourer_id),
+  )
+  const nameOf = (id: string) => {
+    const row = names.find((n) => n.id === id)
+    return row ? row.name_kn || row.name_en : '?'
+  }
+
+  const err = new Error(
+    clashes.map((c) => `${nameOf(c.labourer_id)} · ${c.date}`).join(', '),
+  ) as Error & { code?: string; clashes?: typeof clashes }
+  err.code = 'ALREADY_RECORDED'
+  err.clashes = clashes
+  throw err
+}
+
 export async function saveWorkSession(input: WorkSessionInput): Promise<string> {
   const ts = nowISO()
   const sessionId = newId()
 
   const basis: WorkBasis = input.basis ?? 'day'
   const sessionRate = input.rate_paise ?? null
+
+  // Before anything is written: nobody works twice in one day.
+  await assertNoOverbooking(input, basis)
 
   await tx(async (exec) => {
     await exec(

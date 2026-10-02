@@ -253,6 +253,16 @@ export const STRINGS = {
     kn: 'ಇವರಿಗೆ ದಿನದ ಕೂಲಿ ಇನ್ನೂ ಹಾಕಿಲ್ಲ. ಈ ದಿನಗಳಿಗೆ ಎಷ್ಟು?',
     en: 'no day rate set yet. What are these days worth?',
   },
+  'labour.day': { kn: 'ದಿನ', en: 'day' },
+  'labour.whoHalfDay': { kn: 'ಅರ್ಧ ದಿನ ಕೆಲಸ ಮಾಡಿದವರು', en: 'Who worked half a day' },
+  'labour.whoHalfDayHint': {
+    kn: 'ಹೆಸರಿನ ಮೇಲೆ ಒತ್ತಿದರೆ ಅರ್ಧ ದಿನ ಆಗುತ್ತದೆ. ಉಳಿದವರೆಲ್ಲ ಪೂರ್ತಿ ದಿನ.',
+    en: 'Tap a name to make it a half day. Everyone else stays a full day.',
+  },
+  'labour.alreadyRecorded': {
+    kn: 'ಇವರಿಗೆ ಈ ದಿನದ ಹಾಜರಿ ಈಗಾಗಲೇ ಹಾಕಿದೆ:',
+    en: 'These days are already recorded:',
+  },
   'labour.dayRateHint': {
     kn: 'ಈ ಕೆಲಸಕ್ಕೆ ಮಾತ್ರ. ಹಳೆಯ ಕೆಲಸದ ದರ ಬದಲಾಗುವುದಿಲ್ಲ.',
     en: 'For this job only. It does not change what earlier work was paid at.',

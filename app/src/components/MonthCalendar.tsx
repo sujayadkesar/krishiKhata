@@ -17,6 +17,10 @@ import type { ISODate } from '@/db/types'
  * farm to deserve a tap rather than a separate control, and the cycle means one
  * gesture covers every state without a mode to remember.
  *
+ * A day somebody is ALREADY down for is a filled red circle and cannot be
+ * tapped at all. It used to be a four-pixel dot on a tappable square, which is
+ * how the same day's work got recorded twice.
+ *
  * The grid is always six rows, so it does not change height between months —
  * a shifting layout makes people mis-tap, and a mis-tap here records a day
  * somebody did not work.
@@ -107,8 +111,17 @@ export function MonthCalendar({
       <div className="grid grid-cols-7 gap-1">
         {cells.map((cell) => {
           const sel = selection.get(cell.iso)
-          const enabled = cell.inMonth && !cell.isFuture
           const recorded = alreadyRecorded?.has(cell.iso)
+          /*
+           * A day already fully recorded cannot be tapped.
+           *
+           * It used to be tappable with a 4px dot as the only warning, so the
+           * farmer who recorded the morning's work and came back in the evening
+           * recorded it again — the worker was owed double and nothing on
+           * screen looked wrong. The day is now filled in and inert; the data
+           * layer refuses it too, so this is the courtesy and not the defence.
+           */
+          const enabled = cell.inMonth && !cell.isFuture && !recorded
 
           const full = sel?.fraction === FULL_DAY
           const half = sel?.fraction === HALF_DAY
@@ -129,12 +142,18 @@ export function MonthCalendar({
               className="relative aspect-square rounded-lg flex flex-col items-center justify-center"
               style={{
                 minHeight: 42,
-                background: full
-                  ? 'var(--color-brand-500)'
-                  : half
-                    ? 'var(--color-brand-100)'
-                    : 'transparent',
-                color: full
+                background: recorded
+                  ? 'var(--color-expense)'
+                  : full
+                    ? 'var(--color-brand-500)'
+                    : half
+                      ? 'var(--color-brand-100)'
+                      : 'transparent',
+                // A recorded day is a filled circle, not a square: it is a
+                // fact about a person rather than a cell being chosen, and the
+                // shape says so before the colour does.
+                borderRadius: recorded ? '999px' : undefined,
+                color: recorded || full
                   ? '#fff'
                   : !enabled
                     ? 'var(--text-faint)'
@@ -143,7 +162,7 @@ export function MonthCalendar({
                       : 'var(--text)',
                 opacity: cell.inMonth ? (cell.isFuture ? 0.3 : 1) : 0.25,
                 border: cell.isToday && !full ? '1.5px solid var(--color-brand-400)' : '1.5px solid transparent',
-                fontWeight: full || half ? 700 : 400,
+                fontWeight: recorded || full || half ? 700 : 400,
               }}
             >
               <span className="tnum text-sm leading-none">{cell.day}</span>
@@ -159,12 +178,7 @@ export function MonthCalendar({
                 </span>
               ) : null}
 
-              {recorded && !sel ? (
-                <span
-                  className="absolute bottom-1 rounded-full"
-                  style={{ width: 4, height: 4, background: 'var(--color-earth-500)' }}
-                />
-              ) : null}
+
             </button>
           )
         })}

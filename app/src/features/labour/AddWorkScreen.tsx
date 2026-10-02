@@ -9,15 +9,16 @@ import { SearchMultiSelect } from '@/components/SearchPicker'
 import { MissingHint } from '@/features/entries/EntryForm'
 import { useQuery } from '@/hooks/useQuery'
 import {
-  listActivities, listCropHeads, listLabourers, listPlots, listSubHeads, listUnits,
+  getSetting, listActivities, listCropHeads, listLabourersByUse, listPlots, listSubHeads,
+  listUnits, setSetting,
 } from '@/data/masterData'
-import { attendanceInMonth, saveWorkSession } from '@/data/labour'
+import { recordedFractions, saveWorkSession } from '@/data/labour'
 import { useI18n } from '@/i18n'
 import { formatRupees } from '@/lib/money'
 import { attendanceAmountPaise, crewWagePaise } from '@/lib/labour'
 import { lineTotalPaise } from '@/lib/quantity'
 import { FULL_DAY, HALF_DAY } from '@/db/types'
-import { monthEnd, monthStart } from '@/lib/date'
+import { addMonths, monthEnd, monthStart, todayISO } from '@/lib/date'
 import { back, navigate } from '@/router'
 import type { ISODate, WorkBasis } from '@/db/types'
 
@@ -101,7 +102,32 @@ export function AddWorkScreen() {
    */
   const [dayRate, setDayRate] = useState<number | null>(null)
 
-  const { data: labourers } = useQuery(() => listLabourers(false), [])
+  /**
+   * Who worked a HALF day, when the rest of the crew worked a full one.
+   *
+   * Twelve people turn up for the same job; eleven stay all day and one leaves
+   * at noon. There was no way to say that — the calendar sets one fraction for
+   * everybody — so the farmer had to save eleven people, then start the whole
+   * form again for the twelfth: same crop, same work, same plot, same date,
+   * typed twice. Most people will not do that, so the half day quietly became
+   * a full one.
+   *
+   * An override set, not a fraction per person: the common case is that
+   * everybody matches the calendar, and only the exceptions are worth storing.
+   */
+  const [halfDayIds, setHalfDayIds] = useState<string[]>([])
+
+  /*
+   * MOST-USED FIRST, not alphabetical.
+   *
+   * Four or five people come most weeks; a dozen came twice last year. The
+   * alphabet knows nothing about that difference, so the names picked daily
+   * sat below names never picked at all. Ninety days is the window — long
+   * enough to survive a quiet fortnight, short enough that last season's crew
+   * does not outrank this season's.
+   */
+  const usageSince = useMemo(() => addMonths(todayISO(), -3), [])
+  const { data: labourers } = useQuery(() => listLabourersByUse(usageSince, false), [usageSince])
   /*
    * CROPS ONLY.
    *
@@ -115,6 +141,31 @@ export function AddWorkScreen() {
   const { data: subHeads } = useQuery(() => listSubHeads(false), [])
   const { data: plots } = useQuery(() => listPlots(false), [])
   const { data: units } = useQuery(() => listUnits(false), [])
+
+  /**
+   * What the last session was for, offered again.
+   *
+   * The crop, the work and the plot are the same for days on end — a farm
+   * harvests arecanut for a fortnight — and re-picking all three every time is
+   * most of the typing on this screen. They are restored on arrival and stay
+   * fully editable; nothing is guessed that the farmer cannot see and change.
+   */
+  useEffect(() => {
+    let cancelled = false
+    void Promise.all([
+      getSetting('work.lastHead'),
+      getSetting('work.lastActivity'),
+      getSetting('work.lastPlot'),
+    ]).then(([h, a, pl]) => {
+      if (cancelled) return
+      if (h) setHeadId((v) => v ?? h)
+      if (a) setActivityId((v) => v ?? a)
+      if (pl) setPlotId((v) => v ?? pl)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const selected = useMemo(
     () => (labourers ?? []).filter((l) => selectedIds.includes(l.id)),
@@ -161,18 +212,28 @@ export function AddWorkScreen() {
   const from = monthStart(`${year}-${String(monthIndex + 1).padStart(2, '0')}-01`)
   const to = monthEnd(from)
 
-  const { data: existing } = useQuery(
-    () =>
-      selectedIds.length === 1
-        ? attendanceInMonth(selectedIds[0], from, to)
-        : Promise.resolve([]),
+  /*
+   * EVERY selected person's existing days, not just the first.
+   *
+   * This asked only when exactly one person was picked, so recording a crew
+   * showed a blank calendar even where half of them were already down for
+   * those days — and the duplicate it invited is the exact bug that doubled a
+   * worker's wage. A day is marked when ANYONE selected is already fully
+   * booked on it, because that is the day that cannot be saved.
+   */
+  const { data: booked } = useQuery(
+    () => recordedFractions(selectedIds, from, to),
     [selectedIds.join(','), from, to],
   )
 
-  const alreadyRecorded = useMemo(
-    () => new Set((existing ?? []).map((e) => e.date)),
-    [existing],
-  )
+  const alreadyRecorded = useMemo(() => {
+    const out = new Set<ISODate>()
+    if (!booked) return out
+    for (const [key, used] of booked) {
+      if (used >= FULL_DAY) out.add(key.split('|')[1] as ISODate)
+    }
+    return out
+  }, [booked])
 
   // Re-base crew sizes when the lead changes, but leave days the farmer has
   // already overridden alone.
@@ -245,13 +306,19 @@ export function AddWorkScreen() {
           )
           personDays += (sel.fraction / FULL_DAY) * Math.max(1, maleCount + femaleCount)
         } else {
+          // Inlined rather than calling fractionFor: a closure over halfDayIds
+          // would have to be a dependency of this memo, and the rule is the
+          // one line below.
+          const f = halfDayIds.includes(l.id)
+            ? Math.min(sel.fraction, HALF_DAY)
+            : sel.fraction
           total += attendanceAmountPaise(
-            sel.fraction,
+            f,
             l.daily_rate_paise > 0 ? l.daily_rate_paise : (dayRate ?? 0),
             l.half_day_rate_paise,
             1,
           )
-          personDays += sel.fraction / FULL_DAY
+          personDays += f / FULL_DAY
         }
       }
       days += sel.fraction / FULL_DAY
@@ -259,8 +326,23 @@ export function AddWorkScreen() {
     return { total: total as number | null, days, personDays }
   }, [
     selection, selected, maleCount, femaleCount, maleRate, femaleRate,
-    basis, lumpAmount, quantity, hourRate, dayRate,
+    basis, lumpAmount, quantity, hourRate, dayRate, halfDayIds,
   ])
+
+  /**
+   * What fraction of the day ONE person worked.
+   *
+   * The calendar sets the day; this is the exception. Clamped rather than
+   * multiplied, so marking somebody half on a day that is already a half day
+   * leaves them at a half rather than inventing a quarter nobody worked.
+   */
+  const fractionFor = (labourerId: string, dayFraction: number) =>
+    halfDayIds.includes(labourerId) ? Math.min(dayFraction, HALF_DAY) : dayFraction
+
+  /* Somebody deselected should not keep a half-day mark waiting for them. */
+  useEffect(() => {
+    setHalfDayIds((ids) => ids.filter((id) => selectedIds.includes(id)))
+  }, [selectedIds])
 
   /* A worker's own rate wins. The field only stands in where there is none. */
   const rateFor = (l: { daily_rate_paise: number }) =>
@@ -310,7 +392,7 @@ export function AddWorkScreen() {
         days.push({
           labourer_id: l.id,
           date,
-          day_fraction: sel.fraction,
+          day_fraction: fractionFor(l.id, sel.fraction),
           is_group: l.is_group_lead,
           daily_rate_paise: rateFor(l),
           half_day_rate_paise: l.half_day_rate_paise,
@@ -341,7 +423,11 @@ export function AddWorkScreen() {
         days,
       })
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      // The data layer refuses to book somebody twice in one day and names who.
+      // Said in Kannada here rather than handing the farmer a raw message.
+      const code = (err as { code?: string } | null)?.code
+      const detail = err instanceof Error ? err.message : String(err)
+      setError(code === 'ALREADY_RECORDED' ? `${t('labour.alreadyRecorded')} ${detail}` : detail)
       return
     }
 
@@ -351,6 +437,13 @@ export function AddWorkScreen() {
     setLumpAmount(null)
     setHourRate(null)
     setDayRate(null)
+    setHalfDayIds([])
+
+    // Offered again next time. Saved after the write, so a session that failed
+    // to save never teaches the form the wrong thing.
+    void setSetting('work.lastHead', headId ?? '')
+    void setSetting('work.lastActivity', activityId ?? '')
+    void setSetting('work.lastPlot', plotId ?? '')
     setError(null)
     setSaved(true)
     setTimeout(() => setSaved(false), 1800)
@@ -553,6 +646,46 @@ export function AddWorkScreen() {
             }}
           />
         </Field>
+
+        {/*
+          Who worked only half of it.
+
+          Shown only when it can matter: day work, more than one person, and at
+          least one day picked. For a single worker the calendar already says
+          full or half with a tap, and a second control for the same fact would
+          be two places to get it wrong.
+        */}
+        {basis === 'day' && selected.length > 1 && selection.size > 0 ? (
+          <Field label={t('labour.whoHalfDay')} hint={t('labour.whoHalfDayHint')}>
+            <div className="card rows overflow-hidden">
+              {selected.map((l) => {
+                const half = halfDayIds.includes(l.id)
+                return (
+                  <button
+                    key={l.id}
+                    onClick={() =>
+                      setHalfDayIds((ids) =>
+                        half ? ids.filter((x) => x !== l.id) : [...ids, l.id],
+                      )
+                    }
+                    className="w-full flex items-center gap-3 px-4 py-3 text-left"
+                  >
+                    <span className="flex-1 font-medium truncate">{nameOf(l)}</span>
+                    <span
+                      className="text-sm font-semibold rounded-lg px-3 py-1.5 tnum"
+                      style={{
+                        background: half ? 'var(--color-brand-100)' : 'var(--surface-sunken)',
+                        color: half ? 'var(--color-brand-700)' : 'var(--text-soft)',
+                      }}
+                    >
+                      {half ? `½ ${t('labour.day')}` : `1 ${t('labour.day')}`}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </Field>
+        ) : null}
 
         {selection.size > 0 ? (
           <div className="card p-4 flex items-center justify-between">
