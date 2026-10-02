@@ -254,6 +254,23 @@ export const STRINGS = {
     en: 'no day rate set yet. What are these days worth?',
   },
   'labour.day': { kn: 'ದಿನ', en: 'day' },
+  'labour.howMuchOfTheDay': { kn: 'ಎಷ್ಟು ದಿನ ಕೆಲಸ', en: 'How much of the day' },
+  'labour.removeWorkBody': {
+    kn: 'ಈ ದಿನದ ಕೆಲಸ ತೆಗೆಯಬೇಕೆ? ಇದಕ್ಕೆ ಹೊಂದಿಸಿದ್ದ ಪಾವತಿ ಮತ್ತೆ ಮುಂಗಡವಾಗುತ್ತದೆ.',
+    en: 'Remove this work day? Any payment that had settled it becomes an advance again.',
+  },
+  'labour.removePayBody': {
+    kn: 'ಈ ಪಾವತಿ ತೆಗೆಯಬೇಕೆ? ಅದರಿಂದ ಆದ ಖರ್ಚೂ ಹೋಗುತ್ತದೆ, ಮತ್ತು ಅದು ತೀರಿಸಿದ್ದ ಕೆಲಸ ಮತ್ತೆ ಬಾಕಿ ಆಗುತ್ತದೆ.',
+    en: 'Remove this payment? The expense it created goes too, and the work it settled goes back to unpaid.',
+  },
+  'labour.editWorkNote': {
+    kn: 'ಮೊತ್ತ ದರ ಮತ್ತು ದಿನದ ಪ್ರಕಾರ ತಾನಾಗಿ ಲೆಕ್ಕವಾಗುತ್ತದೆ. ಪಾವತಿಗಳು ಮತ್ತೆ ಹೊಂದಿಸಲ್ಪಡುತ್ತವೆ.',
+    en: 'The amount follows from the rate and the day. Payments are matched again afterwards.',
+  },
+  'labour.editPayNote': {
+    kn: 'ಇದರಿಂದ ಆದ ಖರ್ಚೂ ಇದರ ಜೊತೆ ಬದಲಾಗುತ್ತದೆ.',
+    en: 'The expense this created changes with it.',
+  },
   'labour.whoHalfDay': { kn: 'ಅರ್ಧ ದಿನ ಕೆಲಸ ಮಾಡಿದವರು', en: 'Who worked half a day' },
   'labour.whoHalfDayHint': {
     kn: 'ಹೆಸರಿನ ಮೇಲೆ ಒತ್ತಿದರೆ ಅರ್ಧ ದಿನ ಆಗುತ್ತದೆ. ಉಳಿದವರೆಲ್ಲ ಪೂರ್ತಿ ದಿನ.',

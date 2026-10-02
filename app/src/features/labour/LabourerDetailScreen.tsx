@@ -3,14 +3,18 @@ import {
   Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer,
   Tooltip, XAxis, YAxis,
 } from 'recharts'
-import { Phone, IndianRupee, Trash2, Share2, Clock } from 'lucide-react'
+import { Phone, IndianRupee, Trash2, Pencil, Share2, Clock } from 'lucide-react'
 import { Page, Shell } from '@/components/Shell'
-import { Button, Card, Confirm, DateInput, EmptyState, Field, SectionHeader } from '@/components/ui'
+import {
+  Button, Card, ChipSingle, Confirm, DateInput, EmptyState, Field, MoneyInput,
+  SectionHeader, Sheet,
+} from '@/components/ui'
 import { useQuery } from '@/hooks/useQuery'
 import {
   attendanceFor, deleteAttendance, deletePayment, labourBalances, labourLedger,
-  monthlyFor, paymentGapFor, paymentsFor, workByCropFor,
+  monthlyFor, paymentGapFor, paymentsFor, updateAttendance, updatePayment, workByCropFor,
 } from '@/data/labour'
+import type { LedgerRow } from '@/data/labour'
 import { getFarmProfile } from '@/data/masterData'
 import { labourStatementDoc } from '@/features/reports/documents'
 import { printReport, reportFileName, shareReport } from '@/lib/print'
@@ -18,7 +22,8 @@ import { useI18n } from '@/i18n'
 import { formatCompactINR, formatRupees } from '@/lib/money'
 import { balanceState } from '@/lib/labour'
 import { addMonths, formatDate, formatMonth, monthEnd, monthStart, todayISO } from '@/lib/date'
-import { FULL_DAY } from '@/db/types'
+import { FULL_DAY, HALF_DAY } from '@/db/types'
+import type { ISODate } from '@/db/types'
 import { back } from '@/router'
 
 /**
@@ -75,6 +80,52 @@ export function LabourerDetailScreen({ id }: { id: string }) {
     [id, range.from, range.to],
   )
   const { data: ledger } = useQuery(() => labourLedger(id), [id])
+
+  /**
+   * Correcting one row of the khata.
+   *
+   * A work day and a payment are corrected in the same sheet because they are
+   * the same gesture from the farmer's side — "that figure is wrong" — and the
+   * fields that differ are the two below.
+   */
+  const [editing, setEditing] = useState<LedgerRow | null>(null)
+  const [editDate, setEditDate] = useState<ISODate>(todayISO())
+  const [editAmount, setEditAmount] = useState<number | null>(null)
+  const [editHalf, setEditHalf] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  function openEdit(r: LedgerRow) {
+    setEditing(r)
+    setEditDate(r.date)
+    setEditHalf(r.day_fraction != null && r.day_fraction < FULL_DAY)
+    setEditAmount(r.kind === 'work' ? r.credit_paise : r.credit_paise || r.debit_paise)
+    setError(null)
+  }
+
+  async function saveEdit() {
+    if (!editing) return
+    setSaving(true)
+    try {
+      if (editing.kind === 'work') {
+        // The amount follows from the rate and the fraction, so what is edited
+        // here is the fraction — a stored total that disagrees with the rate
+        // beside it is a figure nobody can audit.
+        await updateAttendance(editing.id, {
+          date: editDate,
+          day_fraction: editHalf ? HALF_DAY : FULL_DAY,
+        })
+      } else {
+        await updatePayment(editing.id, { date: editDate, amount_paise: editAmount ?? 0 })
+      }
+      setEditing(null)
+    } catch (err) {
+      const code = (err as { code?: string } | null)?.code
+      const detail = err instanceof Error ? err.message : String(err)
+      setError(code === 'ALREADY_RECORDED' ? `${t('labour.alreadyRecorded')} ${detail}` : detail)
+    } finally {
+      setSaving(false)
+    }
+  }
   const { data: byCrop } = useQuery(() => workByCropFor(id), [id])
   const { data: monthly } = useQuery(() => monthlyFor(id), [id])
   const { data: gap } = useQuery(() => paymentGapFor(id), [id])
@@ -337,14 +388,26 @@ export function LabourerDetailScreen({ id }: { id: string }) {
                           <span style={{ color: 'var(--color-earth-700)' }}> ×{r.group_size}</span>
                         ) : null}
                       </span>
-                      {r.detail ? (
-                        <span
-                          className="block text-xs truncate"
-                          style={{ color: 'var(--text-faint)' }}
-                        >
-                          {r.detail}
-                        </span>
-                      ) : null}
+                      {/* Built here, in the language the farmer chose. The
+                          data layer used to join the English columns into one
+                          string, which is why a Kannada khata said "Pepper". */}
+                      {(() => {
+                        const detail = [
+                          r.head ? nameOf(r.head) : null,
+                          r.activity ? nameOf(r.activity) : null,
+                          r.note,
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')
+                        return detail ? (
+                          <span
+                            className="block text-xs truncate"
+                            style={{ color: 'var(--text-faint)' }}
+                          >
+                            {detail}
+                          </span>
+                        ) : null
+                      })()}
                     </span>
 
                     <span className="text-right shrink-0">
@@ -357,6 +420,19 @@ export function LabourerDetailScreen({ id }: { id: string }) {
                       </span>
                     </span>
 
+                    {/* Edit next to delete, on every row.
+                        Delete was the only correction available, and it is not
+                        the same thing: the row's id is what payments allocate
+                        against, so deleting and re-entering turned settled work
+                        back into an advance. */}
+                    <button
+                      onClick={() => openEdit(r)}
+                      aria-label={t('common.edit')}
+                      className="px-1"
+                      style={{ color: 'var(--color-brand-600)' }}
+                    >
+                      <Pencil size={15} />
+                    </button>
                     <button
                       onClick={() => (isWork ? setRemoveWork(r.id) : setRemovePay(r.id))}
                       aria-label={t('common.delete')}
@@ -438,11 +514,51 @@ export function LabourerDetailScreen({ id }: { id: string }) {
           </Button>
         </div>
 
+        <Sheet
+          open={!!editing}
+          onClose={() => setEditing(null)}
+          title={t('common.edit')}
+          footer={
+            <Button full onClick={saveEdit} disabled={saving}>
+              {saving ? t('common.loading') : t('common.save')}
+            </Button>
+          }
+        >
+          {editing ? (
+            <>
+              <Field label={t('common.date')} required>
+                <DateInput value={editDate} onChange={setEditDate} />
+              </Field>
+
+              {editing.kind === 'work' ? (
+                <Field label={t('labour.howMuchOfTheDay')}>
+                  <ChipSingle
+                    options={[
+                      { value: 'full', label: `1 ${t('labour.day')}` },
+                      { value: 'half', label: `½ ${t('labour.day')}` },
+                    ]}
+                    value={editHalf ? 'half' : 'full'}
+                    onChange={(v) => setEditHalf(v === 'half')}
+                  />
+                </Field>
+              ) : (
+                <Field label={t('common.amount')} required>
+                  <MoneyInput paise={editAmount} onChange={setEditAmount} />
+                </Field>
+              )}
+
+              <p className="text-xs" style={{ color: 'var(--text-faint)' }}>
+                {editing.kind === 'work' ? t('labour.editWorkNote') : t('labour.editPayNote')}
+              </p>
+            </>
+          ) : null}
+        </Sheet>
+
         <Confirm
           open={!!removeWork}
           danger
           title={t('common.delete')}
-          body="Remove this work day? Any payment that had settled it becomes an advance again."
+          body={t('labour.removeWorkBody')}
           confirmLabel={t('common.delete')}
           onConfirm={async () => {
             const target = removeWork!
@@ -456,7 +572,7 @@ export function LabourerDetailScreen({ id }: { id: string }) {
           open={!!removePay}
           danger
           title={t('common.delete')}
-          body="Remove this payment? The expense it created is removed too, and the work it settled goes back to unpaid."
+          body={t('labour.removePayBody')}
           confirmLabel={t('common.delete')}
           onConfirm={async () => {
             const target = removePay!

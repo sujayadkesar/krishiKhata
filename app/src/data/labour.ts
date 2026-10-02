@@ -687,6 +687,187 @@ export async function recordPayment(input: PaymentInput): Promise<string> {
   return paymentId
 }
 
+
+/**
+ * Correcting a work day that was entered wrong.
+ *
+ * Deleting and re-entering was the only way, and it is not the same thing:
+ * the row's id is what payments are allocated against, so re-entering turned
+ * settled work back into an advance and shuffled every allocation after it.
+ *
+ * What may change is what the farmer can actually have got wrong — the date,
+ * how much of a day it was, which crop and work it was for, which plot, and
+ * the rate. The amount is RECOMPUTED rather than accepted: a stored total that
+ * disagrees with the rate and the fraction beside it is a figure nobody can
+ * audit. Allocations are released and re-matched afterwards, because changing
+ * what a day was worth changes what the payments covered.
+ *
+ * This does not breach the rate snapshot rule. That rule stops a Settings
+ * change rewriting past work behind the farmer's back; this is the farmer
+ * standing on this one row, deliberately correcting it.
+ */
+export interface AttendanceEdit {
+  date?: ISODate
+  day_fraction?: number
+  head_id?: string | null
+  activity_id?: string | null
+  plot_id?: string | null
+  rate_paise?: number
+  note?: string | null
+}
+
+export async function updateAttendance(id: string, edit: AttendanceEdit): Promise<void> {
+  const row = await one<{
+    labourer_id: string
+    date: ISODate
+    basis: WorkBasis
+    day_fraction: number
+    is_group: Bool
+    male_count: number
+    female_count: number
+    male_rate_paise: number
+    female_rate_paise: number
+    rate_paise: number
+    half_day_rate_paise: number | null
+    quantity_milli: number | null
+    amount_paise: number
+    head_id: string | null
+    activity_id: string | null
+    plot_id: string | null
+    note: string | null
+  }>(
+    `SELECT a.labourer_id, a.date, a.basis, a.day_fraction, a.is_group,
+            a.male_count, a.female_count, a.male_rate_paise, a.female_rate_paise,
+            a.rate_paise, a.quantity_milli, a.amount_paise,
+            a.head_id, a.activity_id, a.plot_id, a.note,
+            l.half_day_rate_paise
+       FROM attendance a
+       JOIN labourers l ON l.id = a.labourer_id
+      WHERE a.id = ? AND a.is_deleted = 0;`,
+    [id],
+  )
+  if (!row) return
+
+  const date = edit.date ?? row.date
+  const fraction = edit.day_fraction ?? row.day_fraction
+  const rate = edit.rate_paise ?? row.rate_paise
+
+  // The same cap the entry screen is held to. Moving a day onto one somebody
+  // is already fully booked for is the same mistake as entering it twice.
+  const used = await recordedFractions([row.labourer_id], date, date)
+  const already = used.get(`${row.labourer_id}|${date}`) ?? 0
+  const mine = date === row.date ? row.day_fraction : 0
+  if (row.basis === 'day' && already - mine + fraction > FULL_DAY) {
+    const err = new Error(date) as Error & { code?: string }
+    err.code = 'ALREADY_RECORDED'
+    throw err
+  }
+
+  const amount = wagePaise(
+    row.basis,
+    {
+      day_fraction: fraction,
+      is_group: row.is_group,
+      daily_rate_paise: rate,
+      half_day_rate_paise: row.half_day_rate_paise,
+      male_count: row.male_count,
+      female_count: row.female_count,
+      // A crew's two rates move with the one being corrected only when they
+      // were the same to begin with; a deliberately split crew keeps its split.
+      male_rate_paise: row.male_rate_paise === row.rate_paise ? rate : row.male_rate_paise,
+      female_rate_paise: row.female_rate_paise === row.rate_paise ? rate : row.female_rate_paise,
+      quantity_milli: row.quantity_milli,
+      amount_paise: row.amount_paise,
+    },
+    rate,
+    lineTotalPaise,
+  )
+
+  const ts = nowISO()
+  await tx(async (exec) => {
+    // Released first: what this day is worth is about to change, so what a
+    // payment covered has to be worked out again from scratch.
+    await exec('DELETE FROM payment_allocations WHERE attendance_id = ?;', [id])
+    await exec(
+      `UPDATE attendance
+          SET date = ?, day_fraction = ?, rate_paise = ?, amount_paise = ?,
+              head_id = ?, activity_id = ?, plot_id = ?, note = ?, updated_at = ?
+        WHERE id = ?;`,
+      [
+        date, fraction, rate, amount,
+        // Read with the row above, not inside the transaction: a query issued
+        // from in here goes round the write chain `tx` is holding.
+        edit.head_id !== undefined ? edit.head_id : row.head_id,
+        edit.activity_id !== undefined ? edit.activity_id : row.activity_id,
+        edit.plot_id !== undefined ? edit.plot_id : row.plot_id,
+        edit.note !== undefined ? edit.note : row.note,
+        ts, id,
+      ],
+    )
+  })
+
+  await settleOutstanding(row.labourer_id)
+  notifyDataChanged()
+}
+
+/**
+ * Correcting a payment.
+ *
+ * The expense it created moves with it — that row exists only because of this
+ * payment, and leaving the two disagreeing is how the khata and the cash book
+ * stop reconciling. Allocations are released and re-matched, so lowering a
+ * payment puts the work it no longer covers back on the unpaid pile.
+ */
+export interface PaymentEdit {
+  date?: ISODate
+  amount_paise?: number
+  account_id?: string
+  note?: string | null
+}
+
+export async function updatePayment(paymentId: string, edit: PaymentEdit): Promise<void> {
+  const row = await one<{
+    labourer_id: string
+    entry_id: string | null
+    date: ISODate
+    amount_paise: number
+    account_id: string
+    note: string | null
+  }>(
+    `SELECT labourer_id, entry_id, date, amount_paise, account_id, note
+       FROM labour_payments WHERE id = ? AND is_deleted = 0;`,
+    [paymentId],
+  )
+  if (!row) return
+
+  const date = edit.date ?? row.date
+  const amount = Math.abs(Math.round(edit.amount_paise ?? row.amount_paise))
+  const account = edit.account_id ?? row.account_id
+  const note = edit.note !== undefined ? edit.note : row.note
+  const ts = nowISO()
+
+  await tx(async (exec) => {
+    await exec('DELETE FROM payment_allocations WHERE payment_id = ?;', [paymentId])
+    await exec(
+      `UPDATE labour_payments
+          SET date = ?, amount_paise = ?, account_id = ?, note = ?, updated_at = ?
+        WHERE id = ?;`,
+      [date, amount, account, note, ts, paymentId],
+    )
+    if (row.entry_id) {
+      await exec(
+        `UPDATE entries
+            SET date = ?, amount_paise = ?, account_id = ?, note = ?, updated_at = ?
+          WHERE id = ?;`,
+        [date, amount, account, note, ts, row.entry_id],
+      )
+    }
+  })
+
+  await settleOutstanding(row.labourer_id)
+  notifyDataChanged()
+}
+
 export async function deletePayment(paymentId: string): Promise<void> {
   const payment = await one<{ entry_id: string | null; labourer_id: string }>(
     'SELECT entry_id, labourer_id FROM labour_payments WHERE id = ?;',
@@ -889,10 +1070,29 @@ export interface LedgerRow {
   debit_paise: number
   running_balance_paise: number
   label: string
-  detail: string
+  /**
+   * The crop and the work, in BOTH languages, for the screen to pick from.
+   *
+   * This used to be one pre-joined string built from the English columns, so a
+   * farmer with the app in Kannada read "Pepper · Planting" in their own khata.
+   * Choosing a language is the UI's job — it is the only layer that knows
+   * which one is on — and `nameOf` is where that decision belongs.
+   */
+  head: NamePair | null
+  activity: NamePair | null
+  note: string | null
   day_fraction?: number
   group_size?: number
 }
+
+export interface NamePair {
+  name_en: string
+  name_kn: string
+}
+
+/** Null unless there is something to show, so the screen can skip the line. */
+const pair = (en: string | null, kn: string | null): NamePair | null =>
+  en || kn ? { name_en: en ?? kn ?? '', name_kn: kn ?? en ?? '' } : null
 
 /**
  * Everything that happened, oldest first, with a running balance — the way a
@@ -917,7 +1117,9 @@ export async function labourLedger(labourerId: string): Promise<LedgerRow[]> {
       credit_paise: w.amount_paise,
       debit_paise: 0,
       label: 'work',
-      detail: [w.head_name_en, w.activity_name_en].filter(Boolean).join(' · '),
+      head: pair(w.head_name_en, w.head_name_kn),
+      activity: pair(w.activity_name_en, w.activity_name_kn),
+      note: null,
       day_fraction: w.day_fraction,
       group_size: w.group_size,
     })),
@@ -928,7 +1130,9 @@ export async function labourLedger(labourerId: string): Promise<LedgerRow[]> {
       credit_paise: p.direction === 'in' ? p.amount_paise : 0,
       debit_paise: p.direction === 'in' ? 0 : p.amount_paise,
       label: p.direction === 'in' ? 'return' : p.is_advance ? 'advance' : 'payment',
-      detail: p.note ?? '',
+      head: null,
+      activity: null,
+      note: p.note ?? null,
     })),
   ]
 
