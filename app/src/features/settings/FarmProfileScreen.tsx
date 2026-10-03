@@ -73,7 +73,7 @@ export function FarmProfileScreen() {
         </div>
 
         <div>
-          <p className="field-label">Statement letterhead</p>
+          <p className="field-label">{t('set.letterhead')}</p>
           <div className="card p-4" style={{ background: 'var(--surface)' }}>
             <div className="flex items-start justify-between gap-3">
               <Wordmark size={30} lang={lang} />

@@ -21,15 +21,22 @@ import { FULL_DAY, HALF_DAY } from '@/db/types'
 import { addMonths, monthEnd, monthStart, todayISO } from '@/lib/date'
 import { back, navigate } from '@/router'
 import type { ISODate, WorkBasis } from '@/db/types'
+import type { StringKey } from '@/i18n/strings'
 
-/** What each way of being paid means, in the farmer's own terms. */
-const BASIS_HINT: Record<WorkBasis, string> = {
-  day: 'A day rate, times the days they came.',
-  hour: 'Machinery and its operator, by the hour at an agreed rate.',
-  piece: 'Paid per litre or per bag. The price is agreed when the job finishes.',
-  lump: 'One agreed figure for the whole job.',
-  salary: 'A fixed worker, paid by the month.',
-}
+/**
+ * What each way of being paid means, in the farmer's own terms.
+ *
+ * Keys rather than sentences: these print under the chips on a screen whose
+ * default language is Kannada, and they were five English sentences sitting
+ * where the explanation was most needed.
+ */
+const BASIS_HINT = {
+  day: 'basis.dayHint',
+  hour: 'basis.hourHint',
+  piece: 'basis.pieceHint',
+  lump: 'basis.lumpHint',
+  salary: 'basis.salaryHint',
+} as const satisfies Record<WorkBasis, StringKey>
 
 /**
  * Recording work days.
@@ -468,7 +475,7 @@ export function AddWorkScreen() {
   return (
     <Shell title={t('labour.addWork')} onBack={back} right={<span />}>
       <Page>
-        <Field label={t('labour.labourers')} hint="Pick everyone who did the same job on the same days." required>
+        <Field label={t('labour.labourers')} hint={t('labour.pickEveryone')} required>
           <SearchMultiSelect
             title={t('labour.labourers')}
             placeholder={t('common.select')}
@@ -497,7 +504,7 @@ export function AddWorkScreen() {
           dropdown: it is the shape of the whole screen, so it should be
           visible rather than hidden behind a tap.
         */}
-        <Field label={t('labour.basis')} hint={BASIS_HINT[basis]}>
+        <Field label={t('labour.basis')} hint={t(BASIS_HINT[basis])}>
           <ChipSingle
             options={[
               { value: 'day', label: t('labour.basisDay') },

@@ -304,7 +304,7 @@ export function LabourerDetailScreen({ id }: { id: string }) {
       onBack={back}
       right={
         me?.phone ? (
-          <a href={`tel:${me.phone}`} aria-label="Call" style={{ color: 'var(--color-brand-600)' }}>
+          <a href={`tel:${me.phone}`} aria-label={t('labour.call')} style={{ color: 'var(--color-brand-600)' }}>
             <Phone size={20} />
           </a>
         ) : (

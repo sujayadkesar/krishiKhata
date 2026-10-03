@@ -1,3 +1,4 @@
+import { useI18n } from '@/i18n'
 import { useMemo, useState } from 'react'
 import { Check, ChevronDown, Search, X } from 'lucide-react'
 import { Sheet } from './ui'
@@ -72,6 +73,7 @@ function Trigger({
 }
 
 function SearchBox({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const { t } = useI18n()
   return (
     <div className="relative">
       <Search
@@ -83,7 +85,7 @@ function SearchBox({ value, onChange }: { value: string; onChange: (v: string) =
         className="field pl-10"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="Search"
+        placeholder={t('common.search')}
         autoFocus
       />
     </div>

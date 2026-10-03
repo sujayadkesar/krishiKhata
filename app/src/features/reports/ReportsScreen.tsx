@@ -76,7 +76,8 @@ const REPORTS: {
   icon: typeof FileText
   kn: string
   en: string
-  hint: string
+  hint_kn: string
+  hint_en: string
 }[] = [
   {
     id: 'comprehensive',
@@ -84,7 +85,8 @@ const REPORTS: {
     icon: LayoutDashboard,
     kn: 'ಸಂಪೂರ್ಣ ವರದಿ',
     en: 'Complete farm report',
-    hint: 'Everything: charts, profit, spending, plots, dues',
+    hint_kn: 'ಗ್ರಾಫ್, ಲಾಭ, ಖರ್ಚು, ಜಮೀನು, ಬಾಕಿ — ಎಲ್ಲವೂ',
+    hint_en: 'Everything: charts, profit, spending, plots, dues',
   },
   {
     id: 'crop-profit',
@@ -92,7 +94,8 @@ const REPORTS: {
     icon: Sprout,
     kn: 'ಬೆಳೆವಾರು ಲಾಭ',
     en: 'Crop-wise profit',
-    hint: 'What each crop earned, cost and made',
+    hint_kn: 'ಯಾವ ಬೆಳೆ ಎಷ್ಟು ತಂದಿತು, ಎಷ್ಟು ತಿಂದಿತು',
+    hint_en: 'What each crop earned, cost and made',
   },
   {
     id: 'plot-profit',
@@ -100,7 +103,8 @@ const REPORTS: {
     icon: MapPin,
     kn: 'ಜಮೀನುವಾರು ಲಾಭ',
     en: 'Plot-wise profit',
-    hint: 'What each piece of land earned and cost',
+    hint_kn: 'ಪ್ರತಿ ಜಮೀನಿನ ಆದಾಯ ಮತ್ತು ಖರ್ಚು',
+    hint_en: 'What each piece of land earned and cost',
   },
   {
     id: 'income-expense',
@@ -108,7 +112,8 @@ const REPORTS: {
     icon: FileText,
     kn: 'ಆದಾಯ ಮತ್ತು ಖರ್ಚು',
     en: 'Income & Expense',
-    hint: 'Statement with full expense detail',
+    hint_kn: 'ಖರ್ಚಿನ ಪೂರ್ತಿ ವಿವರದ ಸಹಿತ',
+    hint_en: 'Statement with full expense detail',
   },
   {
     id: 'labour-dues',
@@ -116,7 +121,8 @@ const REPORTS: {
     icon: Users,
     kn: 'ಪಾವತಿ ಬಾಕಿ',
     en: 'Wages due',
-    hint: 'Who is owed, and effort by crop',
+    hint_kn: 'ಯಾರಿಗೆ ಎಷ್ಟು ಬಾಕಿ, ಬೆಳೆವಾರು ಶ್ರಮ',
+    hint_en: 'Who is owed, and effort by crop',
   },
   {
     id: 'labour-statement',
@@ -124,7 +130,8 @@ const REPORTS: {
     icon: User,
     kn: 'ಕೆಲಸ ಮತ್ತು ಪಾವತಿ ವಿವರ',
     en: 'One worker: full statement',
-    hint: 'Days, work, payments and charts, ready to hand over',
+    hint_kn: 'ದಿನ, ಕೆಲಸ, ಪಾವತಿ, ಗ್ರಾಫ್ — ಕೈಗೆ ಕೊಡಲು ಸಿದ್ಧ',
+    hint_en: 'Days, work, payments and charts, ready to hand over',
   },
   {
     id: 'day-book',
@@ -132,7 +139,8 @@ const REPORTS: {
     icon: BookOpen,
     kn: 'ದಿನಚರಿ',
     en: 'Day book',
-    hint: 'Every entry, in order',
+    hint_kn: 'ಪ್ರತಿ ಎಂಟ್ರಿ, ಕ್ರಮವಾಗಿ',
+    hint_en: 'Every entry, in order',
   },
 ]
 
@@ -320,8 +328,8 @@ export function ReportsScreen() {
       const result = await shareReport(html, title(selected), name)
       setNotice(
         result.format === 'pdf'
-          ? 'PDF ready. Choose where to send it.'
-          : 'Saved as a web page — this phone would not print a PDF. Open it and use Print → Save as PDF.',
+          ? t('report.pdfReady')
+          : t('report.pdfFallback'),
       )
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -436,7 +444,7 @@ export function ReportsScreen() {
                 <ListRow
                   key={r.id}
                   title={lang === 'kn' ? r.kn : r.en}
-                  subtitle={r.hint}
+                  subtitle={lang === 'en' ? r.hint_en : r.hint_kn}
                   leading={
                     <span
                       className="grid place-items-center rounded-lg shrink-0"

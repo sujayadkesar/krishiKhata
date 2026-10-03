@@ -791,7 +791,7 @@ export function ListRow({
   muted?: boolean
   leading?: ReactNode
 }) {
-  const inner = (
+  const body = (
     <>
       {leading}
       <span className="flex-1 min-w-0 text-left">
@@ -804,16 +804,37 @@ export function ListRow({
           </span>
         ) : null}
       </span>
-      {right}
     </>
   )
 
-  const className = 'w-full flex items-center gap-3 px-4 py-3'
-  if (!onClick) return <div className={className}>{inner}</div>
+  const row = 'w-full flex items-center gap-3 px-4 py-3'
+
+  if (!onClick) {
+    return (
+      <div className={row}>
+        {body}
+        {right}
+      </div>
+    )
+  }
+
+  /*
+   * `right` SITS OUTSIDE THE BUTTON, NOT INSIDE IT.
+   *
+   * Callers put their own buttons in there — the shortcut to a head's spend
+   * types, a delete — and nesting a button inside a button is invalid HTML.
+   * React logs it, and browsers are free to resolve the click to either one,
+   * so a farmer aiming at the small icon could open the row instead. The
+   * tappable part is now its own button and the trailing controls are its
+   * siblings, which is also why `right` keeps working when `onClick` is absent.
+   */
   return (
-    <button className={className} onClick={onClick}>
-      {inner}
-    </button>
+    <div className="flex items-center">
+      <button className={row + ' flex-1 min-w-0'} onClick={onClick}>
+        {body}
+      </button>
+      {right ? <span className="flex items-center gap-1 pr-4 shrink-0">{right}</span> : null}
+    </div>
   )
 }
 

@@ -200,7 +200,7 @@ export function PayScreen({ labourerId }: { labourerId?: string }) {
               options={(accounts ?? []).map((a) => ({ value: a.id, label: nameOf(a) }))}
             />
           </Field>
-          <Field label="Mode">
+          <Field label={t('labour.mode')}>
             <Select
               value={mode}
               onChange={setMode}

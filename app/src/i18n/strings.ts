@@ -367,6 +367,49 @@ export const STRINGS = {
   'dash.workHint': { kn: 'ಆಳುಗಳ ಹಾಜರಿ', en: 'Attendance for the day' },
   /* The trail of what was entered and changed. */
   /* The bill photographed against an entry. */
+  /* Found by auditing for English that reaches a Kannada screen. */
+  'basis.dayHint': { kn: 'ದಿನದ ಕೂಲಿ × ಬಂದ ದಿನಗಳು', en: 'A day rate, times the days they came.' },
+  'basis.hourHint': {
+    kn: 'ಯಂತ್ರ ಮತ್ತು ಚಾಲಕ — ಗಂಟೆಗೆ ಇಷ್ಟು ಎಂದು',
+    en: 'Machinery and its operator, by the hour at an agreed rate.',
+  },
+  'basis.pieceHint': {
+    kn: 'ಲೀಟರ್ ಅಥವಾ ಚೀಲದ ಲೆಕ್ಕ. ಕೆಲಸ ಮುಗಿದ ಮೇಲೆ ದರ ಮಾತಾಡುತ್ತೀರಿ.',
+    en: 'Paid per litre or per bag. The price is agreed when the job finishes.',
+  },
+  'basis.lumpHint': { kn: 'ಇಡೀ ಕೆಲಸಕ್ಕೆ ಒಂದೇ ಮೊತ್ತ', en: 'One agreed figure for the whole job.' },
+  'basis.salaryHint': { kn: 'ತಿಂಗಳ ಸಂಬಳದ ಆಳು', en: 'A fixed worker, paid by the month.' },
+  'labour.pickEveryone': {
+    kn: 'ಒಂದೇ ಕೆಲಸ, ಒಂದೇ ದಿನ ಮಾಡಿದ ಎಲ್ಲರನ್ನೂ ಆರಿಸಿ.',
+    en: 'Pick everyone who did the same job on the same days.',
+  },
+  'labour.mode': { kn: 'ಹೇಗೆ ಕೊಟ್ಟಿರಿ', en: 'How it was paid' },
+  'labour.call': { kn: 'ಕರೆ ಮಾಡಿ', en: 'Call' },
+  'labour.ratePerPerson': {
+    kn: 'ಒಬ್ಬರಿಗೆ, ಒಂದು ದಿನಕ್ಕೆ — ಇಡೀ ತಂಡಕ್ಕಲ್ಲ.',
+    en: 'Per person, per day — not for the whole crew.',
+  },
+  'labour.rateFutureOnly': {
+    kn: 'ಇದು ಮುಂದಿನ ಕೆಲಸಕ್ಕೆ ಮಾತ್ರ. ಹಳೆಯ ದಾಖಲೆಗಳ ದರ ಬದಲಾಗುವುದಿಲ್ಲ.',
+    en: 'Changing this affects future work only. Past records keep their own rate.',
+  },
+  'labour.notePlaceholder': { kn: 'ಸ್ವಂತ ಸಾಧನ ತರುತ್ತಾರೆ', en: 'Comes with own tools' },
+  'set.isLabourSub': { kn: 'ಜನರಿಗೆ ಕೊಡುವ ಕೂಲಿ', en: 'Wages paid to people' },
+  'set.letterhead': { kn: 'ವರದಿಯ ಮೇಲ್ಭಾಗ', en: 'Statement letterhead' },
+  'entry.partyHint': {
+    kn: 'ಎಷ್ಟು ನಿಖರವಾಗಿ ಬರೆಯುತ್ತೀರೋ, ಬೆಳೆಯ ವರದಿ ಅಷ್ಟೇ ಉಪಯುಕ್ತ.',
+    en: 'The more exact this is, the more useful the crop report becomes.',
+  },
+  'entry.deleteBody': {
+    kn: 'ಈ ಎಂಟ್ರಿ ಎಲ್ಲಾ ವರದಿ ಮತ್ತು ಶಿಲ್ಕಿನಿಂದ ಹೋಗುತ್ತದೆ. ಆದರೆ ದಾಖಲೆಯಲ್ಲಿ ಉಳಿಯುತ್ತದೆ.',
+    en: 'This entry will be removed from all reports and balances. It stays in the change history.',
+  },
+  'common.notFound': { kn: 'ಸಿಗಲಿಲ್ಲ', en: 'Not found' },
+  'report.pdfReady': { kn: 'PDF ಸಿದ್ಧ. ಎಲ್ಲಿಗೆ ಕಳಿಸಬೇಕು ಆರಿಸಿ.', en: 'PDF ready. Choose where to send it.' },
+  'report.pdfFallback': {
+    kn: 'ಈ ಫೋನ್ PDF ಮಾಡಲಿಲ್ಲ, ಹಾಗಾಗಿ ವೆಬ್ ಪುಟವಾಗಿ ಉಳಿಸಲಾಗಿದೆ. ಬ್ರೌಸರ್‌ನಲ್ಲಿ ತೆರೆದು ಪ್ರಿಂಟ್ ಮಾಡಿ.',
+    en: 'Saved as a web page — this phone would not print a PDF. Open it in a browser and print.',
+  },
   'bill.label': { kn: 'ಬಿಲ್ಲಿನ ಫೋಟೋ', en: 'Bill photo' },
   'bill.camera': { kn: 'ಫೋಟೋ ತೆಗೆಯಿರಿ', en: 'Take a photo' },
   'bill.gallery': { kn: 'ಗ್ಯಾಲರಿಯಿಂದ', en: 'From gallery' },

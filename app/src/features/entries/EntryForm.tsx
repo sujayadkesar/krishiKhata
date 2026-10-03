@@ -181,7 +181,7 @@ export function EntryFields({
       {kind === 'expense' && form.isCropHead ? (
         <Field
           label={t('entry.activity')}
-          hint="The more exact this is, the more useful the crop report becomes."
+          hint={t('entry.partyHint')}
         >
           <Select
             value={draft.activity_id}

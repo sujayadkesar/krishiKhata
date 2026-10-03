@@ -424,8 +424,8 @@ export function LabourersScreen() {
               label={t('labour.dayRate')}
               hint={
                 draft.is_group_lead === 1
-                  ? 'Per person, per day — not for the whole crew.'
-                  : 'Changing this affects future work only. Past records keep the wage they were entered with.'
+                  ? t('labour.ratePerPerson')
+                  : t('labour.rateFutureOnly')
               }
             >
               <MoneyInput
@@ -467,7 +467,7 @@ export function LabourersScreen() {
               <TextArea
                 value={draft.note}
                 onChange={(v) => setDraft({ ...draft, note: v })}
-                placeholder="Comes with own tools"
+                placeholder={t('labour.notePlaceholder')}
               />
             </Field>
 

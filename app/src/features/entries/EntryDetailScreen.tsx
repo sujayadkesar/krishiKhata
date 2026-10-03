@@ -241,7 +241,7 @@ export function EntryDetailScreen({ id }: { id: string }) {
           open={confirming}
           danger
           title={t('common.delete')}
-          body="This entry will be removed from all reports and balances. It stays in the change history."
+          body={t('entry.deleteBody')}
           confirmLabel={t('common.delete')}
           onConfirm={async () => {
             setConfirming(false)

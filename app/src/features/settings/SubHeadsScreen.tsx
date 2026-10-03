@@ -88,7 +88,7 @@ export function SpendTypesScreen() {
           <Tags size={19} style={{ color: 'var(--color-brand-600)' }} />
         )
       }
-      subtitleOf={(s) => (s.is_labour ? 'Wages paid to people' : undefined)}
+      subtitleOf={(s) => (s.is_labour ? t('set.isLabourSub') : undefined)}
       onAdd={() => {
         setEditing(null)
         setDraft({ name_en: '', name_kn: '', is_labour: 0 })
