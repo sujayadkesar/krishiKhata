@@ -62,6 +62,7 @@ body {
   line-height: 1.65;
   /* A 16px gutter on a phone, which is the width this is mostly read at. */
   padding: 0 16px;
+  overflow-x: hidden;
 }
 
 .wrap { max-width: 760px; margin: 0 auto; }
@@ -276,8 +277,13 @@ body {
   color: #7a5a12;
 }
 
-/* A table on a phone is the commonest cause of sideways scroll on a page
-   like this, so it gets its own scroller rather than stretching the body. */
+/* A table on a phone is the commonest cause of sideways scroll on a page like
+   this, so it gets its own scroller rather than stretching the body.
+
+   `body { overflow-x: hidden }` is the backstop, not the fix: a table added
+   later without the wrapper would otherwise take the whole page with it, and
+   the symptom — a page that slides a centimetre sideways under the thumb — is
+   the kind of thing nobody reports and everybody notices. */
 .table-wrap { overflow-x: auto; margin: 16px 0; -webkit-overflow-scrolling: touch; }
 .prose table { border-collapse: collapse; width: 100%; font-size: 15px; min-width: 460px; }
 .prose th, .prose td { padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--line); }

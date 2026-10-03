@@ -110,6 +110,8 @@ suite of assertions that must pass before any build reaches a phone.
 A day rate is only one of the ways a farm pays for work, and an app that knows
 only day rates quietly records the rest wrongly.
 
+<div class="table-wrap" markdown="1">
+
 | How it is paid | What that looks like |
 | --- | --- |
 | By the day | A rate, times the days they came. Half days are one more tap. |
@@ -117,6 +119,8 @@ only day rates quietly records the rest wrongly.
 | Per unit | Spraying, per litre — and the price is settled *after* the job. |
 | Lump sum | Coconut plucking: one figure agreed for the whole job. |
 | Monthly | A fixed worker, posted once a month. |
+
+</div>
 
 Work and money are kept apart on purpose. Recording a day of work does not
 create an expense; paying somebody does. That is what lets the app tell you
