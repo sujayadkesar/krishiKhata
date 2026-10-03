@@ -6,15 +6,19 @@ title: Privacy Policy — Krishi Khata
 
 **Krishi Khata** (`in.krishikhata.app`)
 
-Last updated: 19 August 2026
+Last updated: 3 October 2026
 
 ---
 
 ## The short version
 
 Krishi Khata keeps your farm records in a file on your own phone. There is no
-account, no server, and no company receiving your data. We cannot see your
-figures, because they never reach us.
+server and no company receiving your data. We cannot see your figures, because
+they never reach us.
+
+You may optionally sign in with Google so the app can keep a backup copy in
+**your own** Google Drive. That copy goes from your phone to your Drive
+directly. It does not pass through us, and we cannot read it.
 
 ---
 
@@ -28,12 +32,11 @@ We do not collect, transmit, sell or share any of it.
 
 ## What the app does not do
 
-- It has **no user account** and asks for no sign-in.
-- It has **no server**. There is no backend to send anything to.
+- It has **no server**. There is no backend to send anything to, and no
+  account on any system of ours.
 - It contains **no analytics, tracking or advertising** libraries.
-- It does **not** collect your name, phone number, email, location, contacts,
-  photos or device identifiers.
-- It does **not** share data with any third party.
+- It does **not** collect your location or device identifiers.
+- It does **not** share your data with any third party, and we never see it.
 
 The names, phone numbers and villages of workers you record are information
 *you* type in about people you employ. It is stored on your phone in the same
@@ -41,14 +44,41 @@ way as everything else, and is never transmitted anywhere.
 
 ## Permissions the app requests
 
-Krishi Khata declares exactly one permission:
+Every one of these is optional except the first two, and each is asked for at
+the moment you use the feature that needs it — never on first launch.
 
-| Permission | Why |
-| --- | --- |
-| `INTERNET` | Standard for the framework the app is built on. Krishi Khata makes no network requests of its own — it has no server to call. |
+| Permission | Why | What happens if you refuse |
+| --- | --- | --- |
+| `INTERNET` | Uploading your backup to your own Google Drive, if you turn that on. There is no other network use and no server of ours to call. | — |
+| `ACCESS_NETWORK_STATE` | So the app knows when the phone is back in range and can finish a backup that was waiting. | — |
+| `READ_CONTACTS` | Searching your phone book inside the app to add workers quickly. Nothing is read until you tap that button, nothing is written, and nothing leaves the phone. | You can still add a worker from the system contact picker, which needs no permission, or type the name yourself. |
+| `CAMERA` | Photographing a bill against an entry. | You can choose an existing photo from the gallery instead, which needs no permission. |
 
-It does **not** request location, contacts, camera, microphone, storage access
-to your wider files, phone state, or the ability to install other apps.
+It does **not** request location, microphone, phone state, access to your wider
+files, or the ability to install other apps. It never writes to your contacts.
+
+## Signing in with Google
+
+If you turn on Google Drive backup, the app asks for one narrow permission:
+`drive.appdata`. This reaches a **hidden folder that belongs to this app alone**
+inside your Drive. It cannot see your documents, your photos, or any other file
+in your Drive, and it cannot create files anywhere you would find them.
+
+- The backup goes **from your phone straight to your Drive**. It does not pass
+  through any server of ours, because there isn't one.
+- We never receive your Google account name, your email, or a token for it.
+  The sign-in happens between you, your phone and Google.
+- You can revoke it at any time from
+  [your Google account permissions](https://myaccount.google.com/permissions),
+  or turn it off in **Settings → Backup**, or simply delete the file from your
+  Drive. The app will carry on working with everything stored on the phone.
+
+## Photographs of bills
+
+A photo you attach to an entry is shrunk and stored inside the app's own
+database on your phone, alongside the entry. It is not placed in your gallery
+and is not sent anywhere. If you have Drive backup switched on it is included
+in that backup, in your own Drive, like the rest of your records.
 
 ## Backup
 
@@ -68,6 +98,9 @@ access to it.
 your records as a file and put it wherever you choose — Google Drive, WhatsApp,
 a memory card. You control that copy entirely. The app hands it to Android's
 share sheet and takes no further part.
+
+**Google Drive, if you switch it on.** Described above. Off until you turn it
+on, and removable at any time.
 
 ## Children
 
