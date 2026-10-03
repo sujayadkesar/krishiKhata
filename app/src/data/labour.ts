@@ -948,6 +948,27 @@ export async function updatePayment(paymentId: string, edit: PaymentEdit): Promi
   notifyDataChanged()
 }
 
+/**
+ * Who a wage payment was made to.
+ *
+ * The expense row a payment creates knows the payment's id and nothing else,
+ * so the entry screen could say "this came from a wage payment" and then only
+ * offer the team LIST — leaving the farmer to work out which of fourteen
+ * people it was. The one question that row raises is "paid to whom", and the
+ * answer was two screens and a guess away.
+ */
+export function labourerForPayment(
+  paymentId: string,
+): Promise<{ id: string; name_en: string; name_kn: string; date: ISODate } | null> {
+  return one<{ id: string; name_en: string; name_kn: string; date: ISODate }>(
+    `SELECT l.id, l.name_en, l.name_kn, p.date
+       FROM labour_payments p
+       JOIN labourers l ON l.id = p.labourer_id
+      WHERE p.id = ?;`,
+    [paymentId],
+  )
+}
+
 export async function deletePayment(paymentId: string): Promise<void> {
   const payment = await one<{ entry_id: string | null; labourer_id: string }>(
     'SELECT entry_id, labourer_id FROM labour_payments WHERE id = ?;',

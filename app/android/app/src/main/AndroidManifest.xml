@@ -65,4 +65,17 @@
     -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
 
+    <!--
+      PHOTOGRAPHING A BILL.
+      Asked the first time the camera button is tapped, never at launch. The
+      gallery route needs no permission at all on modern Android — it goes
+      through the system photo picker, which hands back the one image chosen —
+      so a farmer who refuses the camera can still attach a slip.
+
+      No storage permission is declared. Nothing is written to shared storage;
+      the photo is downscaled and kept inside the app's own database.
+    -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+
 </manifest>

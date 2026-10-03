@@ -53,12 +53,15 @@ export interface EntryDraft {
   amount_paise: number | null
   party_name: string
   note: string
+  /** The bill behind it. Null until one is photographed or chosen. */
+  photo_id: string | null
 }
 
 export function blankDraft(kind: EntryKind = 'income'): EntryDraft {
   return {
     kind,
     date: todayISO(),
+    photo_id: null,
     head_id: null,
     sub_head_id: null,
     activity_id: null,

@@ -4,6 +4,7 @@ import { Share } from '@capacitor/share'
 import { exportTables, saveNow, tx } from '@/db/db'
 import { SCHEMA_VERSION } from '@/db/schema'
 import { notifyDataChanged } from '@/hooks/useQuery'
+import { pruneOrphanPhotos } from '@/data/entries'
 import { getSetting, setSetting } from './masterData'
 import { todayISO } from '@/lib/date'
 
@@ -55,6 +56,11 @@ export const BACKUP_ENABLED_KEY = 'backup_enabled'
  * ------------------------------------------------------------------ */
 
 export async function buildSnapshot(appVersion = '0.1.0'): Promise<BackupFile> {
+  // Bills abandoned halfway through a form are dead weight, and weight is the
+  // one thing that can silently break Android's own 25 MB backup.
+  const yesterday = new Date(Date.now() - 86_400_000).toISOString()
+  await pruneOrphanPhotos(yesterday)
+
   // Flush first: on the web the database lives in memory until it is written,
   // and backing up before that would quietly miss the last few entries.
   await saveNow()

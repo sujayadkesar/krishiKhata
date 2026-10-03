@@ -256,6 +256,10 @@ export const STRINGS = {
   'labour.day': { kn: 'ದಿನ', en: 'day' },
   'labour.quantity': { kn: 'ಪ್ರಮಾಣ', en: 'Quantity' },
   'report.preview': { kn: 'ವರದಿ ನೋಡಿ', en: 'See the report' },
+  'labour.editFromKhata': {
+    kn: 'ಬದಲಾಯಿಸಲು ಇವರ ಖಾತೆಗೆ ಹೋಗಿ — ಪಾವತಿ ಮತ್ತು ಖರ್ಚು ಒಟ್ಟಿಗೆ ಬದಲಾಗುತ್ತವೆ',
+    en: 'Change it from their khata, so the payment and this expense stay in step',
+  },
   'labour.seeKhata': { kn: 'ಪೂರ್ತಿ ಲೆಕ್ಕ ನೋಡಿ', en: 'See the full khata' },
   'labour.howMuchOfTheDay': { kn: 'ಎಷ್ಟು ದಿನ ಕೆಲಸ', en: 'How much of the day' },
   'labour.removeWorkBody': {
@@ -362,6 +366,16 @@ export const STRINGS = {
   'dash.addHint': { kn: 'ಆದಾಯ ಅಥವಾ ಖರ್ಚು', en: 'Money in or out' },
   'dash.workHint': { kn: 'ಆಳುಗಳ ಹಾಜರಿ', en: 'Attendance for the day' },
   /* The trail of what was entered and changed. */
+  /* The bill photographed against an entry. */
+  'bill.label': { kn: 'ಬಿಲ್ಲಿನ ಫೋಟೋ', en: 'Bill photo' },
+  'bill.camera': { kn: 'ಫೋಟೋ ತೆಗೆಯಿರಿ', en: 'Take a photo' },
+  'bill.gallery': { kn: 'ಗ್ಯಾಲರಿಯಿಂದ', en: 'From gallery' },
+  'bill.retake': { kn: 'ಬದಲಾಯಿಸಿ', en: 'Replace' },
+  'bill.phoneOnly': { kn: 'ಫೋನಿನಲ್ಲಿ ಮಾತ್ರ ಸಾಧ್ಯ', en: 'Only available on the phone' },
+  'bill.tooBig': {
+    kn: 'ಫೋಟೋ ತುಂಬಾ ದೊಡ್ಡದಿದೆ. ಸ್ವಲ್ಪ ಹತ್ತಿರದಿಂದ ಮತ್ತೆ ತೆಗೆಯಿರಿ.',
+    en: 'That photo is too large. Take it again a little closer in.',
+  },
   'log.title': { kn: 'ಏನೇನು ಮಾಡಿದ್ದೀರಿ', en: 'What you have entered' },
   'log.intro': {
     kn: 'ಯಾವ ಎಂಟ್ರಿ ಯಾವಾಗ ಹಾಕಿದಿರಿ, ಏನು ಬದಲಾಯಿಸಿದಿರಿ — ಎಲ್ಲವೂ ಇಲ್ಲಿದೆ. ಒತ್ತಿದರೆ ಆ ಎಂಟ್ರಿಗೇ ಹೋಗುತ್ತದೆ.',

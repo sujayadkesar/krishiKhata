@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Trash2 } from 'lucide-react'
+import { Trash2, HardHat, ChevronRight } from 'lucide-react'
 import { Page, Shell } from '@/components/Shell'
 import { Button, Confirm, Field, MoneyInput, Segmented } from '@/components/ui'
 import { useQuery } from '@/hooks/useQuery'
 import { deleteEntry, getEntry, saveEntry } from '@/data/entries'
+import { labourerForPayment } from '@/data/labour'
 import { useI18n } from '@/i18n'
 import { formatDate } from '@/lib/date'
 import { formatRupees } from '@/lib/money'
 import { back, navigate } from '@/router'
+import { BillPhoto } from './BillPhoto'
 import { EntryFields, MissingHint } from './EntryForm'
 import { blankDraft, useEntryForm } from './entryDraft'
 import type { EntryDraft } from './entryDraft'
@@ -41,8 +43,17 @@ const SOFT: Record<EntryKind, string> = {
 }
 
 export function EntryDetailScreen({ id }: { id: string }) {
-  const { t, lang } = useI18n()
+  const { t, lang, nameOf } = useI18n()
   const { data: entry, loading } = useQuery(() => getEntry(id), [id])
+  /* Resolved here rather than joined into the entry: it is one extra lookup
+     on one screen, and only for the rows that came from a wage payment. */
+  const { data: paidTo } = useQuery(
+    () =>
+      entry?.labour_payment_id
+        ? labourerForPayment(entry.labour_payment_id)
+        : Promise.resolve(null),
+    [entry?.labour_payment_id],
+  )
 
   const [draft, setDraft] = useState<EntryDraft | null>(null)
   const [confirming, setConfirming] = useState(false)
@@ -69,6 +80,7 @@ export function EntryDetailScreen({ id }: { id: string }) {
       amount_paise: entry.amount_paise,
       party_name: entry.party_name ?? '',
       note: entry.note ?? '',
+      photo_id: entry.photo_id,
     })
   }, [entry])
 
@@ -117,7 +129,7 @@ export function EntryDetailScreen({ id }: { id: string }) {
       amount_paise: draft.amount_paise!,
       party_name: draft.party_name.trim() || null,
       note: draft.note.trim() || null,
-      photo_id: entry.photo_id,
+      photo_id: draft.photo_id,
       labour_payment_id: entry.labour_payment_id,
     })
     setSaved(true)
@@ -140,23 +152,46 @@ export function EntryDetailScreen({ id }: { id: string }) {
         </div>
 
         {isWagePayment ? (
-          <div
-            className="card p-3 text-sm"
+          /* WHO IT WAS PAID TO, and a way straight to them.
+             This said "created by a wage payment" in English and then offered
+             the team LIST — leaving the farmer to work out which of fourteen
+             people it was. The one question the row raises is "paid to whom". */
+          <button
+            onClick={() => paidTo && navigate(`/labour/khata/${paidTo.id}`)}
+            disabled={!paidTo}
+            className="card w-full p-3.5 flex items-center gap-3 text-left active:scale-[.99] transition"
             style={{
               background: 'var(--color-earth-100)',
               borderColor: 'var(--color-earth-300)',
-              color: 'var(--color-earth-700)',
             }}
           >
-            This expense was created by a wage payment. Change it from the labour khata so
-            the payment and what it settles stay in step.
-            <button
-              className="block mt-1 font-semibold underline"
-              onClick={() => navigate('/labour')}
+            <span
+              className="grid place-items-center rounded-xl shrink-0"
+              style={{
+                width: 38,
+                height: 38,
+                background: 'var(--color-earth-300)',
+                color: 'var(--color-earth-700)',
+              }}
             >
-              {t('labour.khata')} →
-            </button>
-          </div>
+              <HardHat size={19} />
+            </span>
+            <span className="flex-1 min-w-0 leading-tight">
+              <span className="block text-xs" style={{ color: 'var(--color-earth-700)' }}>
+                {t('labour.fromWagePayment')}
+              </span>
+              <span
+                className="block font-semibold truncate"
+                style={{ color: 'var(--color-earth-700)' }}
+              >
+                {paidTo ? nameOf(paidTo) : '—'}
+              </span>
+              <span className="block text-xs mt-0.5" style={{ color: 'var(--color-earth-700)', opacity: 0.8 }}>
+                {t('labour.editFromKhata')}
+              </span>
+            </span>
+            <ChevronRight size={17} style={{ color: 'var(--color-earth-700)' }} />
+          </button>
         ) : (
           <>
             {/* Changing the kind is allowed. It is rare, but a withdrawal
@@ -180,6 +215,12 @@ export function EntryDetailScreen({ id }: { id: string }) {
             </Field>
 
             <EntryFields draft={draft} set={set} form={form} />
+
+            {/* The bill, editable here too — a slip photographed badly is a
+                thing people fix later. */}
+            {draft.kind !== 'transfer' ? (
+              <BillPhoto photoId={draft.photo_id} onChange={(id) => set({ photo_id: id })} />
+            ) : null}
 
             <div className="space-y-1.5">
               <MissingHint missing={form.missing} />

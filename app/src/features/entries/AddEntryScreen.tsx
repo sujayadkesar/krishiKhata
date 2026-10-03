@@ -6,6 +6,7 @@ import { saveEntry } from '@/data/entries'
 import { useI18n } from '@/i18n'
 import { formatRupees } from '@/lib/money'
 import { navigate } from '@/router'
+import { BillPhoto } from './BillPhoto'
 import { EntryFields, MissingHint } from './EntryForm'
 import { blankDraft, useEntryForm } from './entryDraft'
 import type { EntryDraft } from './entryDraft'
@@ -136,6 +137,13 @@ export function AddEntryScreen() {
         </div>
 
         <EntryFields draft={draft} set={set} form={form} />
+
+        {/* The slip from the shop, while it is still in your hand. Transfers
+            have no bill — money moving between your own accounts is not a
+            purchase and there is nothing to photograph. */}
+        {draft.kind !== 'transfer' ? (
+          <BillPhoto photoId={draft.photo_id} onChange={(id) => set({ photo_id: id })} />
+        ) : null}
 
         {/* Quantity × rate fills the amount above until the farmer types one
             themselves. This offers the computed figure back. */}

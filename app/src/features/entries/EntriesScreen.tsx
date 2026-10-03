@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Search } from 'lucide-react'
+import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Receipt, Search } from 'lucide-react'
 import { Page, Shell } from '@/components/Shell'
 import { Card, EmptyState, Input } from '@/components/ui'
 import { useQuery } from '@/hooks/useQuery'
@@ -188,7 +188,19 @@ export function EntriesScreen() {
                       </span>
 
                       <span className="flex-1 min-w-0">
-                        <span className="block font-medium truncate">{describe(e)}</span>
+                        <span className="block font-medium truncate">
+                          {describe(e)}
+                          {/* A bill is attached. Worth saying in the list:
+                              "which of these did I keep the slip for" is asked
+                              at exactly the moment the list is open. */}
+                          {e.photo_id ? (
+                            <Receipt
+                              size={13}
+                              className="inline ml-1.5 -mt-0.5"
+                              style={{ color: 'var(--text-faint)' }}
+                            />
+                          ) : null}
+                        </span>
                         <span
                           className="block text-xs truncate"
                           style={{ color: 'var(--text-faint)' }}

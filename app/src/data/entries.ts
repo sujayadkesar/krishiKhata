@@ -77,12 +77,53 @@ export async function saveEntry(input: EntryInput): Promise<string> {
     )
   }
 
+  /*
+   * The photo's back-reference, set here rather than left to the screen.
+   *
+   * `savePhoto` writes the row with entry_id NULL because the entry does not
+   * exist yet, and nothing was closing the loop — so every bill sat
+   * unattached, and the orphan sweep below could not tell a bill in use from
+   * one abandoned halfway through a form.
+   */
+  if (input.photo_id) {
+    await run('UPDATE photos SET entry_id = ?, updated_at = ? WHERE id = ?;', [
+      id,
+      ts,
+      input.photo_id,
+    ])
+  }
+
   await run(
     'INSERT INTO change_log (id, table_name, row_id, action, summary, at) VALUES (?, ?, ?, ?, ?, ?);',
     [newId(), 'entries', id, input.id ? 'update' : 'create', `${input.kind} ${input.amount_paise}`, ts],
   )
   notifyDataChanged()
   return id
+}
+
+/**
+ * Throw away bills that never made it onto an entry.
+ *
+ * A farmer photographs a slip, then backs out of the form — the photo is
+ * already saved and now belongs to nothing. Each is a couple of hundred
+ * kilobytes of base64 in the database, the database is what the backup
+ * carries, and Android's automatic backup refuses anything over 25 MB
+ * SILENTLY. A handful of abandoned shots could therefore stop the whole farm
+ * being backed up, with nothing on screen to say so.
+ *
+ * Only genuinely unattached rows go, and only ones older than a day, so a
+ * photo taken thirty seconds ago for a form still open is never touched.
+ */
+export async function pruneOrphanPhotos(olderThanISO: string): Promise<number> {
+  const rows = await all<{ id: string }>(
+    `SELECT id FROM photos
+      WHERE entry_id IS NULL
+        AND created_at < ?
+        AND id NOT IN (SELECT photo_id FROM entries WHERE photo_id IS NOT NULL);`,
+    [olderThanISO],
+  )
+  for (const r of rows) await run('DELETE FROM photos WHERE id = ?;', [r.id])
+  return rows.length
 }
 
 /**
