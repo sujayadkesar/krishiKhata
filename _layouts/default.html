@@ -277,18 +277,32 @@ body {
   color: #7a5a12;
 }
 
-/* A table on a phone is the commonest cause of sideways scroll on a page like
-   this, so it gets its own scroller rather than stretching the body.
+/*
+   A TABLE IS ITS OWN SCROLL CONTAINER.
 
-   `body { overflow-x: hidden }` is the backstop, not the fix: a table added
-   later without the wrapper would otherwise take the whole page with it, and
-   the symptom — a page that slides a centimetre sideways under the thumb — is
-   the kind of thing nobody reports and everybody notices. */
-.table-wrap { overflow-x: auto; margin: 16px 0; -webkit-overflow-scrolling: touch; }
-.prose table { border-collapse: collapse; width: 100%; font-size: 15px; min-width: 460px; }
-.prose th, .prose td { padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--line); }
-.prose thead th { background: var(--sunken); color: var(--ink); font-weight: 700; font-size: 13.5px; }
-.prose tbody tr:nth-child(even) td { background: #fdfbf7; }
+   The first attempt wrapped each table in a <div markdown="1">, which works in
+   kramdown until that div sits inside another markdown="1" div — then the
+   inner one is swallowed and the wrapper never reaches the HTML at all. The
+   table then dragged the whole page sideways on a phone, which is the one
+   layout bug nobody reports and everybody feels.
+
+   `display: block` with `width: max-content` turns the table itself into the
+   scroller. It is what GitHub does to tables in rendered Markdown, it needs no
+   markup around it, and a table added to any page later is safe by default.
+*/
+  .prose table {
+    display: block;
+    width: max-content;
+    max-width: 100%;
+    overflow-x: auto;
+    border-collapse: collapse;
+    font-size: 15px;
+    margin: 16px 0;
+    -webkit-overflow-scrolling: touch;
+  }
+  .prose th, .prose td { padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--line); }
+  .prose thead th { background: var(--sunken); color: var(--ink); font-weight: 700; font-size: 13.5px; }
+  .prose tbody tr:nth-child(even) td { background: #fdfbf7; }
 
 /* --------------------------------------------------------------- foot -- */
 
