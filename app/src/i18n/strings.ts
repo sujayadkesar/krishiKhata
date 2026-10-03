@@ -650,6 +650,10 @@ export const STRINGS = {
     kn: 'ಫೋನಿನಲ್ಲಿ Google ಬ್ಯಾಕಪ್ ಆನ್ ಇದ್ದರೆ, ಚಾರ್ಜ್‌ನಲ್ಲಿ ವೈ-ಫೈ ಇದ್ದಾಗ ಆಂಡ್ರಾಯ್ಡ್ ತಾನಾಗಿ ಸೇವ್ ಮಾಡುತ್ತದೆ. ಅದು ಆಗಿದೆಯೇ ಎಂದು ಈ ಆ್ಯಪ್‌ಗೆ ತಿಳಿಯುವುದಿಲ್ಲ. ಹಾಗಾಗಿ ಕೆಳಗಿನ ನಿಮ್ಮದೇ ಪ್ರತಿಯನ್ನೂ ತೆಗೆದಿಡಿ.',
     en: 'If Google backup is switched on, Android saves your records while the phone is charging on wi-fi. This app cannot check whether that has happened, so keep your own copy below as well.',
   },
+  'backup.safetyCopy': {
+    kn: 'ಹಿಂದಿನ ಲೆಕ್ಕದ ಪ್ರತಿ — ಸುರಕ್ಷಿತವಾಗಿ ಇಟ್ಟುಕೊಳ್ಳಿ',
+    en: 'A copy of what was here before — keep it safe',
+  },
   'backup.checkPhone': {
     kn: 'ಫೋನಿನ ಬ್ಯಾಕಪ್ ಸೆಟ್ಟಿಂಗ್ ನೋಡಿ',
     en: "Check your phone's backup setting",

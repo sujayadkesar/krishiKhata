@@ -196,6 +196,46 @@ export async function restoreSnapshot(snapshot: BackupFile): Promise<RestoreResu
  * so writing the file and offering it there gets the backup into Drive with
  * the farmer choosing where, and no credentials anywhere.
  */
+/**
+ * Hand a file to the farmer, wherever the app is running.
+ *
+ * ON THE WEB this is an anchor click. ON THE PHONE it is not: a WebView has no
+ * downloads folder and `<a download>` does nothing at all there — silently,
+ * with no error. The safety copy taken before a restore used exactly that, so
+ * on the actual product it was never written anywhere. A farmer who restored
+ * the wrong file had nothing to go back to, which is the one outcome that
+ * whole mechanism exists to prevent.
+ */
+export async function offerFile(blob: Blob, fileName: string, title: string): Promise<void> {
+  if (!Capacitor.isNativePlatform()) {
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = fileName
+    a.click()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+    return
+  }
+
+  // Filesystem wants text, and a gzip blob is not text — base64 is the only
+  // encoding that survives the bridge intact.
+  const base64 = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result).split(',')[1] ?? '')
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(blob)
+  })
+
+  const written = await Filesystem.writeFile({
+    path: fileName,
+    data: base64,
+    directory: Directory.Cache,
+    recursive: true,
+  })
+
+  await Share.share({ title, text: title, url: written.uri, dialogTitle: title })
+}
+
 export async function shareBackup(): Promise<{ fileName: string; rows: number }> {
   const snapshot = await buildSnapshot()
   const { blob, gzipped } = await encodeBackup(snapshot)

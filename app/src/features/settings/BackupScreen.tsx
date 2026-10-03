@@ -8,9 +8,9 @@ import { useQuery } from '@/hooks/useQuery'
 import { useI18n } from '@/i18n'
 import { back } from '@/router'
 import {
-  decodeBackup, encodeBackup, lastBackupAt, restoreSnapshot, shareBackup,
+  decodeBackup, encodeBackup, lastBackupAt, offerFile, restoreSnapshot, shareBackup,
 } from '@/data/backup'
-import { formatDate } from '@/lib/date'
+import { formatDate, todayISO } from '@/lib/date'
 import { canOpenBackupSettings, openBackupSettings } from '@/lib/systemSettings'
 
 /**
@@ -39,15 +39,6 @@ import { canOpenBackupSettings, openBackupSettings } from '@/lib/systemSettings'
  * backup and a file the farmer controls, it was buying complexity rather than
  * safety.
  */
-
-function download(blob: Blob, name: string): void {
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = name
-  a.click()
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
-}
 
 export function BackupScreen() {
   const { t, lang } = useI18n()
@@ -89,7 +80,14 @@ export function BackupScreen() {
       // database it describes has just been replaced — there is nowhere safe
       // left to put it inside the app.
       const { blob, gzipped } = await encodeBackup(safetyCopy)
-      download(blob, `krishi-khata-before-restore-${Date.now()}.json${gzipped ? '.gz' : ''}`)
+      // Handed over through the share sheet on a phone. The old anchor-click
+      // wrote nothing inside a WebView, so this copy — the only way back from
+      // restoring the wrong file — never actually existed on the product.
+      await offerFile(
+        blob,
+        `krishi-khata-before-restore-${todayISO()}.json${gzipped ? '.gz' : ''}`,
+        t('backup.safetyCopy'),
+      )
 
       const rows = Object.values(restored).reduce((a, b) => a + b, 0)
       setMessage(t('backup.restoredRows').replace('{n}', String(rows)))
