@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="{{ page.lang | default: 'en' }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>{% if page.title %}{{ page.title }} · {% endif %}Krishi Khata</title>
+<meta name="description" content="{{ page.description | default: site.description }}">
+<meta name="theme-color" content="#12502c">
+
+<link rel="icon" href="{{ '/assets/logo.svg' | relative_url }}" type="image/svg+xml">
+<meta property="og:title" content="{{ page.title | default: 'Krishi Khata' }}">
+<meta property="og:description" content="{{ page.description | default: site.description }}">
+<meta property="og:type" content="website">
+
+<!--
+  The Kannada face is loaded for the same reason the app embeds it: half this
+  page is Kannada, and a device that falls back to a default face renders
+  conjuncts badly or as boxes. `display=swap` so the English half is readable
+  while it arrives.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Kannada:wght@400;600;700&display=swap" rel="stylesheet">
+
+<style>
+/*
+  The app's own palette, so the site and the thing it describes look like one
+  project. Deep green is the mark, orange is the action, teal is money coming
+  in — exactly as inside the app.
+*/
+:root {
+  --green: #12502c;
+  --green-700: #1b6b3c;
+  --brand: #e35b0d;
+  --brand-600: #c94a06;
+  --brand-50: #fef4ec;
+  --teal: #04796b;
+  --earth: #d38b16;
+  --earth-50: #fdf3e0;
+
+  --ink: #1a1411;
+  --ink-soft: #5b5146;
+  --ink-faint: #8b7f71;
+  --paper: #fffdfa;
+  --sunken: #fdf7ef;
+  --line: #efe4d5;
+
+  --radius: 16px;
+  --shadow: 0 1px 2px rgba(26,20,17,.05), 0 8px 24px -14px rgba(26,20,17,.3);
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--sunken);
+  color: var(--ink);
+  font-family: 'Noto Sans Kannada', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 17px;
+  line-height: 1.65;
+  /* A 16px gutter on a phone, which is the width this is mostly read at. */
+  padding: 0 16px;
+}
+
+.wrap { max-width: 760px; margin: 0 auto; }
+
+/* ------------------------------------------------------------------ nav - */
+
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 0 8px;
+}
+.nav img { width: 34px; height: 34px; border-radius: 9px; }
+.nav b { font-size: 16px; font-weight: 700; }
+.nav .spacer { flex: 1; }
+.nav a {
+  color: var(--ink-soft);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 6px 2px;
+}
+.nav a:hover { color: var(--brand-600); }
+
+/* ----------------------------------------------------------------- hero - */
+
+.hero {
+  text-align: center;
+  padding: 26px 0 30px;
+}
+.hero-mark {
+  width: 86px;
+  height: 86px;
+  border-radius: 22px;
+  box-shadow: 0 10px 28px -12px rgba(18,80,44,.6);
+}
+.hero h1 {
+  font-size: clamp(30px, 8vw, 44px);
+  line-height: 1.15;
+  margin: 18px 0 2px;
+  font-weight: 700;
+  color: var(--green);
+  letter-spacing: 0; /* never track Kannada: it takes the conjuncts apart */
+}
+.hero .latin {
+  font-size: clamp(17px, 4.5vw, 21px);
+  color: var(--ink-soft);
+  font-weight: 600;
+  margin: 0 0 14px;
+}
+.hero p.lede {
+  font-size: 17px;
+  color: var(--ink-soft);
+  margin: 0 auto;
+  max-width: 48ch;
+}
+
+.cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 24px;
+}
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 13px 22px;
+  border-radius: 999px;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 15px;
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.btn:active { transform: scale(.98); }
+.btn-primary {
+  background: linear-gradient(140deg, var(--brand), var(--brand-600));
+  color: #fff;
+  box-shadow: 0 8px 20px -10px var(--brand-600);
+}
+.btn-ghost {
+  background: var(--paper);
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+
+/* ------------------------------------------------------------- pillars - */
+
+.pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 22px;
+}
+.pill {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 13px;
+  border-radius: 999px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  color: var(--ink-soft);
+}
+.pill.on-green { background: #eaf3ed; border-color: #cfe4d6; color: var(--green); }
+.pill.on-teal { background: #e0f2ef; border-color: #b9ded8; color: var(--teal); }
+.pill.on-earth { background: var(--earth-50); border-color: #f2cc86; color: #8a5605; }
+
+/* --------------------------------------------------------------- cards - */
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+  margin: 10px 0 8px;
+}
+@media (min-width: 620px) {
+  .grid { grid-template-columns: 1fr 1fr; }
+}
+
+.card {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 20px;
+  box-shadow: var(--shadow);
+}
+.card h3 {
+  margin: 0 0 6px;
+  font-size: 18px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.card h3 .dot {
+  width: 10px; height: 10px; border-radius: 999px; flex: none;
+}
+.card p { margin: 0; color: var(--ink-soft); font-size: 15.5px; }
+
+/* --------------------------------------------------------------- shots - */
+
+.shots {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 72%;
+  gap: 14px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  padding: 6px 0 18px;
+  /* Bleed to the screen edges on a phone so the strip reads as swipeable. */
+  margin: 0 -16px;
+  padding-left: 16px;
+  padding-right: 16px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.shots::-webkit-scrollbar { display: none; }
+@media (min-width: 620px) { .shots { grid-auto-columns: 38%; } }
+
+.shots figure { margin: 0; scroll-snap-align: center; }
+.shots img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  background: #fff;
+}
+.shots figcaption {
+  font-size: 13px;
+  color: var(--ink-faint);
+  text-align: center;
+  margin-top: 8px;
+  font-weight: 600;
+}
+
+/* -------------------------------------------------------------- prose -- */
+
+.prose { }
+.prose h2 {
+  font-size: 23px;
+  font-weight: 700;
+  color: var(--green);
+  margin: 38px 0 10px;
+  padding-bottom: 7px;
+  border-bottom: 2px solid var(--line);
+}
+.prose h3 { font-size: 18px; font-weight: 700; margin: 26px 0 6px; }
+.prose p, .prose li { color: var(--ink-soft); }
+.prose strong { color: var(--ink); }
+.prose a { color: var(--brand-600); text-decoration-thickness: 1.5px; text-underline-offset: 2px; }
+.prose ul { padding-left: 1.15em; }
+.prose li { margin: 5px 0; }
+.prose hr { border: 0; border-top: 1px solid var(--line); margin: 30px 0; }
+.prose code {
+  background: var(--brand-50);
+  color: var(--brand-600);
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.prose blockquote {
+  margin: 18px 0;
+  padding: 2px 16px;
+  border-left: 3px solid var(--earth);
+  background: var(--earth-50);
+  border-radius: 0 10px 10px 0;
+  color: #7a5a12;
+}
+
+/* A table on a phone is the commonest cause of sideways scroll on a page
+   like this, so it gets its own scroller rather than stretching the body. */
+.table-wrap { overflow-x: auto; margin: 16px 0; -webkit-overflow-scrolling: touch; }
+.prose table { border-collapse: collapse; width: 100%; font-size: 15px; min-width: 460px; }
+.prose th, .prose td { padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--line); }
+.prose thead th { background: var(--sunken); color: var(--ink); font-weight: 700; font-size: 13.5px; }
+.prose tbody tr:nth-child(even) td { background: #fdfbf7; }
+
+/* --------------------------------------------------------------- foot -- */
+
+.foot {
+  margin: 48px 0 0;
+  padding: 22px 0 34px;
+  border-top: 1px solid var(--line);
+  text-align: center;
+  font-size: 14px;
+  color: var(--ink-faint);
+}
+.foot a { color: var(--ink-soft); text-decoration: none; font-weight: 600; }
+.foot a:hover { color: var(--brand-600); }
+.foot .sep { opacity: .4; margin: 0 8px; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <nav class="nav">
+    <a href="{{ '/' | relative_url }}" style="display:flex;align-items:center;gap:10px;color:inherit">
+      <img src="{{ '/assets/logo.svg' | relative_url }}" alt="">
+      <b>Krishi Khata</b>
+    </a>
+    <span class="spacer"></span>
+    <a href="{{ '/docs/privacy' | relative_url }}">Privacy</a>
+    <a href="https://github.com/sujayadkesar/krishiKhata">GitHub</a>
+  </nav>
+
+  {{ content }}
+
+  <footer class="foot">
+    ಕೃಷಿ ಖಾತೆ · Krishi Khata<br>
+    <span style="font-size:13px">Built for farmers in Uttara Kannada, Karnataka</span>
+    <div style="margin-top:12px">
+      <a href="{{ '/' | relative_url }}">Home</a><span class="sep">·</span>
+      <a href="{{ '/docs/privacy' | relative_url }}">Privacy</a><span class="sep">·</span>
+      <a href="https://github.com/sujayadkesar/krishiKhata">Source</a>
+    </div>
+  </footer>
+</div>
+
+</body>
+</html>

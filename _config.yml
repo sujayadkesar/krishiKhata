@@ -1,0 +1,26 @@
+title: ಕೃಷಿ ಖಾತೆ · Krishi Khata
+description: A farm ledger for Kannada-speaking farmers. Offline, no account, no server.
+url: https://sujayadkesar.github.io
+baseurl: /krishiKhata
+
+# No `theme` key at all. _layouts/default.html carries its own styles, which is
+# less code than overriding somebody else's theme and leaves nothing to break
+# when that theme ships a new major version. Naming a theme and then shadowing
+# its layout would work too, but it is one more moving part in a build that is
+# only ever run by GitHub.
+
+# Jekyll walks everything it is not told to ignore. `app` holds node_modules,
+# an Android project and a build directory — tens of thousands of files that
+# would make every Pages build slow and, past a point, fail outright.
+exclude:
+  - app
+  - CLAUDE.md
+  - .claude
+  - .github
+  - README.md
+
+defaults:
+  - scope:
+      path: ''
+    values:
+      layout: default

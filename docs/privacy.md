@@ -1,8 +1,17 @@
 ---
-title: Privacy Policy — Krishi Khata
+layout: default
+title: Privacy Policy
+description: Krishi Khata keeps your farm records on your own phone. No server, no data collection.
 ---
 
-# Privacy Policy
+<section class="hero" style="padding-bottom:12px">
+  <img class="hero-mark" src="{{ '/assets/logo.svg' | relative_url }}" alt="">
+  <h1 style="font-size:clamp(26px,7vw,36px)">Privacy Policy</h1>
+  <p class="latin">ಕೃಷಿ ಖಾತೆ · Krishi Khata</p>
+</section>
+
+<div class="prose" markdown="1">
+
 
 **Krishi Khata** (`in.krishikhata.app`)
 
@@ -47,12 +56,16 @@ way as everything else, and is never transmitted anywhere.
 Every one of these is optional except the first two, and each is asked for at
 the moment you use the feature that needs it — never on first launch.
 
+<div class="table-wrap" markdown="1">
+
 | Permission | Why | What happens if you refuse |
 | --- | --- | --- |
 | `INTERNET` | Uploading your backup to your own Google Drive, if you turn that on. There is no other network use and no server of ours to call. | — |
 | `ACCESS_NETWORK_STATE` | So the app knows when the phone is back in range and can finish a backup that was waiting. | — |
 | `READ_CONTACTS` | Searching your phone book inside the app to add workers quickly. Nothing is read until you tap that button, nothing is written, and nothing leaves the phone. | You can still add a worker from the system contact picker, which needs no permission, or type the name yourself. |
 | `CAMERA` | Photographing a bill against an entry. | You can choose an existing photo from the gallery instead, which needs no permission. |
+
+</div>
 
 It does **not** request location, microphone, phone state, access to your wider
 files, or the ability to install other apps. It never writes to your contacts.
@@ -120,3 +133,6 @@ Questions about this policy, or about the app:
 <sujayadkesar.iet@srinivasuniversity.edu.in>
 
 Source code: [github.com/sujayadkesar/krishiKhata](https://github.com/sujayadkesar/krishiKhata)
+
+
+</div>
