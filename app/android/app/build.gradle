@@ -77,6 +77,10 @@ dependencies {
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    // Authorization only: this gets an access token for the user's own
+    // Drive. No Drive SDK — the REST calls are plain fetch from the web
+    // layer, which keeps the native surface to one file.
+    implementation "com.google.android.gms:play-services-auth:$playServicesAuthVersion"
     implementation project(':capacitor-cordova-android-plugins')
 }
 

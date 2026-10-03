@@ -1,5 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { startDriveAutoBackup } from '@/data/driveBackup'
 import { Capacitor } from '@capacitor/core'
 import { SplashScreen } from '@capacitor/splash-screen'
 import { StatusBar, Style } from '@capacitor/status-bar'
@@ -71,6 +72,19 @@ if (import.meta.env.DEV) {
     })
   })()
 }
+
+/*
+ * The Drive backup's automatic half.
+ *
+ * Started here rather than inside a component: it subscribes to every data
+ * change in the app for the life of the process, and a subscription owned by a
+ * screen dies when that screen unmounts — which would mean the backup quietly
+ * stopped covering anything entered after the farmer left Settings.
+ *
+ * It does nothing at all until the farmer has signed in, and nothing on a
+ * platform that has no Drive.
+ */
+void startDriveAutoBackup()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

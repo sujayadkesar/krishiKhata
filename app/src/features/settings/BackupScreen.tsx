@@ -1,12 +1,15 @@
 import { useState } from 'react'
 import {
-  Check, ExternalLink, RotateCcw, Share2, ShieldCheck, TriangleAlert,
+  Check, CloudUpload, ExternalLink, RotateCcw, Share2, ShieldCheck, TriangleAlert,
 } from 'lucide-react'
 import { Page, Shell } from '@/components/Shell'
-import { Card, EmptyState, SectionHeader } from '@/components/ui'
+import { Button, Card, EmptyState, SectionHeader } from '@/components/ui'
 import { useQuery } from '@/hooks/useQuery'
 import { useI18n } from '@/i18n'
 import { back } from '@/router'
+import {
+  disableDrive, driveStatus, enableDrive, restoreFromDrive, syncNow,
+} from '@/data/driveBackup'
 import {
   decodeBackup, encodeBackup, lastBackupAt, offerFile, restoreSnapshot, shareBackup,
 } from '@/data/backup'
@@ -48,6 +51,7 @@ export function BackupScreen() {
   const [error, setError] = useState<string | null>(null)
 
   const { data: last, reload } = useQuery(lastBackupAt, [])
+  const { data: drive, reload: reloadDrive } = useQuery(driveStatus, [])
 
   async function run(label: string, fn: () => Promise<void>) {
     setBusy(label)
@@ -68,6 +72,38 @@ export function BackupScreen() {
       reload()
       setMessage(t('backup.savedRows').replace('{n}', String(rows)))
     })
+
+  async function turnOn() {
+    await run('drive', async () => {
+      const ok = await enableDrive()
+      setMessage(ok ? t('drive.turnedOn') : t('drive.declined'))
+      reloadDrive()
+    })
+  }
+
+  async function turnOff() {
+    await run('drive', async () => {
+      await disableDrive()
+      reloadDrive()
+    })
+  }
+
+  async function syncNowTap() {
+    await run('drive', async () => {
+      const res = await syncNow(true)
+      setMessage(res.ok ? t('drive.synced') : t('drive.syncFailed'))
+      reloadDrive()
+    })
+  }
+
+  async function restoreDrive() {
+    await run('drive', async () => {
+      const { restored } = await restoreFromDrive()
+      const rows = Object.values(restored).reduce((a, b) => a + b, 0)
+      setMessage(t('backup.restoredRows').replace('{n}', String(rows)))
+      reloadDrive()
+    })
+  }
 
   const onPickFile = (input: HTMLInputElement) =>
     run('restore', async () => {
@@ -147,6 +183,103 @@ export function BackupScreen() {
             ) : null}
           </div>
         </div>
+
+        {/*
+          GOOGLE DRIVE — the one that can actually promise a new phone works.
+
+          Put above everything else because it is the answer to the question
+          this screen exists for. Android's own backup stays below it as a
+          second layer, and the file the farmer keeps stays below that as a
+          third; none of them cost anything to have all at once.
+        */}
+        {drive?.available ? (
+          <section>
+            <SectionHeader>{t('drive.title')}</SectionHeader>
+            <div
+              className="card p-4"
+              style={{
+                background: drive.enabled ? 'var(--color-income-soft)' : 'var(--surface-raised)',
+                borderColor: drive.enabled ? 'var(--color-income)' : 'var(--border)',
+              }}
+            >
+              <div className="flex items-start gap-3">
+                <span
+                  className="grid place-items-center rounded-xl shrink-0"
+                  style={{
+                    width: 40,
+                    height: 40,
+                    background: drive.enabled ? 'var(--color-income)' : 'var(--surface-sunken)',
+                    color: drive.enabled ? '#fff' : 'var(--text-faint)',
+                  }}
+                >
+                  <CloudUpload size={20} />
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold">
+                    {drive.enabled ? t('drive.on') : t('drive.off')}
+                  </p>
+                  <p className="text-sm mt-0.5" style={{ color: 'var(--text-soft)' }}>
+                    {drive.enabled ? drive.email || t('drive.signedIn') : t('drive.offBody')}
+                  </p>
+
+                  {drive.enabled ? (
+                    <p className="text-xs mt-1.5" style={{ color: 'var(--text-faint)' }}>
+                      {drive.lastSyncAt
+                        ? `${t('drive.lastSynced')}: ${formatDate(drive.lastSyncAt.slice(0, 10), lang)}`
+                        : t('drive.never')}
+                      {drive.pending ? ` · ${t('drive.pending')}` : ''}
+                    </p>
+                  ) : null}
+
+                  {/* A failure has to be visible. A backup that silently stopped
+                      working is worse than one that was never switched on. */}
+                  {drive.enabled && drive.lastError ? (
+                    <p className="text-xs mt-1.5" style={{ color: 'var(--color-expense)' }}>
+                      {drive.lastError === 'consent' ? t('drive.needsConsent') : t('drive.failed')}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 mt-3.5">
+                {drive.enabled ? (
+                  <>
+                    <Button variant="soft" full onClick={() => void turnOff()} disabled={!!busy}>
+                      {t('drive.turnOff')}
+                    </Button>
+                    <Button full onClick={() => void syncNowTap()} disabled={!!busy}>
+                      {busy === 'drive' ? t('common.loading') : t('drive.syncNow')}
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button variant="soft" full onClick={() => void restoreDrive()} disabled={!!busy}>
+                      {t('drive.restore')}
+                    </Button>
+                    <Button full onClick={() => void turnOn()} disabled={!!busy}>
+                      {busy === 'drive' ? t('common.loading') : t('drive.turnOn')}
+                    </Button>
+                  </>
+                )}
+              </div>
+
+              {drive.enabled ? (
+                <button
+                  onClick={() => void restoreDrive()}
+                  disabled={!!busy}
+                  className="mt-2.5 text-sm font-semibold"
+                  style={{ color: 'var(--color-brand-600)' }}
+                >
+                  {t('drive.restore')}
+                </button>
+              ) : null}
+
+              <p className="text-xs mt-3" style={{ color: 'var(--text-faint)' }}>
+                {t('drive.privacy')}
+              </p>
+            </div>
+          </section>
+        ) : null}
 
         {message ? (
           <div

@@ -14,6 +14,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(PdfPrintPlugin.class);
         registerPlugin(ContactPickPlugin.class);
         registerPlugin(SystemSettingsPlugin.class);
+        registerPlugin(GoogleDrivePlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

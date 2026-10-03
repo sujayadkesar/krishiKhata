@@ -650,6 +650,38 @@ export const STRINGS = {
     kn: 'ಫೋನಿನಲ್ಲಿ Google ಬ್ಯಾಕಪ್ ಆನ್ ಇದ್ದರೆ, ಚಾರ್ಜ್‌ನಲ್ಲಿ ವೈ-ಫೈ ಇದ್ದಾಗ ಆಂಡ್ರಾಯ್ಡ್ ತಾನಾಗಿ ಸೇವ್ ಮಾಡುತ್ತದೆ. ಅದು ಆಗಿದೆಯೇ ಎಂದು ಈ ಆ್ಯಪ್‌ಗೆ ತಿಳಿಯುವುದಿಲ್ಲ. ಹಾಗಾಗಿ ಕೆಳಗಿನ ನಿಮ್ಮದೇ ಪ್ರತಿಯನ್ನೂ ತೆಗೆದಿಡಿ.',
     en: 'If Google backup is switched on, Android saves your records while the phone is charging on wi-fi. This app cannot check whether that has happened, so keep your own copy below as well.',
   },
+  /* Google Drive backup — the one that survives losing the phone. */
+  'drive.title': { kn: 'Google Drive ಬ್ಯಾಕಪ್', en: 'Google Drive backup' },
+  'drive.on': { kn: 'ಆನ್ ಇದೆ — ತಾನಾಗಿ ಸೇವ್ ಆಗುತ್ತದೆ', en: 'On — saving by itself' },
+  'drive.off': { kn: 'ಆನ್ ಮಾಡಿ — ಫೋನ್ ಕಳೆದರೂ ಲೆಕ್ಕ ಉಳಿಯುತ್ತದೆ', en: 'Turn this on — your records survive a lost phone' },
+  'drive.offBody': {
+    kn: 'ಒಮ್ಮೆ ಸೈನ್ ಇನ್ ಮಾಡಿ. ನಂತರ ಪ್ರತಿ ದಿನದ ಎಂಟ್ರಿ ನಿಮ್ಮದೇ Google Drive‌ಗೆ ತಾನಾಗಿ ಹೋಗುತ್ತದೆ.',
+    en: 'Sign in once. After that your entries go to your own Google Drive on their own.',
+  },
+  'drive.signedIn': { kn: 'ಸೈನ್ ಇನ್ ಆಗಿದೆ', en: 'Signed in' },
+  'drive.turnOn': { kn: 'ಸೈನ್ ಇನ್ ಮಾಡಿ', en: 'Sign in' },
+  'drive.turnOff': { kn: 'ಆಫ್ ಮಾಡಿ', en: 'Turn off' },
+  'drive.syncNow': { kn: 'ಈಗಲೇ ಸೇವ್ ಮಾಡಿ', en: 'Save now' },
+  'drive.restore': { kn: 'Drive‌ನಿಂದ ವಾಪಸ್ ತರಿ', en: 'Restore from Drive' },
+  'drive.lastSynced': { kn: 'ಕೊನೆಯ ಬಾರಿ', en: 'Last saved' },
+  'drive.never': { kn: 'ಇನ್ನೂ ಸೇವ್ ಆಗಿಲ್ಲ', en: 'Not saved yet' },
+  'drive.pending': { kn: 'ಹೊಸ ಎಂಟ್ರಿ ಕಾಯುತ್ತಿದೆ', en: 'new entries waiting' },
+  'drive.needsConsent': {
+    kn: 'ಮತ್ತೊಮ್ಮೆ ಸೈನ್ ಇನ್ ಮಾಡಬೇಕು. “ಈಗಲೇ ಸೇವ್ ಮಾಡಿ” ಒತ್ತಿ.',
+    en: 'Needs you to sign in again. Tap “Save now”.',
+  },
+  'drive.failed': {
+    kn: 'ಕೊನೆಯ ಬಾರಿ ಸೇವ್ ಆಗಲಿಲ್ಲ. ನೆಟ್‌ವರ್ಕ್ ಬಂದಾಗ ತಾನಾಗಿ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸುತ್ತದೆ.',
+    en: 'The last save did not go through. It will try again when there is a network.',
+  },
+  'drive.turnedOn': { kn: 'ಆಯಿತು. ಇನ್ನು ತಾನಾಗಿ ಸೇವ್ ಆಗುತ್ತದೆ.', en: 'Done. It will save on its own from now on.' },
+  'drive.declined': { kn: 'ಸೈನ್ ಇನ್ ಆಗಲಿಲ್ಲ.', en: 'Not signed in.' },
+  'drive.synced': { kn: 'Google Drive‌ಗೆ ಸೇವ್ ಆಯಿತು.', en: 'Saved to your Google Drive.' },
+  'drive.syncFailed': { kn: 'ಸೇವ್ ಆಗಲಿಲ್ಲ. ನೆಟ್‌ವರ್ಕ್ ನೋಡಿ.', en: 'Could not save. Check the network.' },
+  'drive.privacy': {
+    kn: 'ಫೈಲ್ ನಿಮ್ಮದೇ Drive‌ನ ಗುಪ್ತ ಫೋಲ್ಡರ್‌ಗೆ ಹೋಗುತ್ತದೆ. ಈ ಆ್ಯಪ್‌ಗೆ ನಿಮ್ಮ ಬೇರೆ ಯಾವ ಫೈಲೂ ಕಾಣುವುದಿಲ್ಲ, ಮತ್ತು ಯಾವ ಸರ್ವರ್‌ಗೂ ಏನೂ ಹೋಗುವುದಿಲ್ಲ.',
+    en: 'The file goes to a hidden folder in your own Drive. This app cannot see any of your other files, and nothing goes to any server.',
+  },
   'backup.safetyCopy': {
     kn: 'ಹಿಂದಿನ ಲೆಕ್ಕದ ಪ್ರತಿ — ಸುರಕ್ಷಿತವಾಗಿ ಇಟ್ಟುಕೊಳ್ಳಿ',
     en: 'A copy of what was here before — keep it safe',
