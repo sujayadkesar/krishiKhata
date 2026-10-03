@@ -363,7 +363,7 @@ export function ReportsScreen() {
           <Button onClick={() => void share()} disabled={!!busy}>
             <span className="inline-flex items-center gap-1.5 justify-center">
               <Share2 size={17} />
-              {busy === 'share' ? t('common.loading') : 'Share'}
+              {busy === 'share' ? t('common.loading') : t('report.share')}
             </span>
           </Button>
         </header>

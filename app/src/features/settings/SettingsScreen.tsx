@@ -1,6 +1,6 @@
 import {
   Wallet, Sprout, Tags, Hammer, Users, Home, Languages, CloudUpload, ChevronRight, MapPin,
-  TrendingUp, TrendingDown,
+  TrendingUp, TrendingDown, History,
 } from 'lucide-react'
 import { Page, Shell } from '@/components/Shell'
 import { Card, ListRow, SectionHeader } from '@/components/ui'
@@ -48,6 +48,7 @@ const GROUPS: { title: StringKey; rows: Row[] }[] = [
       { path: '/settings/profile', label: 'set.farmProfile', icon: Home, hint: 'set.hintProfile' },
       { path: '/settings/plots', label: 'plot.title', icon: MapPin, hint: 'set.hintPlots' },
       { path: '/settings/accounts', label: 'set.accounts', icon: Wallet, hint: 'set.hintAccounts' },
+      { path: '/settings/activity-log', label: 'log.title', icon: History, hint: 'set.hintLog' },
     ],
   },
   {

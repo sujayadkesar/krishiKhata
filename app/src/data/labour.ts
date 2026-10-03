@@ -98,6 +98,35 @@ export interface WorkSessionInput {
  * Only day-basis work counts. Piece and lump jobs carry no day fraction worth
  * defending, and a salaried month is deliberately zero.
  */
+
+/**
+ * A line in the trail, for every write this module makes.
+ *
+ * WHY THIS MODULE HAD NONE. `change_log` was written by entries and master
+ * data from the start, but never by labour — so the half of the app where the
+ * money is most often disputed kept no record of who touched what. "I don't
+ * remember entering that" had no answer for exactly the rows a farmer is most
+ * likely to re-check.
+ *
+ * Outside the transaction, deliberately. A trail entry is worth less than the
+ * row it describes, so it must never be the thing that rolls a write back.
+ */
+async function logChange(
+  table: string,
+  rowId: string,
+  action: 'create' | 'update' | 'delete' | 'price',
+  summary: string,
+): Promise<void> {
+  try {
+    await run(
+      'INSERT INTO change_log (id, table_name, row_id, action, summary, at) VALUES (?, ?, ?, ?, ?, ?);',
+      [newId(), table, rowId, action, summary, nowISO()],
+    )
+  } catch {
+    // A trail that cannot be written is not a reason to lose a day's work.
+  }
+}
+
 export async function recordedFractions(
   labourerIds: string[],
   from: ISODate,
@@ -217,7 +246,17 @@ export async function saveWorkSession(input: WorkSessionInput): Promise<string> 
           newId(), sessionId, d.labourer_id, d.date, d.is_group, Math.max(1, size),
           d.male_count, d.female_count, d.male_rate_paise, d.female_rate_paise,
           d.member_names ?? null, d.day_fraction,
-          basis === 'piece' ? (sessionRate ?? 0) : d.daily_rate_paise,
+          /*
+           * THE RATE THIS WORK WAS PAID AT, whatever the basis.
+           *
+           * Hourly work used to fall into the daily-rate branch, so a tractor
+           * hired at ₹700 an hour stored its operator's day rate — usually
+           * zero, because a machine has none. The statement then printed a
+           * rate of 0 beside a real amount, and correcting the row recomputed
+           * it as quantity x 0 and wiped the figure. Both rates that come from
+           * the session belong on the row, because the row is the snapshot.
+           */
+          basis === 'piece' || basis === 'hour' ? (sessionRate ?? 0) : d.daily_rate_paise,
           amount,
           input.head_id, input.activity_id, input.plot_id,
           basis, d.quantity_milli ?? null,
@@ -231,6 +270,12 @@ export async function saveWorkSession(input: WorkSessionInput): Promise<string> 
   const touched = new Set(input.days.map((d) => d.labourer_id))
   for (const labourerId of touched) await settleOutstanding(labourerId)
 
+  await logChange(
+    'work_sessions',
+    sessionId,
+    'create',
+    `${basis} · ${input.days.length} ${input.days.length === 1 ? 'row' : 'rows'}`,
+  )
   notifyDataChanged()
   return sessionId
 }
@@ -334,6 +379,7 @@ export async function priceSession(sessionId: string, ratePaise: number): Promis
     await settleOutstanding(labourerId)
   }
 
+  await logChange('work_sessions', sessionId, 'price', `${basis} · ${rate}`)
   notifyDataChanged()
   return rows.length
 }
@@ -478,6 +524,7 @@ export async function deleteAttendance(id: string): Promise<void> {
     await exec('DELETE FROM payment_allocations WHERE attendance_id = ?;', [id])
     await exec('UPDATE attendance SET is_deleted = 1, updated_at = ? WHERE id = ?;', [nowISO(), id])
   })
+  await logChange('attendance', id, 'delete', '')
   notifyDataChanged()
 }
 
@@ -683,6 +730,12 @@ export async function recordPayment(input: PaymentInput): Promise<string> {
     }
   }
 
+  await logChange(
+    'labour_payments',
+    paymentId,
+    'create',
+    `${direction} · ${amount}`,
+  )
   notifyDataChanged()
   return paymentId
 }
@@ -714,6 +767,13 @@ export interface AttendanceEdit {
   plot_id?: string | null
   rate_paise?: number
   note?: string | null
+  /** Hourly and piece work: how many hours, how many litres. */
+  quantity_milli?: number | null
+  /** Lump and salary: the agreed figure, used as given. */
+  amount_paise?: number | null
+  /** Crew work: who actually turned up. */
+  male_count?: number
+  female_count?: number
 }
 
 export async function updateAttendance(id: string, edit: AttendanceEdit): Promise<void> {
@@ -751,6 +811,10 @@ export async function updateAttendance(id: string, edit: AttendanceEdit): Promis
   const date = edit.date ?? row.date
   const fraction = edit.day_fraction ?? row.day_fraction
   const rate = edit.rate_paise ?? row.rate_paise
+  const quantity = edit.quantity_milli !== undefined ? edit.quantity_milli : row.quantity_milli
+  const lump = edit.amount_paise !== undefined ? edit.amount_paise : row.amount_paise
+  const males = edit.male_count ?? row.male_count
+  const females = edit.female_count ?? row.female_count
 
   // The same cap the entry screen is held to. Moving a day onto one somebody
   // is already fully booked for is the same mistake as entering it twice.
@@ -763,6 +827,14 @@ export async function updateAttendance(id: string, edit: AttendanceEdit): Promis
     throw err
   }
 
+  /*
+   * ONE RULE, EVERY BASIS.
+   *
+   * `wagePaise` already knows what each basis multiplies; passing the edited
+   * figures through it is what keeps an hourly correction and a day-rate
+   * correction agreeing with the arithmetic on the entry screen. Working it
+   * out here a second way is how the two drift.
+   */
   const amount = wagePaise(
     row.basis,
     {
@@ -770,14 +842,14 @@ export async function updateAttendance(id: string, edit: AttendanceEdit): Promis
       is_group: row.is_group,
       daily_rate_paise: rate,
       half_day_rate_paise: row.half_day_rate_paise,
-      male_count: row.male_count,
-      female_count: row.female_count,
+      male_count: males,
+      female_count: females,
       // A crew's two rates move with the one being corrected only when they
       // were the same to begin with; a deliberately split crew keeps its split.
       male_rate_paise: row.male_rate_paise === row.rate_paise ? rate : row.male_rate_paise,
       female_rate_paise: row.female_rate_paise === row.rate_paise ? rate : row.female_rate_paise,
-      quantity_milli: row.quantity_milli,
-      amount_paise: row.amount_paise,
+      quantity_milli: quantity,
+      amount_paise: lump,
     },
     rate,
     lineTotalPaise,
@@ -791,10 +863,16 @@ export async function updateAttendance(id: string, edit: AttendanceEdit): Promis
     await exec(
       `UPDATE attendance
           SET date = ?, day_fraction = ?, rate_paise = ?, amount_paise = ?,
-              head_id = ?, activity_id = ?, plot_id = ?, note = ?, updated_at = ?
+              quantity_milli = ?, male_count = ?, female_count = ?,
+              group_size = ?, head_id = ?, activity_id = ?, plot_id = ?,
+              note = ?, updated_at = ?
         WHERE id = ?;`,
       [
         date, fraction, rate, amount,
+        quantity,
+        males,
+        females,
+        Math.max(1, males + females),
         // Read with the row above, not inside the transaction: a query issued
         // from in here goes round the write chain `tx` is holding.
         edit.head_id !== undefined ? edit.head_id : row.head_id,
@@ -806,6 +884,7 @@ export async function updateAttendance(id: string, edit: AttendanceEdit): Promis
     )
   })
 
+  await logChange('attendance', id, 'update', `${row.basis} · ${amount}`)
   await settleOutstanding(row.labourer_id)
   notifyDataChanged()
 }
@@ -864,6 +943,7 @@ export async function updatePayment(paymentId: string, edit: PaymentEdit): Promi
     }
   })
 
+  await logChange('labour_payments', paymentId, 'update', String(amount))
   await settleOutstanding(row.labourer_id)
   notifyDataChanged()
 }
@@ -888,6 +968,7 @@ export async function deletePayment(paymentId: string): Promise<void> {
     }
   })
 
+  await logChange('labour_payments', paymentId, 'delete', '')
   // Releasing those allocations may free earlier work to be settled by a later
   // payment, so the ledger is re-matched rather than left with a hole.
   if (payment) await settleOutstanding(payment.labourer_id)
@@ -968,6 +1049,20 @@ export interface AttendanceRow {
   activity_name_en: string | null
   activity_name_kn: string | null
   paid_paise: number
+  /**
+   * HOW THIS DAY WAS PAID FOR, and the quantity behind it.
+   *
+   * Left out until now, which meant everything downstream had to assume a day
+   * rate. A statement for a tractor hired by the hour printed the day fraction
+   * and the hourly rate side by side as though they multiplied, and the edit
+   * sheet could only offer "full day or half day" for work that was never
+   * measured in days at all.
+   */
+  basis: WorkBasis
+  quantity_milli: number | null
+  unit_short_en: string | null
+  unit_short_kn: string | null
+  note: string | null
 }
 
 /**
@@ -985,14 +1080,17 @@ export function attendanceFor(
 ): Promise<AttendanceRow[]> {
   return all<AttendanceRow>(
     `SELECT a.id, a.date, a.day_fraction, a.group_size, a.is_group,
-            a.rate_paise, a.amount_paise, a.head_id,
+            a.rate_paise, a.amount_paise, a.head_id, a.basis, a.quantity_milli, a.note,
             h.name_en AS head_name_en, h.name_kn AS head_name_kn,
             ac.name_en AS activity_name_en, ac.name_kn AS activity_name_kn,
+            u.short_en AS unit_short_en, u.short_kn AS unit_short_kn,
             COALESCE((SELECT SUM(pa.amount_paise) FROM payment_allocations pa
                        WHERE pa.attendance_id = a.id), 0) AS paid_paise
        FROM attendance a
        LEFT JOIN heads h       ON h.id  = a.head_id
        LEFT JOIN activities ac ON ac.id = a.activity_id
+       LEFT JOIN work_sessions ws ON ws.id = a.work_session_id
+       LEFT JOIN units u       ON u.id = ws.unit_id
       WHERE a.labourer_id = ? AND a.is_deleted = 0
         ${range ? 'AND a.date >= ? AND a.date <= ?' : ''}
       ORDER BY a.date DESC, a.created_at DESC
@@ -1083,6 +1181,11 @@ export interface LedgerRow {
   note: string | null
   day_fraction?: number
   group_size?: number
+  /* Work rows only, so the edit sheet can offer the fields that basis uses. */
+  basis?: WorkBasis
+  rate_paise?: number
+  quantity_milli?: number | null
+  unit?: { short_en: string | null; short_kn: string | null }
 }
 
 export interface NamePair {
@@ -1119,9 +1222,13 @@ export async function labourLedger(labourerId: string): Promise<LedgerRow[]> {
       label: 'work',
       head: pair(w.head_name_en, w.head_name_kn),
       activity: pair(w.activity_name_en, w.activity_name_kn),
-      note: null,
+      note: w.note,
       day_fraction: w.day_fraction,
       group_size: w.group_size,
+      basis: w.basis,
+      rate_paise: w.rate_paise,
+      quantity_milli: w.quantity_milli,
+      unit: { short_en: w.unit_short_en, short_kn: w.unit_short_kn },
     })),
     ...payments.map((p) => ({
       id: p.id,

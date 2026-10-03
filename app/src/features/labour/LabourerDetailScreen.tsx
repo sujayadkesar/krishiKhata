@@ -3,11 +3,11 @@ import {
   Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer,
   Tooltip, XAxis, YAxis,
 } from 'recharts'
-import { Phone, IndianRupee, Trash2, Pencil, Share2, Clock } from 'lucide-react'
+import { Phone, IndianRupee, Trash2, Pencil, Share2, Eye, Clock } from 'lucide-react'
 import { Page, Shell } from '@/components/Shell'
 import {
-  Button, Card, ChipSingle, Confirm, DateInput, EmptyState, Field, MoneyInput,
-  SectionHeader, Sheet,
+  Button, Card, ChipSingle, Confirm, DateInput, EmptyState, Field, Input, MoneyInput,
+  QuantityInput, SectionHeader, Sheet,
 } from '@/components/ui'
 import { useQuery } from '@/hooks/useQuery'
 import {
@@ -18,6 +18,8 @@ import type { LedgerRow } from '@/data/labour'
 import { getFarmProfile } from '@/data/masterData'
 import { labourStatementDoc } from '@/features/reports/documents'
 import { printReport, reportFileName, shareReport } from '@/lib/print'
+import { buildPrintDocument } from '@/lib/printDoc'
+import { PagePreview } from '@/features/reports/PagePreview'
 import { useI18n } from '@/i18n'
 import { formatCompactINR, formatRupees } from '@/lib/money'
 import { balanceState } from '@/lib/labour'
@@ -92,13 +94,22 @@ export function LabourerDetailScreen({ id }: { id: string }) {
   const [editDate, setEditDate] = useState<ISODate>(todayISO())
   const [editAmount, setEditAmount] = useState<number | null>(null)
   const [editHalf, setEditHalf] = useState(false)
+  const [editRate, setEditRate] = useState<number | null>(null)
+  const [editQty, setEditQty] = useState<number | null>(null)
+  const [editMales, setEditMales] = useState('')
+  const [editFemales, setEditFemales] = useState('')
   const [saving, setSaving] = useState(false)
+  const [doc, setDoc] = useState<string | null>(null)
 
   function openEdit(r: LedgerRow) {
     setEditing(r)
     setEditDate(r.date)
     setEditHalf(r.day_fraction != null && r.day_fraction < FULL_DAY)
     setEditAmount(r.kind === 'work' ? r.credit_paise : r.credit_paise || r.debit_paise)
+    setEditRate(r.rate_paise ?? null)
+    setEditQty(r.quantity_milli ?? null)
+    setEditMales(r.group_size && r.group_size > 1 ? String(r.group_size) : '')
+    setEditFemales('')
     setError(null)
   }
 
@@ -107,12 +118,28 @@ export function LabourerDetailScreen({ id }: { id: string }) {
     setSaving(true)
     try {
       if (editing.kind === 'work') {
-        // The amount follows from the rate and the fraction, so what is edited
-        // here is the fraction — a stored total that disagrees with the rate
-        // beside it is a figure nobody can audit.
+        /*
+         * EVERY FIELD THAT BASIS USES, not just the day fraction.
+         *
+         * This offered "full day or half day" and nothing else, so a tractor
+         * recorded by the hour could not be corrected at all — the hours and
+         * the hourly rate, the only two figures in it, were unreachable. What
+         * goes back is what that basis is actually made of; the amount is
+         * recomputed from them rather than typed.
+         */
+        const basis = editing.basis ?? 'day'
+        const crew = Math.max(0, parseInt(editMales, 10) || 0)
+        const crewF = Math.max(0, parseInt(editFemales, 10) || 0)
         await updateAttendance(editing.id, {
           date: editDate,
-          day_fraction: editHalf ? HALF_DAY : FULL_DAY,
+          day_fraction: basis === 'day' ? (editHalf ? HALF_DAY : FULL_DAY) : undefined,
+          rate_paise: basis === 'hour' || basis === 'piece' || basis === 'day'
+            ? (editRate ?? undefined)
+            : undefined,
+          quantity_milli: basis === 'hour' || basis === 'piece' ? editQty : undefined,
+          amount_paise: basis === 'lump' || basis === 'salary' ? editAmount : undefined,
+          male_count: crew + crewF > 0 ? crew || 1 : undefined,
+          female_count: crew + crewF > 0 ? crewF : undefined,
         })
       } else {
         await updatePayment(editing.id, { date: editDate, amount_paise: editAmount ?? 0 })
@@ -170,28 +197,59 @@ export function LabourerDetailScreen({ id }: { id: string }) {
     [monthly, lang],
   )
 
+  /**
+   * SHOW IT BEFORE SENDING IT.
+   *
+   * This went straight to the Android share sheet, so the only way to find out
+   * what the statement said was to send it to somebody. That is the wrong
+   * order for a document handed to the person it is about — a wrong figure is
+   * discovered after it has been argued over rather than before.
+   *
+   * The same HTML string is previewed and then printed, so what the farmer
+   * approves is exactly what leaves the phone.
+   */
+  async function buildDoc(): Promise<string | null> {
+    if (!me || !profile || !rangeWork || !rangePayments) return null
+    const html = labourStatementDoc(
+      {
+        profile,
+        period: range,
+        lang,
+        name: (row) =>
+          row ? nameOf({ name_en: row.name_en ?? '', name_kn: row.name_kn ?? '' }) : '',
+      },
+      me,
+      rangeWork,
+      rangePayments,
+      me.balance_paise,
+      { byCrop: byCrop ?? [], monthly: monthly ?? [] },
+    )
+    // Wrapped here so the preview iframe gets the full document — stylesheet,
+    // embedded Kannada font and all — rather than the bare body.
+    return buildPrintDocument(html, `${nameOf(me)} — ${t('report.labourStatement')}`)
+  }
+
+  async function openPreview() {
+    setBusy('share')
+    setError(null)
+    try {
+      const built = await buildDoc()
+      if (built) setDoc(built)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(null)
+    }
+  }
+
   async function output(mode: 'print' | 'share') {
-    if (!me || !profile || !rangeWork || !rangePayments) return
+    if (!me || !doc) return
     setBusy(mode)
     setError(null)
     try {
-      const html = labourStatementDoc(
-        {
-          profile,
-          period: range,
-          lang,
-          name: (row) =>
-            row ? nameOf({ name_en: row.name_en ?? '', name_kn: row.name_kn ?? '' }) : '',
-        },
-        me,
-        rangeWork,
-        rangePayments,
-        me.balance_paise,
-        { byCrop: byCrop ?? [], monthly: monthly ?? [] },
-      )
       const run = mode === 'print' ? printReport : shareReport
       await run(
-        html,
+        doc,
         `${nameOf(me)} — ${t('report.labourStatement')}`,
         reportFileName(me.code ?? nameOf(me), from, to),
       )
@@ -200,6 +258,44 @@ export function LabourerDetailScreen({ id }: { id: string }) {
     } finally {
       setBusy(null)
     }
+  }
+
+  /*
+   * The preview is a MODE, not a panel: a statement is read full-width or it
+   * is not read. Back closes it rather than leaving the screen, so the farmer
+   * lands where they were.
+   */
+  if (doc) {
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col" style={{ background: 'var(--surface-sunken)' }}>
+        <header
+          className="flex items-center justify-between gap-3 px-3 py-2 shrink-0"
+          style={{ background: 'var(--surface-raised)', borderBottom: '1px solid var(--border)' }}
+        >
+          <Button variant="ghost" onClick={() => setDoc(null)}>
+            {t('common.back')}
+          </Button>
+          <span className="text-sm font-semibold truncate">{me ? nameOf(me) : ''}</span>
+          <Button onClick={() => void output('share')} disabled={!!busy}>
+            <span className="inline-flex items-center gap-1.5 justify-center">
+              <Share2 size={17} />
+              {busy === 'share' ? t('common.loading') : t('report.share')}
+            </span>
+          </Button>
+        </header>
+
+        {error ? (
+          <div
+            className="px-4 py-2 text-sm"
+            style={{ background: 'var(--color-expense-soft)', color: 'var(--color-expense)' }}
+          >
+            {error}
+          </div>
+        ) : null}
+
+        <PagePreview doc={doc} />
+      </div>
+    )
   }
 
   return (
@@ -507,9 +603,9 @@ export function LabourerDetailScreen({ id }: { id: string }) {
             </span>
           </div>
 
-          <Button full onClick={() => void output('share')} disabled={!!busy}>
+          <Button full onClick={() => void openPreview()} disabled={!!busy}>
             <span className="inline-flex items-center gap-2 justify-center">
-              <Share2 size={17} /> {busy === 'share' ? t('common.loading') : t('report.share')}
+              <Eye size={17} /> {busy === 'share' ? t('common.loading') : t('report.preview')}
             </span>
           </Button>
         </div>
@@ -530,21 +626,96 @@ export function LabourerDetailScreen({ id }: { id: string }) {
                 <DateInput value={editDate} onChange={setEditDate} />
               </Field>
 
-              {editing.kind === 'work' ? (
-                <Field label={t('labour.howMuchOfTheDay')}>
-                  <ChipSingle
-                    options={[
-                      { value: 'full', label: `1 ${t('labour.day')}` },
-                      { value: 'half', label: `½ ${t('labour.day')}` },
-                    ]}
-                    value={editHalf ? 'half' : 'full'}
-                    onChange={(v) => setEditHalf(v === 'half')}
-                  />
-                </Field>
-              ) : (
+              {editing.kind !== 'work' ? (
                 <Field label={t('common.amount')} required>
                   <MoneyInput paise={editAmount} onChange={setEditAmount} />
                 </Field>
+              ) : (
+                <>
+                  {/* The fields this basis is actually made of. A day has a
+                      fraction and a rate; an hour has hours and an hourly
+                      rate; a lump sum has only the figure agreed. */}
+                  {(editing.basis ?? 'day') === 'day' ? (
+                    <Field label={t('labour.howMuchOfTheDay')}>
+                      <ChipSingle
+                        options={[
+                          { value: 'full', label: `1 ${t('labour.day')}` },
+                          { value: 'half', label: `½ ${t('labour.day')}` },
+                        ]}
+                        value={editHalf ? 'half' : 'full'}
+                        onChange={(v) => setEditHalf(v === 'half')}
+                      />
+                    </Field>
+                  ) : null}
+
+                  {editing.basis === 'hour' || editing.basis === 'piece' ? (
+                    <div className="grid grid-cols-2 gap-3">
+                      <Field
+                        label={
+                          editing.basis === 'hour' ? t('labour.hours') : t('labour.quantity')
+                        }
+                        required
+                      >
+                        <QuantityInput
+                          milli={editQty}
+                          onChange={setEditQty}
+                          suffix={
+                            editing.basis === 'hour'
+                              ? t('labour.hours')
+                              : nameOf({
+                                  name_en: editing.unit?.short_en ?? '',
+                                  name_kn: editing.unit?.short_kn ?? '',
+                                })
+                          }
+                        />
+                      </Field>
+                      <Field
+                        label={
+                          editing.basis === 'hour' ? t('labour.hourRate') : t('labour.perUnit')
+                        }
+                        required
+                      >
+                        <MoneyInput paise={editRate} onChange={setEditRate} />
+                      </Field>
+                    </div>
+                  ) : null}
+
+                  {editing.basis === 'lump' || editing.basis === 'salary' ? (
+                    <Field label={t('labour.agreedAmount')} required>
+                      <MoneyInput paise={editAmount} onChange={setEditAmount} />
+                    </Field>
+                  ) : null}
+
+                  {(editing.basis ?? 'day') === 'day' ? (
+                    <Field label={t('labour.dayRate')}>
+                      <MoneyInput paise={editRate} onChange={setEditRate} />
+                    </Field>
+                  ) : null}
+
+                  {/* Crew sizes, only where one was recorded — twelve on
+                      Monday and eight on Wednesday is the normal case, and
+                      getting it wrong is the commonest correction of all. */}
+                  {editing.group_size != null && editing.group_size > 1 ? (
+                    <div className="grid grid-cols-2 gap-3">
+                      <Field label={t('labour.men')}>
+                        <Input
+                          value={editMales}
+                          onChange={(v) => setEditMales(v.replace(/\D/g, '').slice(0, 3))}
+                          inputMode="numeric"
+                          placeholder="0"
+                        />
+                      </Field>
+                      <Field label={t('labour.women')}>
+                        <Input
+                          value={editFemales}
+                          onChange={(v) => setEditFemales(v.replace(/\D/g, '').slice(0, 3))}
+                          inputMode="numeric"
+                          placeholder="0"
+                        />
+                      </Field>
+                    </div>
+                  ) : null}
+                </>
               )}
 
               <p className="text-xs" style={{ color: 'var(--text-faint)' }}>

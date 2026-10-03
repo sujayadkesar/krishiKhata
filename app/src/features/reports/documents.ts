@@ -881,22 +881,58 @@ export function labourStatementDoc(
       )
     : ''
 
+  /*
+   * WHAT WAS DONE, IN THE UNIT IT WAS PAID IN.
+   *
+   * The table had one "People" column and printed the rate beside it, which is
+   * only the truth for day work. A tractor hired for six hours at ₹700 showed
+   * "1" and "700" against ₹4,200 — three figures that do not multiply, on a
+   * document whose entire purpose is that somebody can check the arithmetic.
+   * Each basis now states its own measure and its own rate.
+   */
+  const unitOf = (w: AttendanceRow) =>
+    ctx.name({ name_en: w.unit_short_en, name_kn: w.unit_short_kn })
+
+  const measureOf = (w: AttendanceRow): string => {
+    if (w.basis === 'hour') {
+      return `${formatQuantity(w.quantity_milli ?? 0)} ${L(lang, 'ಗಂಟೆ', 'hr')}`
+    }
+    if (w.basis === 'piece') {
+      return `${formatQuantity(w.quantity_milli ?? 0)} ${unitOf(w) || ''}`.trim()
+    }
+    if (w.basis === 'lump' || w.basis === 'salary') return '—'
+    const part = w.day_fraction === 1000 ? '1' : (w.day_fraction / 1000).toString()
+    return w.group_size > 1
+      ? `${part} × ${w.group_size} ${L(lang, 'ಜನ', 'people')}`
+      : `${part} ${L(lang, 'ದಿನ', 'day')}`
+  }
+
+  const rateOf = (w: AttendanceRow): string => {
+    if (w.basis === 'lump' || w.basis === 'salary') return '—'
+    const per =
+      w.basis === 'hour'
+        ? L(lang, 'ಗಂಟೆ', 'hr')
+        : w.basis === 'piece'
+          ? unitOf(w) || L(lang, 'ಅಳತೆ', 'unit')
+          : L(lang, 'ದಿನ', 'day')
+    return `${plain(w.rate_paise)}<span class="muted">/${escapeHtml(per)}</span>`
+  }
+
   const workTable = table(
     [
       L(lang, 'ದಿನಾಂಕ', 'Date'),
       L(lang, 'ಬೆಳೆ', 'Crop'),
       L(lang, 'ಕೆಲಸ', 'Work'),
-      L(lang, 'ಜನ', 'People'),
+      L(lang, 'ಎಷ್ಟು', 'How much'),
       L(lang, 'ದರ', 'Rate'),
       L(lang, 'ಮೊತ್ತ', 'Amount'),
     ],
     work.map((w) => [
-      escapeHtml(formatDate(w.date, lang)) +
-        (w.day_fraction !== 1000 ? ' <span class="muted">½</span>' : ''),
+      escapeHtml(formatDate(w.date, lang)),
       escapeHtml(ctx.name({ name_en: w.head_name_en, name_kn: w.head_name_kn }) || '—'),
       escapeHtml(ctx.name({ name_en: w.activity_name_en, name_kn: w.activity_name_kn }) || '—'),
-      String(w.group_size),
-      plain(w.rate_paise),
+      escapeHtml(measureOf(w)),
+      rateOf(w),
       plain(w.amount_paise),
     ]),
     { numeric: [3, 4, 5], foot: [L(lang, 'ಒಟ್ಟು', 'Total'), '', '', '', '', plain(earned)] },

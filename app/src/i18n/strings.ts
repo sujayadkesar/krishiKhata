@@ -254,6 +254,8 @@ export const STRINGS = {
     en: 'no day rate set yet. What are these days worth?',
   },
   'labour.day': { kn: 'ದಿನ', en: 'day' },
+  'labour.quantity': { kn: 'ಪ್ರಮಾಣ', en: 'Quantity' },
+  'report.preview': { kn: 'ವರದಿ ನೋಡಿ', en: 'See the report' },
   'labour.seeKhata': { kn: 'ಪೂರ್ತಿ ಲೆಕ್ಕ ನೋಡಿ', en: 'See the full khata' },
   'labour.howMuchOfTheDay': { kn: 'ಎಷ್ಟು ದಿನ ಕೆಲಸ', en: 'How much of the day' },
   'labour.removeWorkBody': {
@@ -359,6 +361,27 @@ export const STRINGS = {
   'account.upi': { kn: 'ಯುಪಿಐ', en: 'UPI' },
   'dash.addHint': { kn: 'ಆದಾಯ ಅಥವಾ ಖರ್ಚು', en: 'Money in or out' },
   'dash.workHint': { kn: 'ಆಳುಗಳ ಹಾಜರಿ', en: 'Attendance for the day' },
+  /* The trail of what was entered and changed. */
+  'log.title': { kn: 'ಏನೇನು ಮಾಡಿದ್ದೀರಿ', en: 'What you have entered' },
+  'log.intro': {
+    kn: 'ಯಾವ ಎಂಟ್ರಿ ಯಾವಾಗ ಹಾಕಿದಿರಿ, ಏನು ಬದಲಾಯಿಸಿದಿರಿ — ಎಲ್ಲವೂ ಇಲ್ಲಿದೆ. ಒತ್ತಿದರೆ ಆ ಎಂಟ್ರಿಗೇ ಹೋಗುತ್ತದೆ.',
+    en: 'Every entry you made and every change, with the time. Tap one to go straight to it.',
+  },
+  'log.create': { kn: 'ಸೇರಿಸಿದ್ದು', en: 'Added' },
+  'log.update': { kn: 'ಬದಲಾಯಿಸಿದ್ದು', en: 'Changed' },
+  'log.delete': { kn: 'ತೆಗೆದದ್ದು', en: 'Removed' },
+  'log.restore': { kn: 'ವಾಪಸ್ ತಂದದ್ದು', en: 'Restored' },
+  'log.price': { kn: 'ದರ ಹಾಕಿದ್ದು', en: 'Priced' },
+  'log.entry': { kn: 'ವ್ಯವಹಾರ', en: 'Entry' },
+  'log.workDay': { kn: 'ಕೆಲಸದ ದಿನ', en: 'Work day' },
+  'log.workSession': { kn: 'ಕೆಲಸ', en: 'Work' },
+  'log.payment': { kn: 'ಪಾವತಿ', en: 'Payment' },
+  'log.removed': { kn: '(ಈಗ ಇಲ್ಲ)', en: '(now removed)' },
+  'log.more': { kn: 'ಇನ್ನಷ್ಟು ತೋರಿಸಿ', en: 'Show more' },
+  'set.hintLog': {
+    kn: 'ಯಾವ ಎಂಟ್ರಿ ಯಾವಾಗ ಹಾಕಿದಿರಿ ಎಂದು ನೋಡಿ',
+    en: 'See when each entry was made and changed',
+  },
   'set.subHeads': { kn: 'ಉಪ ಶೀರ್ಷಿಕೆ', en: 'Sub-heads' },
   /* Field labels and hints across Settings. These were English literals on a
      Kannada-default app: a farmer setting up their own farm was reading half

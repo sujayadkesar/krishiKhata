@@ -11,7 +11,7 @@
  * about what the table looks like. Add a new migration instead.
  */
 
-export const SCHEMA_VERSION = 8
+export const SCHEMA_VERSION = 9
 
 const V1 = `
 CREATE TABLE IF NOT EXISTS settings (
@@ -432,5 +432,27 @@ ALTER TABLE activities ADD COLUMN default_rate_paise INTEGER;
 ALTER TABLE activities ADD COLUMN default_unit_id TEXT REFERENCES units(id);
 `
 
+/**
+ * Hourly attendance rows carried the labourer's DAY rate, not the hourly one
+ * the session was priced at — and a machine's operator usually has no day
+ * rate, so they carried zero. The amount was right, because it came from the
+ * session; everything that read the row's own rate was wrong. Statements
+ * printed "0" beside a real figure, and editing such a row recomputed it as
+ * quantity x 0 and destroyed it.
+ *
+ * Backfilled from the session that priced them. Only rows that are plainly
+ * wrong are touched — hourly, rate zero, with a session rate to take — so
+ * this cannot disturb a rate somebody deliberately recorded.
+ */
+const V9 = `
+UPDATE attendance
+   SET rate_paise = (SELECT ws.rate_paise FROM work_sessions ws
+                      WHERE ws.id = attendance.work_session_id)
+ WHERE basis = 'hour'
+   AND COALESCE(rate_paise, 0) = 0
+   AND (SELECT ws.rate_paise FROM work_sessions ws
+         WHERE ws.id = attendance.work_session_id) > 0;
+`
+
 /** Index in this array + 1 is the version it produces. Append only. */
-export const MIGRATIONS: string[] = [V1, V2, V3, V4, V5, V6, V7, V8]
+export const MIGRATIONS: string[] = [V1, V2, V3, V4, V5, V6, V7, V8, V9]

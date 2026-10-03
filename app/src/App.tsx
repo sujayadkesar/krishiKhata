@@ -26,6 +26,7 @@ import { ActivitiesScreen } from '@/features/settings/ActivitiesScreen'
 import { LabourersScreen } from '@/features/settings/LabourersScreen'
 import { PlotsScreen } from '@/features/settings/PlotsScreen'
 import { FarmProfileScreen } from '@/features/settings/FarmProfileScreen'
+import { ActivityLogScreen } from '@/features/settings/ActivityLogScreen'
 import { BackupScreen } from '@/features/settings/BackupScreen'
 
 /**
@@ -127,6 +128,7 @@ const ROUTES: RouteDef[] = [
   { path: '/settings/spend-types', render: () => <SpendTypesScreen /> },
   { path: '/settings/activities', render: () => <ActivitiesScreen /> },
   { path: '/settings/labourers', render: () => <LabourersScreen /> },
+  { path: '/settings/activity-log', render: () => <ActivityLogScreen /> },
   { path: '/settings/backup', render: () => <BackupScreen /> },
 ]
 
